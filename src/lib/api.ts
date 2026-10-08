@@ -17,12 +17,13 @@ import {
 
 const TOKEN_KEY = 'syntaxviva_token';
 
+// Render live backend base URL
+const BACKEND_BASE_URL = (import.meta.env?.VITE_API_URL || 'https://syntaxviva.onrender.com').replace(/\/+$/, '');
+
 export function getStoredToken(): string | null {
-  // Check direct token first
   const directToken = localStorage.getItem(TOKEN_KEY);
   if (directToken) return directToken;
 
-  // Check Supabase session in localStorage
   try {
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
@@ -44,7 +45,6 @@ export function setStoredToken(token: string): void {
 
 export function removeStoredToken(): void {
   localStorage.removeItem(TOKEN_KEY);
-  // Also clear any lingering Supabase auth keys on explicit logout
   try {
     const keysToRemove: string[] = [];
     for (let i = 0; i < localStorage.length; i++) {
@@ -74,7 +74,12 @@ export async function apiFetch<T>(endpoint: string, options: RequestInit = {}): 
     headers['Content-Type'] = 'application/json';
   }
 
-  const response = await fetch(endpoint, {
+  // Construct target URL pointing to Render backend
+  const targetUrl = endpoint.startsWith('http://') || endpoint.startsWith('https://')
+    ? endpoint
+    : `${BACKEND_BASE_URL}${endpoint.startsWith('/') ? '' : '/'}${endpoint}`;
+
+  const response = await fetch(targetUrl, {
     ...options,
     headers,
   });
@@ -362,7 +367,7 @@ export const api = {
     return apiFetch<{ total: number; mutations: MutationRegistryEntry[] }>('/api/mutation-registry');
   },
 
-  // Student Non-Finalizing Test Runner (Run Code)
+  // Student Test Runner
   async runStudentCode(
     assignmentId: string,
     params: { code: string; language?: string }
@@ -373,7 +378,7 @@ export const api = {
     });
   },
 
-  // Student Phase 1 Direct Intake
+  // Student Phase 1
   async getStudentPhase1(assignmentId: string): Promise<Phase1DetailsResponse> {
     return apiFetch<Phase1DetailsResponse>(`/api/student/assignments/${assignmentId}/phase1`);
   },
@@ -388,7 +393,7 @@ export const api = {
     });
   },
 
-  // Student Phase 2 Debugging Challenge
+  // Student Phase 2
   async getStudentPhase2(assignmentId: string): Promise<Phase2StatusResponse> {
     return apiFetch<Phase2StatusResponse>(`/api/student/assignments/${assignmentId}/phase2`);
   },
