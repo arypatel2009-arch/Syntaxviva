@@ -10,6 +10,7 @@ export type MutationCategory =
   | 'Equality Operator'
   | 'Arithmetic Operator'
   | 'Logical Operator'
+  | 'Bitwise Operator'
   | 'Control Flow'
   | 'Loop Mutation'
   | 'Identifier Mutation'
@@ -19,36 +20,12 @@ export type MutationCategory =
   | 'Collection Access'
   | 'Function Call'
   | 'Built-in Function'
-  | 'Algorithm Logic';
+  | 'Algorithm Logic'
+  | 'String Operation'
+  | 'Pointer & Memory'
+  | 'Recursion & Base Case';
 
-export type MutationTypeCode =
-  | 'GREATER_THAN_TO_GREATER_EQUAL'
-  | 'GREATER_EQUAL_TO_GREATER_THAN'
-  | 'LESS_THAN_TO_LESS_EQUAL'
-  | 'LESS_EQUAL_TO_LESS_THAN'
-  | 'EQUAL_TO_NOT_EQUAL'
-  | 'NOT_EQUAL_TO_EQUAL'
-  | 'PLUS_TO_MINUS'
-  | 'MINUS_TO_PLUS'
-  | 'MULTIPLY_TO_DIVIDE'
-  | 'DIVIDE_TO_MULTIPLY'
-  | 'AND_TO_OR'
-  | 'OR_TO_AND'
-  | 'BOOLEAN_NEGATION'
-  | 'CONDITIONAL_BRANCH_INVERSION'
-  | 'LOOP_BOUNDARY_OFF_BY_ONE'
-  | 'LOOP_CONDITION_MUTATION'
-  | 'LOOP_INCREMENT_DECREMENT_MUTATION'
-  | 'VARIABLE_REFERENCE_SWAP'
-  | 'VARIABLE_SWAP'
-  | 'CONSTANT_LITERAL_MUTATION'
-  | 'INITIALIZATION_VALUE_MUTATION'
-  | 'ARRAY_INDEX_MUTATION'
-  | 'COLLECTION_ELEMENT_SELECTION_MUTATION'
-  | 'FUNCTION_ARGUMENT_MUTATION'
-  | 'RETURN_VALUE_MUTATION'
-  | 'MIN_MAX_SWAP'
-  | 'ACCUMULATOR_AGGREGATION_MUTATION';
+export type MutationTypeCode = string;
 
 export interface SourceLocation {
   line: number;
@@ -61,7 +38,7 @@ export interface MutationRegistryEntry {
   id: string;
   code: MutationTypeCode;
   name: string;
-  category: MutationCategory;
+  category: MutationCategory | string;
   description: string;
   enabled: boolean;
 }
@@ -88,6 +65,12 @@ export interface MutationMetadata {
   originalCodeHash: string;
   mutatedCodeHash: string;
   appliedAt: string;
+  isSnippet?: boolean;
+  startLine?: number;
+  endLine?: number;
+  originalSnippet?: string;
+  mutatedSnippet?: string;
+  fullOriginalCode?: string;
 }
 
 export type MutationProcessingStatus =

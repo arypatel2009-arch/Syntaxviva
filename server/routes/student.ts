@@ -1563,9 +1563,16 @@ studentRouter.post(
       const submittedAt = now.toISOString();
       const codeHash = computeCodeHash(finalCode);
 
-      // Fetch assignment and approved Phase 1 code
       const assignment = await repo.getAssignmentById(assignmentId);
       const evalLanguage = attempt.language || assignment?.language || 'python';
+
+      let meta: any = null;
+      if (attempt.mutation_metadata_json) {
+        try { meta = JSON.parse(attempt.mutation_metadata_json); } catch {}
+      }
+      const baselineCode = (meta && meta.isSnippet && meta.originalSnippet)
+        ? meta.originalSnippet
+        : (attempt.original_code || '');
 
       let aiEvaluation: GeminiEvaluationResponse;
       try {
@@ -1574,7 +1581,7 @@ studentRouter.post(
           description: assignment?.description || '',
           requirements: assignment?.requirements || '',
           language: evalLanguage,
-          phase1Code: attempt.original_code || '',
+          phase1Code: baselineCode,
           phase2Code: finalCode,
         });
       } catch (geminiErr: any) {

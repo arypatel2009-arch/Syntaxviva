@@ -9,170 +9,9 @@ let dbInstance: Database | null = null;
 const DATA_DIR = path.join(process.cwd(), 'data');
 const DB_PATH = path.join(DATA_DIR, 'syntaxviva.sqlite');
 
-export const INITIAL_MUTATION_TYPES = [
-  {
-    code: 'GREATER_THAN_TO_GREATER_EQUAL',
-    name: 'Greater Than to Greater or Equal',
-    category: 'Relational Operator',
-    description: 'Mutates > comparison operator to >=',
-  },
-  {
-    code: 'GREATER_EQUAL_TO_GREATER_THAN',
-    name: 'Greater or Equal to Greater Than',
-    category: 'Relational Operator',
-    description: 'Mutates >= comparison operator to >',
-  },
-  {
-    code: 'LESS_THAN_TO_LESS_EQUAL',
-    name: 'Less Than to Less or Equal',
-    category: 'Relational Operator',
-    description: 'Mutates < comparison operator to <=',
-  },
-  {
-    code: 'LESS_EQUAL_TO_LESS_THAN',
-    name: 'Less or Equal to Less Than',
-    category: 'Relational Operator',
-    description: 'Mutates <= comparison operator to <',
-  },
-  {
-    code: 'EQUAL_TO_NOT_EQUAL',
-    name: 'Equal to Not Equal',
-    category: 'Equality Operator',
-    description: 'Mutates == comparison operator to !=',
-  },
-  {
-    code: 'NOT_EQUAL_TO_EQUAL',
-    name: 'Not Equal to Equal',
-    category: 'Equality Operator',
-    description: 'Mutates != comparison operator to ==',
-  },
-  {
-    code: 'PLUS_TO_MINUS',
-    name: 'Addition to Subtraction',
-    category: 'Arithmetic Operator',
-    description: 'Mutates + binary operator to -',
-  },
-  {
-    code: 'MINUS_TO_PLUS',
-    name: 'Subtraction to Addition',
-    category: 'Arithmetic Operator',
-    description: 'Mutates - binary operator to +',
-  },
-  {
-    code: 'MULTIPLY_TO_DIVIDE',
-    name: 'Multiplication to Division',
-    category: 'Arithmetic Operator',
-    description: 'Mutates * binary operator to /',
-  },
-  {
-    code: 'DIVIDE_TO_MULTIPLY',
-    name: 'Division to Multiplication',
-    category: 'Arithmetic Operator',
-    description: 'Mutates / binary operator to *',
-  },
-  {
-    code: 'AND_TO_OR',
-    name: 'Logical AND to OR',
-    category: 'Logical Operator',
-    description: 'Mutates logical and/&& operator to or/||',
-  },
-  {
-    code: 'OR_TO_AND',
-    name: 'Logical OR to AND',
-    category: 'Logical Operator',
-    description: 'Mutates logical or/|| operator to and/&&',
-  },
-  {
-    code: 'BOOLEAN_NEGATION',
-    name: 'Boolean Negation',
-    category: 'Logical Operator',
-    description: 'Inverts boolean literal or negates conditional expression',
-  },
-  {
-    code: 'CONDITIONAL_BRANCH_INVERSION',
-    name: 'Conditional Branch Inversion',
-    category: 'Control Flow',
-    description: 'Swaps consequent and alternate branches of if/else statements',
-  },
-  {
-    code: 'LOOP_BOUNDARY_OFF_BY_ONE',
-    name: 'Loop Boundary Off-by-One',
-    category: 'Loop Mutation',
-    description: 'Modifies loop upper or lower bound by ±1',
-  },
-  {
-    code: 'LOOP_CONDITION_MUTATION',
-    name: 'Loop Condition Mutation',
-    category: 'Loop Mutation',
-    description: 'Modifies while/for loop continuation predicate',
-  },
-  {
-    code: 'LOOP_INCREMENT_DECREMENT_MUTATION',
-    name: 'Loop Step Mutation',
-    category: 'Loop Mutation',
-    description: 'Mutates increment to decrement or alters step step value',
-  },
-  {
-    code: 'VARIABLE_REFERENCE_SWAP',
-    name: 'Variable Reference Swap',
-    category: 'Identifier Mutation',
-    description: 'Swaps references to two variables of compatible scope and type',
-  },
-  {
-    code: 'VARIABLE_SWAP',
-    name: 'Variable Assignment Swap',
-    category: 'Assignment Mutation',
-    description: 'Swaps assignment targets or positions in multi-variable blocks',
-  },
-  {
-    code: 'CONSTANT_LITERAL_MUTATION',
-    name: 'Constant Literal Mutation',
-    category: 'Literal Mutation',
-    description: 'Alters a constant numeric or string literal by a small discrete delta',
-  },
-  {
-    code: 'INITIALIZATION_VALUE_MUTATION',
-    name: 'Initialization Value Mutation',
-    category: 'State Initialization',
-    description: 'Changes initial state value (e.g., 0 to 1, or empty container)',
-  },
-  {
-    code: 'ARRAY_INDEX_MUTATION',
-    name: 'Array Index Offset Mutation',
-    category: 'Collection Access',
-    description: 'Alters array index lookup by ±1 or index swap',
-  },
-  {
-    code: 'COLLECTION_ELEMENT_SELECTION_MUTATION',
-    name: 'Collection Selection Mutation',
-    category: 'Collection Access',
-    description: 'Mutates collection head/last selection or slice bound',
-  },
-  {
-    code: 'FUNCTION_ARGUMENT_MUTATION',
-    name: 'Function Argument Mutation',
-    category: 'Function Call',
-    description: 'Swaps or alters positional argument values in function calls',
-  },
-  {
-    code: 'RETURN_VALUE_MUTATION',
-    name: 'Return Value Mutation',
-    category: 'Control Flow',
-    description: 'Alters returned expression or returns default value prematurely',
-  },
-  {
-    code: 'MIN_MAX_SWAP',
-    name: 'Min/Max Function Swap',
-    category: 'Built-in Function',
-    description: 'Swaps min() invocation for max() invocation or vice-versa',
-  },
-  {
-    code: 'ACCUMULATOR_AGGREGATION_MUTATION',
-    name: 'Accumulator Aggregation Mutation',
-    category: 'Algorithm Logic',
-    description: 'Mutates accumulator operation in reduction/aggregation loops',
-  },
-];
+import { INITIAL_105_MUTATIONS } from '../mutation/registry.js';
+
+export const INITIAL_MUTATION_TYPES = INITIAL_105_MUTATIONS;
 
 export async function getDatabase(): Promise<Database> {
   if (dbInstance) {
@@ -570,15 +409,15 @@ async function initSchemaAndSeed(db: Database): Promise<void> {
     console.warn('Migration note for deterministic test cases:', err);
   }
 
-  // Seed default mutation types if empty
+  // Seed default mutation types if incomplete
   const res = db.exec('SELECT COUNT(*) as count FROM mutation_registry');
-  const count = res[0]?.values[0]?.[0] as number ?? 0;
+  const count = (res[0]?.values[0]?.[0] as number) ?? 0;
 
-  if (count === 0) {
+  if (count < INITIAL_MUTATION_TYPES.length) {
     const now = new Date().toISOString();
     for (const item of INITIAL_MUTATION_TYPES) {
       db.run(
-        `INSERT INTO mutation_registry (id, code, name, category, description, is_active, created_at)
+        `INSERT OR IGNORE INTO mutation_registry (id, code, name, category, description, is_active, created_at)
          VALUES (?, ?, ?, ?, ?, 1, ?)`,
         [`mut_${item.code.toLowerCase()}`, item.code, item.name, item.category, item.description, now]
       );

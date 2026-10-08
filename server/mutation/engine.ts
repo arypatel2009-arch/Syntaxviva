@@ -247,6 +247,41 @@ export class MutationEngine {
       };
     }
 
+    // 9. Snippet Extraction for Phase 2 when written lines >= 35
+    const origLines = code.split('\n');
+    const writtenLineIndices = origLines
+      .map((l, idx) => (l.trim().length > 0 ? idx : -1))
+      .filter((idx) => idx !== -1);
+
+    let finalMutatedCode = mutatedCode;
+    let isSnippet = false;
+    let startLine = 1;
+    let endLine = origLines.length;
+    let originalSnippet = code;
+    let mutatedSnippet = mutatedCode;
+
+    if (writtenLineIndices.length >= 35) {
+      isSnippet = true;
+      const candLine = selectedCandidate.location.line;
+      const candZeroLine = Math.max(0, candLine - 1);
+
+      let candWrittenIdx = writtenLineIndices.findIndex((idx) => idx >= candZeroLine);
+      if (candWrittenIdx === -1) candWrittenIdx = writtenLineIndices.length - 1;
+
+      const SNIPPET_WRITTEN_LINES = 35;
+      let startWrittenIdx = Math.max(0, candWrittenIdx - Math.floor(SNIPPET_WRITTEN_LINES / 2));
+      let endWrittenIdx = Math.min(writtenLineIndices.length - 1, startWrittenIdx + SNIPPET_WRITTEN_LINES - 1);
+      startWrittenIdx = Math.max(0, endWrittenIdx - (SNIPPET_WRITTEN_LINES - 1));
+
+      startLine = writtenLineIndices[startWrittenIdx] + 1;
+      endLine = writtenLineIndices[endWrittenIdx] + 1;
+
+      originalSnippet = origLines.slice(startLine - 1, endLine).join('\n');
+      const mutatedLines = mutatedCode.split('\n');
+      mutatedSnippet = mutatedLines.slice(startLine - 1, endLine).join('\n');
+      finalMutatedCode = mutatedSnippet;
+    }
+
     // Check 7: Mutation metadata accurately describes the change
     const metadata: MutationMetadata = {
       mutationType: selectedCandidate.mutationType,
@@ -259,12 +294,18 @@ export class MutationEngine {
       originalCodeHash,
       mutatedCodeHash,
       appliedAt: new Date().toISOString(),
+      isSnippet,
+      startLine,
+      endLine,
+      originalSnippet,
+      mutatedSnippet,
+      fullOriginalCode: code,
     };
 
     return {
       success: true,
       status: 'MUTATION_READY',
-      mutatedCode,
+      mutatedCode: finalMutatedCode,
       mutationType: selectedCandidate.mutationType,
       originalCodeHash,
       mutatedCodeHash,

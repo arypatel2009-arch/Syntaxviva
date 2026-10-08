@@ -18,7 +18,7 @@ import {
 const TOKEN_KEY = 'syntaxviva_token';
 
 // Render live backend base URL
-const BACKEND_BASE_URL = (import.meta.env?.VITE_API_URL || 'https://syntaxviva.onrender.com').replace(/\/+$/, '');
+const BACKEND_BASE_URL = ((import.meta as any).env?.VITE_API_URL || 'https://syntaxviva.onrender.com').replace(/\/+$/, '');
 
 export function getStoredToken(): string | null {
   const directToken = localStorage.getItem(TOKEN_KEY);
