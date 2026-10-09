@@ -50,20 +50,58 @@ export interface AuthContextType {
     roll_number?: string;
     class_id?: string;
     division_id?: string;
+    avatar_url?: string;
   }) => Promise<void>;
+  verifyOtp: (email: string, token: string) => Promise<{ success: boolean; message: string }>;
   refreshUser: () => Promise<void>;
   clearError: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Helper to construct dynamic redirect URL for email verification & auth callbacks
-export function getAuthRedirectUrl(path: string = '/login'): string | undefined {
-  if (typeof window === 'undefined') return undefined;
+export function isProfileComplete(
+  user: User | null,
+  profile: UserProfile | null,
+  role: UserRole | null
+): boolean {
+  if (!user && !profile) return false;
+  const targetRole = role || profile?.role || user?.role || 'student';
 
+  const name = profile?.full_name || user?.name || '';
+  const institution = profile?.institution_id || user?.institution || '';
+  const avatar = profile?.avatar_url || user?.avatarUrl || user?.avatar_url || '';
+
+  if (!name || name.trim().length < 2) return false;
+  if (!institution || !institution.trim()) return false;
+  if (!avatar || !avatar.trim()) return false;
+
+  if (targetRole === 'student') {
+    const rollNumber = profile?.roll_number || user?.rollNumber || user?.roll_number || '';
+    const classId = profile?.class_id || user?.classId || user?.class_id || '';
+    const divisionId = profile?.division_id || user?.divisionId || user?.division_id || '';
+
+    if (!rollNumber || !rollNumber.trim()) return false;
+    if (!classId || !classId.trim()) return false;
+    if (!divisionId || !divisionId.trim()) return false;
+  }
+
+  return true;
+}
+
+// Helper to construct dynamic redirect URL for email verification & auth callbacks
+export function getAuthRedirectUrl(path: string = '/login'): string {
   const metaEnv = (typeof import.meta !== 'undefined' && (import.meta as any)?.env) ? (import.meta as any).env : {};
-  const envUrl = (metaEnv.VITE_APP_URL || metaEnv.VITE_SITE_URL || '').trim();
-  const baseUrl = envUrl || window.location.origin;
+  const procEnv = typeof process !== 'undefined' && process?.env ? process.env : {};
+  const envUrl = (metaEnv.VITE_APP_URL || metaEnv.VITE_SITE_URL || procEnv.VITE_APP_URL || procEnv.VITE_SITE_URL || '').trim();
+
+  let baseUrl = envUrl;
+  if (!baseUrl && typeof window !== 'undefined') {
+    baseUrl = window.location.origin;
+  }
+  if (!baseUrl) {
+    baseUrl = 'http://localhost:3005';
+  }
+
   const cleanBaseUrl = baseUrl.replace(/\/+$/, '');
   const cleanPath = path.startsWith('/') ? path : `/${path}`;
 
@@ -130,6 +168,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       class_id: prof.class_id || '',
       divisionId: prof.division_id || '',
       division_id: prof.division_id || '',
+      avatar_url: prof.avatar_url || null,
+      avatarUrl: prof.avatar_url || null,
       createdAt: prof.created_at || new Date().toISOString(),
       updatedAt: prof.updated_at || new Date().toISOString(),
     });
@@ -162,6 +202,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               roll_number: data.roll_number,
               class_id: data.class_id,
               division_id: data.division_id,
+              avatar_url: data.avatar_url,
               status: data.status,
               created_at: data.created_at,
               updated_at: data.updated_at,
@@ -686,21 +727,79 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // Update profile attributes (full_name, institution, roll_number, class_id, division_id) without allowing role elevation
+  // Update profile attributes (full_name, institution, roll_number, class_id, division_id, avatar_url) without allowing role elevation
   const updateUserProfile = async (updates: {
     full_name?: string;
     institution_id?: string;
     roll_number?: string;
     class_id?: string;
     division_id?: string;
+    avatar_url?: string;
   }) => {
     try {
+      if (isSupabaseConfigured && supabase && supabaseUser) {
+        try {
+          await supabase
+            .from('profiles')
+            .update(updates)
+            .eq('id', supabaseUser.id);
+        } catch (sbErr) {
+          console.warn('Supabase profile update note:', sbErr);
+        }
+      }
       const res = await api.updateProfile(updates);
       if (res.profile) {
         applyProfile(res.profile);
       }
     } catch (err: any) {
       throw new Error(err.message || 'Failed to update profile.');
+    }
+  };
+
+  // Verify OTP for password recovery or email verification
+  const verifyOtp = async (email: string, token: string): Promise<{ success: boolean; message: string }> => {
+    setError(null);
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanToken = token.trim();
+
+    if (!cleanEmail || !cleanToken) {
+      const msg = 'Please enter both your email address and 6-digit OTP code.';
+      setError(msg);
+      throw new Error(msg);
+    }
+
+    if (!isSupabaseConfigured || !supabase) {
+      const msg = 'Supabase authentication client is not configured.';
+      setError(msg);
+      throw new Error(msg);
+    }
+
+    try {
+      const { data, error: otpErr } = await supabase.auth.verifyOtp({
+        email: cleanEmail,
+        token: cleanToken,
+        type: 'recovery',
+      });
+
+      if (otpErr) {
+        throw otpErr;
+      }
+
+      if (data?.session) {
+        setSession(data.session);
+        setSupabaseUser(data.user);
+        setToken(data.session.access_token);
+        setStoredToken(data.session.access_token);
+      }
+
+      return {
+        success: true,
+        message: 'OTP verified successfully. You can now set your new password.',
+      };
+    } catch (err: any) {
+      const friendly = formatAuthError(err);
+      setError(friendly);
+      throw new Error(friendly);
     }
   };
 
@@ -757,6 +856,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         updatePassword,
         resendVerificationEmail,
         updateUserProfile,
+        verifyOtp,
         refreshUser,
         clearError,
       }}

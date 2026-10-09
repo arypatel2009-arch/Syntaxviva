@@ -9,6 +9,7 @@ export interface UserProfile {
   roll_number?: string | null;
   class_id?: string | null;
   division_id?: string | null;
+  avatar_url?: string | null;
   status?: string;
   created_at?: string;
   updated_at?: string;
@@ -26,6 +27,8 @@ export interface User {
   class_id?: string;
   divisionId?: string;
   division_id?: string;
+  avatar_url?: string | null;
+  avatarUrl?: string | null;
   createdAt: string;
   updatedAt: string;
 }

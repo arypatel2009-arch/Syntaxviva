@@ -17,8 +17,11 @@ import {
 
 const TOKEN_KEY = 'syntaxviva_token';
 
-// Render live backend base URL
-const BACKEND_BASE_URL = ((import.meta as any).env?.VITE_API_URL || 'https://syntaxviva.onrender.com').replace(/\/+$/, '');
+// Render live backend base URL or relative path for local development
+const isLocalhost = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+const BACKEND_BASE_URL = isLocalhost
+  ? ''
+  : ((import.meta as any).env?.VITE_API_URL || 'https://syntaxviva.onrender.com').replace(/\/+$/, '');
 
 export function getStoredToken(): string | null {
   const directToken = localStorage.getItem(TOKEN_KEY);
@@ -163,6 +166,7 @@ export const api = {
     roll_number?: string;
     class_id?: string;
     division_id?: string;
+    avatar_url?: string;
   }): Promise<{ profile: UserProfile; user: User }> {
     return apiFetch<{ profile: UserProfile; user: User }>('/api/auth/sync-profile', {
       method: 'POST',
@@ -176,6 +180,7 @@ export const api = {
     roll_number?: string;
     class_id?: string;
     division_id?: string;
+    avatar_url?: string;
   }): Promise<{ profile: UserProfile; user: User }> {
     return apiFetch<{ profile: UserProfile; user: User }>('/api/auth/profile', {
       method: 'PUT',

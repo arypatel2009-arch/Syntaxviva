@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../context/AuthContext.tsx';
+import { useAuth, isProfileComplete } from '../context/AuthContext.tsx';
 import { api } from '../lib/api.ts';
 import { Assignment } from '../types/index.ts';
 import { FacultySidebar, FacultyTab } from './faculty/FacultySidebar.tsx';
@@ -12,6 +12,8 @@ import { SubmissionReviewModal } from './faculty/SubmissionReviewModal.tsx';
 import { FacultyAnalyticsView } from './faculty/FacultyAnalyticsView.tsx';
 import { StudentProfileView } from './student/StudentProfileView.tsx';
 import { BookACallModal } from './common/BookACallModal.tsx';
+import { User, X } from 'lucide-react';
+import { Button } from './common/UIComponents.tsx';
 
 interface FacultyDashboardProps {
   onOpenRegistry?: () => void;
@@ -19,7 +21,7 @@ interface FacultyDashboardProps {
 }
 
 export const FacultyDashboard: React.FC<FacultyDashboardProps> = () => {
-  const { user } = useAuth();
+  const { user, profile, role } = useAuth();
   const [currentTab, setCurrentTab] = useState<FacultyTab>('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -38,6 +40,17 @@ export const FacultyDashboard: React.FC<FacultyDashboardProps> = () => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isBookModalOpen, setIsBookModalOpen] = useState(false);
   const [reviewSubmission, setReviewSubmission] = useState<any | null>(null);
+  const [showProfileGateModal, setShowProfileGateModal] = useState(false);
+
+  const isFacultyProfileComplete = isProfileComplete(user, profile, role);
+
+  const handleOpenCreateAssignment = () => {
+    if (!isFacultyProfileComplete) {
+      setShowProfileGateModal(true);
+      return;
+    }
+    setIsCreateModalOpen(true);
+  };
 
   const loadData = async () => {
     setLoading(true);
@@ -107,7 +120,7 @@ export const FacultyDashboard: React.FC<FacultyDashboardProps> = () => {
         currentTab={currentTab}
         onSelectTab={(tab) => {
           if (tab === 'create') {
-            setIsCreateModalOpen(true);
+            handleOpenCreateAssignment();
           } else {
             setCurrentTab(tab);
           }
@@ -129,7 +142,7 @@ export const FacultyDashboard: React.FC<FacultyDashboardProps> = () => {
           onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
           searchTerm={searchTerm}
           onSearchChange={setSearchTerm}
-          onCreateAssignment={() => setIsCreateModalOpen(true)}
+          onCreateAssignment={handleOpenCreateAssignment}
           onNavigateSettings={() => setCurrentTab('settings')}
         />
 
@@ -139,7 +152,7 @@ export const FacultyDashboard: React.FC<FacultyDashboardProps> = () => {
             <FacultyDashboardView
               assignments={filteredAssignments}
               stats={stats}
-              onCreateAssignment={() => setIsCreateModalOpen(true)}
+              onCreateAssignment={handleOpenCreateAssignment}
               onViewAssignments={() => setCurrentTab('assignments')}
               onReviewSubmission={(sub) => setReviewSubmission(sub)}
               onRefresh={loadData}
@@ -150,7 +163,7 @@ export const FacultyDashboard: React.FC<FacultyDashboardProps> = () => {
           {currentTab === 'assignments' && (
             <FacultyAssignmentsView
               assignments={filteredAssignments}
-              onCreateAssignment={() => setIsCreateModalOpen(true)}
+              onCreateAssignment={handleOpenCreateAssignment}
               onRefresh={loadData}
               onDeleteAssignment={handleDeleteAssignment}
               onViewSubmissions={async (asg) => {
@@ -185,7 +198,7 @@ export const FacultyDashboard: React.FC<FacultyDashboardProps> = () => {
               <FacultyDashboardView
                 assignments={filteredAssignments}
                 stats={stats}
-                onCreateAssignment={() => setIsCreateModalOpen(true)}
+                onCreateAssignment={handleOpenCreateAssignment}
                 onViewAssignments={() => setCurrentTab('assignments')}
                 onReviewSubmission={(sub) => setReviewSubmission(sub)}
                 onRefresh={loadData}
@@ -221,6 +234,56 @@ export const FacultyDashboard: React.FC<FacultyDashboardProps> = () => {
         onClose={() => setIsBookModalOpen(false)}
         initialInquiryType="Pro plan pricing"
       />
+
+      {/* Mandatory Profile Gate Modal for Faculty */}
+      {showProfileGateModal && (
+        <div className="fixed inset-0 z-50 bg-slate-950/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-xl max-w-md w-full p-6 space-y-4">
+            <div className="flex items-start justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-amber-50 border border-amber-200 text-amber-600 flex items-center justify-center shrink-0">
+                  <User className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">Faculty Profile Required</h3>
+                  <p className="text-xs text-slate-500">Identity & Institution verification</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowProfileGateModal(false)}
+                className="text-slate-400 hover:text-slate-600 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-600 leading-relaxed">
+              Before you can create new lab assignments, you must complete your faculty profile details (<strong>Full Name</strong> and <strong>Institution Name</strong>).
+            </p>
+
+            <div className="pt-2 flex items-center justify-end gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowProfileGateModal(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => {
+                  setShowProfileGateModal(false);
+                  setCurrentTab('settings');
+                }}
+              >
+                Complete Profile Now &rarr;
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

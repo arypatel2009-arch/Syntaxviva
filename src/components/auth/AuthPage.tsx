@@ -20,7 +20,7 @@ import { useAuth } from '../../context/AuthContext.tsx';
 import { UserRole } from '../../types/index.ts';
 
 interface AuthPageProps {
-  initialMode?: 'login' | 'signup' | 'forgot-password' | 'reset-password';
+  initialMode?: 'login' | 'signup' | 'forgot-password' | 'verify-otp' | 'reset-password' | 'email-verified';
   onSuccess?: () => void;
   onNavigateHome?: () => void;
 }
@@ -36,15 +36,17 @@ export const AuthPage: React.FC<AuthPageProps> = ({
     resetPassword,
     updatePassword,
     resendVerificationEmail,
+    verifyOtp,
     error,
     clearError,
   } = useAuth();
 
-  const [mode, setMode] = useState<'login' | 'signup' | 'forgot-password' | 'reset-password'>(initialMode);
+  const [mode, setMode] = useState<'login' | 'signup' | 'forgot-password' | 'verify-otp' | 'reset-password' | 'email-verified'>(initialMode);
   const [signupRole, setSignupRole] = useState<'student' | 'faculty'>('student');
 
   // Form fields
   const [email, setEmail] = useState('');
+  const [otpCode, setOtpCode] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [name, setName] = useState('');
@@ -76,10 +78,25 @@ export const AuthPage: React.FC<AuthPageProps> = ({
 
   // Synchronize when initialMode changes or URL hash dictates recovery
   useEffect(() => {
-    if (typeof window !== 'undefined' && window.location.hash.includes('type=recovery')) {
-      setMode('reset-password');
-    } else {
-      setMode(initialMode);
+    if (typeof window !== 'undefined') {
+      const hash = window.location.hash || '';
+      const query = window.location.search || '';
+
+      if (hash.includes('error=') || query.includes('error=')) {
+        const params = new URLSearchParams(hash.replace(/^#/, '') || query.replace(/^\?/, ''));
+        const errDesc = params.get('error_description') || params.get('error');
+        if (errDesc) {
+          setFormError(decodeURIComponent(errDesc.replace(/\+/g, ' ')));
+        }
+      }
+
+      if (hash.includes('type=recovery')) {
+        setMode('reset-password');
+      } else if (hash.includes('type=signup') || hash.includes('type=email_verification')) {
+        setMode('email-verified');
+      } else {
+        setMode(initialMode);
+      }
     }
   }, [initialMode]);
 
@@ -92,7 +109,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
     return () => clearInterval(timer);
   }, [resendCooldown]);
 
-  const switchMode = (newMode: 'login' | 'signup' | 'forgot-password' | 'reset-password') => {
+  const switchMode = (newMode: 'login' | 'signup' | 'forgot-password' | 'verify-otp' | 'reset-password' | 'email-verified') => {
     setMode(newMode);
     setFormError(null);
     setFormSuccess(null);
@@ -293,9 +310,41 @@ export const AuthPage: React.FC<AuthPageProps> = ({
     setLoading(true);
     try {
       const res = await resetPassword(cleanEmail);
-      setFormSuccess(res.message || 'Password reset instructions have been sent to your email address.');
+      setFormSuccess(res.message || 'OTP security code sent to your email address.');
+      setMode('verify-otp');
     } catch (err: any) {
       setFormError(err.message || 'Could not send reset instructions. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (loading) return;
+    setFormError(null);
+    setFormSuccess(null);
+    clearError();
+
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanOtp = otpCode.trim();
+
+    if (!cleanEmail) {
+      setFormError('Please enter your registered email address.');
+      return;
+    }
+    if (!cleanOtp || cleanOtp.length < 6) {
+      setFormError('Please enter the 6-digit OTP security code sent to your email.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await verifyOtp(cleanEmail, cleanOtp);
+      setFormSuccess('OTP code verified successfully! Please set your new password.');
+      setMode('reset-password');
+    } catch (err: any) {
+      setFormError(err.message || 'Invalid or expired OTP security code.');
     } finally {
       setLoading(false);
     }
@@ -350,6 +399,10 @@ export const AuthPage: React.FC<AuthPageProps> = ({
             <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
               {emailVerificationSent
                 ? 'Verify Your Account'
+                : mode === 'email-verified'
+                ? 'Email Verified Successfully!'
+                : mode === 'verify-otp'
+                ? 'Verify Security Code'
                 : mode === 'signup'
                 ? 'Create Account'
                 : mode === 'login'
@@ -361,6 +414,10 @@ export const AuthPage: React.FC<AuthPageProps> = ({
             <p className="text-xs text-slate-500">
               {emailVerificationSent
                 ? 'Check your email to verify your SyntaXViva account.'
+                : mode === 'email-verified'
+                ? 'Your email address has been confirmed.'
+                : mode === 'verify-otp'
+                ? 'Enter the 6-digit OTP code sent to your email.'
                 : mode === 'signup'
                 ? 'Register your academic account to access oral vivas.'
                 : mode === 'login'
@@ -839,6 +896,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                         required
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
+                        placeholder="you@example.com"
                         className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition"
                       />
                     </div>
@@ -851,7 +909,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                     loading={loading}
                     className="w-full shadow-md shadow-emerald-600/20 font-bold"
                   >
-                    Send Password Reset Link
+                    Send OTP Verification Code
                   </Button>
 
                   <div className="text-center pt-1">
@@ -865,6 +923,113 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                     </button>
                   </div>
                 </form>
+              )}
+
+              {/* ------------------------------------------------------------- */}
+              {/* VERIFY OTP FORM */}
+              {/* ------------------------------------------------------------- */}
+              {mode === 'verify-otp' && (
+                <form onSubmit={handleVerifyOtp} className="space-y-4">
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-slate-700 block">
+                      Email Address
+                    </label>
+                    <div className="relative">
+                      <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-3.5 pointer-events-none" />
+                      <input
+                        type="email"
+                        required
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="you@example.com"
+                        className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-slate-700 block">
+                      6-Digit Security OTP Code
+                    </label>
+                    <div className="relative">
+                      <KeyRound className="w-4 h-4 text-slate-400 absolute left-3 top-3.5 pointer-events-none" />
+                      <input
+                        type="text"
+                        required
+                        maxLength={6}
+                        value={otpCode}
+                        onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
+                        placeholder="123456"
+                        className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 font-mono tracking-widest placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition"
+                      />
+                    </div>
+                    <p className="text-[11px] text-slate-500 pt-0.5">
+                      Enter the 6-digit verification code sent to your email.
+                    </p>
+                  </div>
+
+                  <Button
+                    type="submit"
+                    variant="primary"
+                    size="lg"
+                    loading={loading}
+                    className="w-full shadow-md shadow-emerald-600/20 font-bold"
+                  >
+                    Verify OTP Code
+                  </Button>
+
+                  <div className="flex items-center justify-between pt-1">
+                    <button
+                      type="button"
+                      onClick={() => switchMode('forgot-password')}
+                      className="inline-flex items-center gap-1.5 text-xs text-slate-600 hover:text-slate-900 font-medium cursor-pointer"
+                    >
+                      <ArrowLeft className="w-3.5 h-3.5" />
+                      Resend / Change Email
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => switchMode('login')}
+                      className="text-xs text-slate-500 hover:text-slate-700 font-medium cursor-pointer"
+                    >
+                      Back to Sign In
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              {/* ------------------------------------------------------------- */}
+              {/* EMAIL VERIFIED CONFIRMATION SCREEN */}
+              {/* ------------------------------------------------------------- */}
+              {mode === 'email-verified' && (
+                <div className="space-y-5 text-center py-2">
+                  <div className="w-16 h-16 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center mx-auto border border-emerald-100 shadow-sm">
+                    <CheckCircle2 className="w-8 h-8" />
+                  </div>
+
+                  <div className="space-y-2">
+                    <h3 className="text-lg font-bold text-slate-900">
+                      Welcome to SyntaxViva! Your email has been verified successfully.
+                    </h3>
+                    <p className="text-xs text-slate-600 leading-relaxed max-w-sm mx-auto">
+                      Your academic account is active. You can now sign in and access your oral viva dashboard.
+                    </p>
+                  </div>
+
+                  <div className="pt-2">
+                    <Button
+                      variant="primary"
+                      size="lg"
+                      onClick={() => {
+                        if (onSuccess) onSuccess();
+                        else switchMode('login');
+                      }}
+                      className="w-full shadow-md shadow-emerald-600/20 font-bold"
+                    >
+                      Continue to Sign In
+                    </Button>
+                  </div>
+                </div>
               )}
 
               {/* ------------------------------------------------------------- */}

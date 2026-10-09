@@ -20,6 +20,8 @@ function formatAcademicUser(profile: any) {
     class_id: profile.class_id || '',
     divisionId: profile.division_id || '',
     division_id: profile.division_id || '',
+    avatar_url: profile.avatar_url || null,
+    avatarUrl: profile.avatar_url || null,
     createdAt: profile.created_at,
     updatedAt: profile.updated_at,
   };
@@ -35,6 +37,7 @@ function formatAcademicProfile(profile: any) {
     roll_number: profile.roll_number,
     class_id: profile.class_id,
     division_id: profile.division_id,
+    avatar_url: profile.avatar_url,
     status: profile.status,
     created_at: profile.created_at,
     updated_at: profile.updated_at,
@@ -246,6 +249,7 @@ export async function handleSignUp(req: Request, res: Response): Promise<void> {
     }
 
     // Register user via Supabase Auth (Sole Cloud Authority)
+    const appBaseUrl = (process.env.VITE_APP_URL || process.env.VITE_SITE_URL || 'http://localhost:3005').replace(/\/+$/, '');
     const { data, error } = await supabase.auth.signUp({
       email: cleanEmail,
       password,
@@ -259,6 +263,7 @@ export async function handleSignUp(req: Request, res: Response): Promise<void> {
           division_id: cleanDivisionId,
           faculty_authorized: targetRole === 'faculty' ? 'true' : 'false',
         },
+        emailRedirectTo: `${appBaseUrl}/email-verified`,
       },
     });
 
@@ -473,7 +478,7 @@ export function handleLogout(req: Request, res: Response): void {
 export async function handleSyncProfile(req: AuthenticatedRequest, res: Response): Promise<void> {
   try {
     const authUser = req.user!;
-    const { full_name, institution_id, roll_number, class_id, division_id } = req.body || {};
+    const { full_name, institution_id, roll_number, class_id, division_id, avatar_url } = req.body || {};
     const repo = getRepository();
 
     let profile = (await repo.getProfileById(authUser.userId)) || (await repo.getProfileByEmail(authUser.email));
@@ -487,6 +492,7 @@ export async function handleSyncProfile(req: AuthenticatedRequest, res: Response
         roll_number: roll_number || null,
         class_id: class_id || null,
         division_id: division_id || null,
+        avatar_url: avatar_url || null,
       });
     } else {
       profile =
@@ -496,6 +502,7 @@ export async function handleSyncProfile(req: AuthenticatedRequest, res: Response
           roll_number: roll_number !== undefined ? roll_number : profile.roll_number,
           class_id: class_id !== undefined ? class_id : profile.class_id,
           division_id: division_id !== undefined ? division_id : profile.division_id,
+          avatar_url: avatar_url !== undefined ? avatar_url : profile.avatar_url,
         })) || profile;
     }
 
@@ -511,13 +518,13 @@ export async function handleSyncProfile(req: AuthenticatedRequest, res: Response
 }
 
 // ----------------------------------------------------------------------------
-// PUT /profile: Update user profile (Name, Academic Details)
+// PUT /profile: Update user profile (Name, Academic Details, Avatar)
 // CRITICAL SECURITY RULE: Role can NEVER be modified through this endpoint!
 // ----------------------------------------------------------------------------
 export async function handleUpdateProfile(req: AuthenticatedRequest, res: Response): Promise<void> {
   try {
     const authUser = req.user!;
-    const { full_name, institution_id, roll_number, class_id, division_id, role } = req.body || {};
+    const { full_name, institution_id, roll_number, class_id, division_id, avatar_url, role } = req.body || {};
 
     if (role && role.toLowerCase() !== authUser.role.toLowerCase()) {
       res.status(403).json({
@@ -533,6 +540,7 @@ export async function handleUpdateProfile(req: AuthenticatedRequest, res: Respon
       roll_number: typeof roll_number === 'string' ? roll_number : undefined,
       class_id: typeof class_id === 'string' ? class_id : undefined,
       division_id: typeof division_id === 'string' ? division_id : undefined,
+      avatar_url: typeof avatar_url === 'string' ? avatar_url : undefined,
     });
 
     if (!updated) {
@@ -545,6 +553,7 @@ export async function handleUpdateProfile(req: AuthenticatedRequest, res: Respon
         roll_number: typeof roll_number === 'string' ? roll_number : null,
         class_id: typeof class_id === 'string' ? class_id : null,
         division_id: typeof division_id === 'string' ? division_id : null,
+        avatar_url: typeof avatar_url === 'string' ? avatar_url : null,
       });
       updated = await repo.getProfileById(authUser.userId);
     }

@@ -272,6 +272,29 @@ studentRouter.post(
 
       // 1. Validate Assignment Existence and Status
       const repo = getRepository();
+
+      // Profile Completion Gate: Block submission if profile is incomplete
+      const studentProfile = await repo.getProfileById(studentId);
+      const isStudentProfileComplete = Boolean(
+        studentProfile &&
+        studentProfile.full_name?.trim() &&
+        studentProfile.full_name.trim().length >= 2 &&
+        studentProfile.institution_id?.trim() &&
+        studentProfile.roll_number?.trim() &&
+        studentProfile.class_id?.trim() &&
+        studentProfile.division_id?.trim() &&
+        studentProfile.avatar_url?.trim()
+      );
+
+      if (!isStudentProfileComplete) {
+        res.status(403).json({
+          error: 'Profile incomplete! You must complete your full student profile (Full Name, Roll Number, Institution, Class, Division, and Profile Photo) before submitting lab assignments.',
+          code: 'profile_incomplete',
+          isProfileIncomplete: true,
+        });
+        return;
+      }
+
       const assignment = await repo.getAssignmentById(assignmentId);
 
       if (!assignment) {

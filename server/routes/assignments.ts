@@ -245,6 +245,27 @@ assignmentsRouter.post('/', authenticate, requireRole('faculty', 'admin'), async
 
     const repo = getRepository();
 
+    // Faculty Profile Completion Gate: Block assignment creation if profile is incomplete
+    if (req.user?.role === 'faculty') {
+      const facultyProfile = await repo.getProfileById(req.user.userId);
+      const isFacultyProfileComplete = Boolean(
+        facultyProfile &&
+        facultyProfile.full_name?.trim() &&
+        facultyProfile.full_name.trim().length >= 2 &&
+        facultyProfile.institution_id?.trim() &&
+        facultyProfile.avatar_url?.trim()
+      );
+
+      if (!isFacultyProfileComplete) {
+        res.status(403).json({
+          error: 'Profile incomplete! You must complete your faculty profile (Full Name, Institution, and Profile Photo) before creating new lab assignments.',
+          code: 'profile_incomplete',
+          isProfileIncomplete: true,
+        });
+        return;
+      }
+    }
+
     // Free Credit entitlement enforcement: Non-pro faculty accounts can create at most 1 assignment
     if (req.user?.role === 'faculty') {
       const userProfile = await repo.getProfileById(req.user.userId);

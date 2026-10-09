@@ -85,6 +85,7 @@ async function initSchemaAndSeed(db: Database): Promise<void> {
       roll_number TEXT,
       class_id TEXT,
       division_id TEXT,
+      avatar_url TEXT,
       status TEXT NOT NULL DEFAULT 'active',
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
@@ -116,6 +117,7 @@ async function initSchemaAndSeed(db: Database): Promise<void> {
       if (!userCols.includes('roll_number')) db.run('ALTER TABLE users ADD COLUMN roll_number TEXT');
       if (!userCols.includes('class_id')) db.run('ALTER TABLE users ADD COLUMN class_id TEXT');
       if (!userCols.includes('division_id')) db.run('ALTER TABLE users ADD COLUMN division_id TEXT');
+      if (!userCols.includes('avatar_url')) db.run('ALTER TABLE users ADD COLUMN avatar_url TEXT');
     }
 
     const profilesTableInfo = db.exec("PRAGMA table_info(profiles)");
@@ -125,6 +127,7 @@ async function initSchemaAndSeed(db: Database): Promise<void> {
       if (!profCols.includes('roll_number')) db.run('ALTER TABLE profiles ADD COLUMN roll_number TEXT');
       if (!profCols.includes('class_id')) db.run('ALTER TABLE profiles ADD COLUMN class_id TEXT');
       if (!profCols.includes('division_id')) db.run('ALTER TABLE profiles ADD COLUMN division_id TEXT');
+      if (!profCols.includes('avatar_url')) db.run('ALTER TABLE profiles ADD COLUMN avatar_url TEXT');
       if (!profCols.includes('status')) db.run("ALTER TABLE profiles ADD COLUMN status TEXT NOT NULL DEFAULT 'active'");
     }
   } catch (err) {
@@ -486,6 +489,7 @@ export interface ProfileRow {
   roll_number: string | null;
   class_id: string | null;
   division_id: string | null;
+  avatar_url: string | null;
   status: string;
   created_at: string;
   updated_at: string;
@@ -538,6 +542,7 @@ export function upsertProfile(data: {
   roll_number?: string | null;
   class_id?: string | null;
   division_id?: string | null;
+  avatar_url?: string | null;
   status?: string;
 }): ProfileRow {
   const existing = getProfileById(data.id) || getProfileByEmail(data.email);
@@ -555,6 +560,7 @@ export function upsertProfile(data: {
           roll_number = COALESCE(?, roll_number),
           class_id = COALESCE(?, class_id),
           division_id = COALESCE(?, division_id),
+          avatar_url = COALESCE(?, avatar_url),
           updated_at = ? 
         WHERE id = ?`,
         [
@@ -566,6 +572,7 @@ export function upsertProfile(data: {
           data.roll_number || null,
           data.class_id || null,
           data.division_id || null,
+          data.avatar_url || null,
           now,
           existing.id,
         ]
@@ -580,7 +587,8 @@ export function upsertProfile(data: {
           role = COALESCE(?, role),
           roll_number = COALESCE(?, roll_number),
           class_id = COALESCE(?, class_id),
-          division_id = COALESCE(?, division_id)
+          division_id = COALESCE(?, division_id),
+          avatar_url = COALESCE(?, avatar_url)
         WHERE id = ?`,
         [
           data.id,
@@ -588,6 +596,7 @@ export function upsertProfile(data: {
           data.roll_number || null,
           data.class_id || null,
           data.division_id || null,
+          data.avatar_url || null,
           existing.id,
         ]
       );
@@ -603,6 +612,7 @@ export function upsertProfile(data: {
           roll_number = COALESCE(?, roll_number),
           class_id = COALESCE(?, class_id),
           division_id = COALESCE(?, division_id),
+          avatar_url = COALESCE(?, avatar_url),
           updated_at = ? 
         WHERE id = ?`,
         [
@@ -613,6 +623,7 @@ export function upsertProfile(data: {
           data.roll_number || null,
           data.class_id || null,
           data.division_id || null,
+          data.avatar_url || null,
           now,
           existing.id,
         ]
@@ -623,7 +634,8 @@ export function upsertProfile(data: {
           roll_number = COALESCE(?, roll_number),
           class_id = COALESCE(?, class_id),
           division_id = COALESCE(?, division_id),
-          institution = COALESCE(?, institution)
+          institution = COALESCE(?, institution),
+          avatar_url = COALESCE(?, avatar_url)
         WHERE id = ?`,
         [
           data.role && ['faculty', 'admin', 'student'].includes(data.role) ? data.role : null,
@@ -631,6 +643,7 @@ export function upsertProfile(data: {
           data.class_id || null,
           data.division_id || null,
           data.institution_id || null,
+          data.avatar_url || null,
           existing.id,
         ]
       );
@@ -641,8 +654,8 @@ export function upsertProfile(data: {
     // Normal registration defaults strictly to 'student' unless specifically established
     const assignedRole = (data.role && ['faculty', 'admin', 'student'].includes(data.role)) ? data.role : 'student';
     dbRun(
-      `INSERT INTO profiles (id, email, full_name, role, institution_id, roll_number, class_id, division_id, status, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO profiles (id, email, full_name, role, institution_id, roll_number, class_id, division_id, avatar_url, status, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         data.id,
         data.email.toLowerCase(),
@@ -652,6 +665,7 @@ export function upsertProfile(data: {
         data.roll_number || null,
         data.class_id || null,
         data.division_id || null,
+        data.avatar_url || null,
         data.status || 'active',
         now,
         now,
@@ -659,8 +673,8 @@ export function upsertProfile(data: {
     );
     // Ensure users table also has a matching record for relational integrity
     dbRun(
-      `INSERT OR IGNORE INTO users (id, name, email, password_hash, role, institution, roll_number, class_id, division_id, created_at, updated_at)
-       VALUES (?, ?, ?, 'SUPABASE_AUTH_EXTERNAL', ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT OR IGNORE INTO users (id, name, email, password_hash, role, institution, roll_number, class_id, division_id, avatar_url, created_at, updated_at)
+       VALUES (?, ?, ?, 'SUPABASE_AUTH_EXTERNAL', ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         data.id,
         data.full_name,
@@ -670,6 +684,7 @@ export function upsertProfile(data: {
         data.roll_number || null,
         data.class_id || null,
         data.division_id || null,
+        data.avatar_url || null,
         now,
         now,
       ]
@@ -687,6 +702,7 @@ export function updateProfile(
     roll_number?: string | null;
     class_id?: string | null;
     division_id?: string | null;
+    avatar_url?: string | null;
     role?: UserRole;
   }
 ): ProfileRow | null {
@@ -698,6 +714,7 @@ export function updateProfile(
   const newRoll = updates.roll_number !== undefined ? updates.roll_number : existing.roll_number;
   const newClass = updates.class_id !== undefined ? updates.class_id : existing.class_id;
   const newDiv = updates.division_id !== undefined ? updates.division_id : existing.division_id;
+  const newAvatar = updates.avatar_url !== undefined ? updates.avatar_url : existing.avatar_url;
   const newRole = updates.role !== undefined ? updates.role : existing.role;
 
   dbRun(
@@ -707,10 +724,11 @@ export function updateProfile(
       roll_number = ?, 
       class_id = ?, 
       division_id = ?, 
+      avatar_url = ?, 
       role = ?, 
       updated_at = ? 
     WHERE id = ?`,
-    [newName, newInst, newRoll, newClass, newDiv, newRole, now, id]
+    [newName, newInst, newRoll, newClass, newDiv, newAvatar, newRole, now, id]
   );
   return getProfileById(id);
 }

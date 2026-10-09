@@ -111,24 +111,29 @@ const AppContent: React.FC = () => {
   // --------------------------------------------------------------------------
   // AUTH & RECOVERY PAGES
   // --------------------------------------------------------------------------
+  const isHashSignup = typeof window !== 'undefined' && (window.location.hash.includes('type=signup') || window.location.hash.includes('type=email_verification'));
+  const isHashRecovery = typeof window !== 'undefined' && window.location.hash.includes('type=recovery');
+
   if (
     currentPath === '/login' ||
     currentPath === '/signup' ||
     currentPath === '/forgot-password' ||
     currentPath === '/reset-password' ||
-    (typeof window !== 'undefined' && window.location.hash.includes('type=recovery'))
+    currentPath === '/email-verified' ||
+    isHashSignup ||
+    isHashRecovery
   ) {
-    let mode: 'login' | 'signup' | 'forgot-password' | 'reset-password' = 'login';
+    let mode: 'login' | 'signup' | 'forgot-password' | 'reset-password' | 'email-verified' = 'login';
     if (currentPath === '/signup') mode = 'signup';
     else if (currentPath === '/forgot-password') mode = 'forgot-password';
-    else if (currentPath === '/reset-password' || (typeof window !== 'undefined' && window.location.hash.includes('type=recovery')))
-      mode = 'reset-password';
+    else if (currentPath === '/reset-password' || isHashRecovery) mode = 'reset-password';
+    else if (currentPath === '/email-verified' || isHashSignup) mode = 'email-verified';
 
     return (
       <AuthPage
         initialMode={mode}
         onNavigateHome={() => navigate('/')}
-        onSuccess={() => navigate('/')}
+        onSuccess={() => navigate('/login')}
       />
     );
   }
