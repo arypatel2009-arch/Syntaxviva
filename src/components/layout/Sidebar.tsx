@@ -25,6 +25,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext.tsx';
+import { Logo } from '../common/Logo.tsx';
 import { Button, toast } from '../common/UIComponents.tsx';
 import { api } from '../../lib/api.ts';
 
@@ -104,38 +105,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <div>
           <div className="h-16 px-4 flex items-center justify-between border-b border-slate-200/80">
             <div className="flex items-center gap-2.5 min-w-0">
-              {/* Custom Brand SVG Icon */}
-              <div className="w-9 h-9 rounded-lg bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-xs">
-                <svg
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  className="w-5 h-5"
-                  stroke="currentColor"
-                  strokeWidth="2.2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <polyline points="16 18 22 12 16 6" />
-                  <polyline points="8 6 2 12 8 18" />
-                  <line x1="14" y1="4" x2="10" y2="20" />
-                </svg>
-              </div>
-
-              {!collapsed && (
-                <div className="min-w-0">
-                  <div className="flex items-center gap-1.5">
-                    <span className="font-semibold text-base tracking-tight text-slate-900 truncate">
-                      Synta<span className="text-emerald-600">X</span>Viva
-                    </span>
-                    <span className="px-1.5 py-0.5 text-[10px] font-mono font-medium rounded bg-slate-100 text-slate-600 border border-slate-200/80 shrink-0">
-                      v1.2.0-beta
-                    </span>
-                  </div>
-                  <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider truncate">
-                    {portalLabel}
-                  </p>
-                </div>
-              )}
+              <Logo size="md" imageOnly={collapsed} variant="light" />
             </div>
 
             {/* Mobile Close or Desktop Collapse Toggle */}

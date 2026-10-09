@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { UserCircle, LogOut } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext.tsx';
+import { Logo } from '../common/Logo.tsx';
 
 export interface PublicNavbarProps {
   currentPath: string;
@@ -63,29 +64,7 @@ export const PublicNavbar: React.FC<PublicNavbarProps> = ({
             onClick={(e) => handleSectionClick(e, 'product')}
             className="flex items-center gap-3"
           >
-            <div className="logo-mark w-9 h-9 rounded-xl flex items-center justify-center">
-              <svg
-                width="19"
-                height="19"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="white"
-                strokeWidth="2"
-              >
-                <path d="M7 4L3 8l4 4" />
-                <path d="M17 4l4 4-4 4" />
-                <path d="M14 3l-4 18" />
-              </svg>
-            </div>
-
-            <div>
-              <div className="font-display font-bold tracking-tight text-white">
-                Syntax<span className="text-emerald-400">Viva</span>
-              </div>
-              <div className="text-[9px] uppercase tracking-[.2em] text-slate-500">
-                Assessment OS
-              </div>
-            </div>
+            <Logo size="md" showTagline variant="dark" />
           </a>
 
           {/* Desktop Navigation */}

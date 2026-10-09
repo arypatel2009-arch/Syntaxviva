@@ -243,13 +243,35 @@ assignmentsRouter.post('/', authenticate, requireRole('faculty', 'admin'), async
       }))
     );
 
-    const assignmentId = `asg_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-
     const repo = getRepository();
+
+    // Free Credit entitlement enforcement: Non-pro faculty accounts can create at most 1 assignment
+    if (req.user?.role === 'faculty') {
+      const userProfile = await repo.getProfileById(req.user.userId);
+      const isProFaculty = (userProfile?.status as string) === 'pro' || Boolean((userProfile as any)?.is_pro);
+
+      if (!isProFaculty) {
+        const allAssignments = await repo.getAssignments({ role: 'faculty' });
+        const existingAssignments = allAssignments.filter(
+          (a) => (a.created_by || (a as any).createdBy) === req.user!.userId
+        );
+        if (existingAssignments.length >= 1) {
+          res.status(403).json({
+            error: 'Free Credit limit reached. Free faculty accounts can create at most 1 assignment. Please Book a Call to upgrade to SyntaXViva Pro.',
+            limitReached: true,
+            isProUpgradeRequired: true,
+          });
+          return;
+        }
+      }
+    }
+
     const finalDueDate =
       typeof dueDate === 'string' && dueDate.trim().length > 0
         ? dueDate.trim()
         : '2026-12-31';
+
+    const assignmentId = `asg_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
 
     const created = await repo.createAssignment({
       id: assignmentId,

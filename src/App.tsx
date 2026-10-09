@@ -16,10 +16,13 @@ import { FacultyDashboard } from './components/FacultyDashboard.tsx';
 import { StudentDashboard } from './components/StudentDashboard.tsx';
 import { SystemInspectorModal } from './components/SystemInspectorModal.tsx';
 import { MutationRegistryDrawer } from './components/MutationRegistryDrawer.tsx';
+import { IntroVideoModal } from './components/common/IntroVideoModal.tsx';
+import { AdminInquiriesDrawer } from './components/admin/AdminInquiriesDrawer.tsx';
 import { Toaster } from './components/common/Toast.tsx';
 
 const AppContent: React.FC = () => {
   const { user, role, isLoading } = useAuth();
+  const [showIntroVideo, setShowIntroVideo] = useState<boolean>(true);
 
   // Simple, robust client-side routing
   const [currentPath, setCurrentPath] = useState<string>(() => {
@@ -29,6 +32,7 @@ const AppContent: React.FC = () => {
   const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
   const [isSystemInspectorOpen, setIsSystemInspectorOpen] = useState(false);
   const [isRegistryOpen, setIsRegistryOpen] = useState(false);
+  const [isAdminInquiriesOpen, setIsAdminInquiriesOpen] = useState(false);
 
   // Sync with browser popstate
   useEffect(() => {
@@ -78,6 +82,12 @@ const AppContent: React.FC = () => {
             isOpen={isRegistryOpen}
             onClose={() => setIsRegistryOpen(false)}
           />
+          {role === 'admin' && (
+            <AdminInquiriesDrawer
+              isOpen={isAdminInquiriesOpen}
+              onClose={() => setIsAdminInquiriesOpen(false)}
+            />
+          )}
         </div>
       );
     }
@@ -138,6 +148,7 @@ const AppContent: React.FC = () => {
 
   return (
     <div className="min-h-screen syntaxviva-landing flex flex-col font-sans antialiased">
+      {showIntroVideo && <IntroVideoModal onClose={() => setShowIntroVideo(false)} />}
       {/* Public Top Navigation */}
       <PublicNavbar
         currentPath={currentPath}

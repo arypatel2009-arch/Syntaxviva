@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { api } from '../../lib/api.ts';
 import { Button, toast } from './UIComponents.tsx';
+import { BookACallModal } from './BookACallModal.tsx';
 
 /* ============================================================================
  * 1. VS-DARK SYNTAX HIGHLIGHTER & BRACKET PAIR COLORIZER
@@ -1426,6 +1427,7 @@ export const CodeEditorModal: React.FC<CodeEditorModalProps> = ({
 }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isBookModalOpen, setIsBookModalOpen] = useState(false);
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -1550,9 +1552,22 @@ export const CodeEditorModal: React.FC<CodeEditorModalProps> = ({
         {/* Form Body */}
         <form onSubmit={handleSubmit} className="p-6 overflow-y-auto space-y-6 text-sm">
           {error && (
-            <div className="p-3 bg-rose-50 border border-rose-200 rounded-lg text-xs text-rose-700 flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 shrink-0" />
-              <span>{error}</span>
+            <div className="p-4 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800 space-y-2">
+              <div className="flex items-center gap-2 font-semibold">
+                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                <span>{error}</span>
+              </div>
+              {(error.includes('Free Credit limit') || error.includes('Book a Call')) && (
+                <div className="pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setIsBookModalOpen(true)}
+                    className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition cursor-pointer shadow-xs"
+                  >
+                    Book a Call to Upgrade to Pro ➔
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
@@ -1681,6 +1696,12 @@ export const CodeEditorModal: React.FC<CodeEditorModalProps> = ({
           </div>
         </form>
       </div>
+
+      <BookACallModal
+        isOpen={isBookModalOpen}
+        onClose={() => setIsBookModalOpen(false)}
+        initialInquiryType="Pro plan pricing"
+      />
     </div>
   );
 };

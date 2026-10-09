@@ -529,7 +529,7 @@ export const FacultyDashboardView: React.FC<FacultyDashboardViewProps> = ({
         <div className="space-y-1.5 max-w-2xl">
           <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-emerald-50 border border-emerald-200/70 text-emerald-700 text-xs font-medium">
             <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
-            <span>Faculty Control Center • v1.2.0-beta</span>
+            <span>Faculty Control Center</span>
           </div>
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
             Welcome back, {user?.name || user?.email?.split('@')[0] || 'Faculty'}

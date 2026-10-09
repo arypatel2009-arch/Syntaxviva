@@ -1,4 +1,5 @@
 import React from 'react';
+import { Logo } from '../common/Logo.tsx';
 
 interface PublicFooterProps {
   onNavigate: (path: string) => void;
@@ -38,24 +39,7 @@ export const PublicFooter: React.FC<PublicFooterProps> = ({ onNavigate }) => {
               onClick={(e) => handleSectionClick(e, 'product')}
               className="flex items-center gap-3"
             >
-              <div className="logo-mark w-9 h-9 rounded-xl flex items-center justify-center">
-                <svg
-                  width="19"
-                  height="19"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="white"
-                  strokeWidth="2"
-                >
-                  <path d="M7 4L3 8l4 4" />
-                  <path d="M17 4l4 4-4 4" />
-                  <path d="M14 3l-4 18" />
-                </svg>
-              </div>
-
-              <span className="font-display font-bold text-white">
-                Syntax<span className="text-emerald-400">Viva</span>
-              </span>
+              <Logo size="md" showTagline variant="dark" />
             </a>
 
             <p className="mt-5 max-w-md text-sm leading-6 text-slate-500">
@@ -162,7 +146,7 @@ export const PublicFooter: React.FC<PublicFooterProps> = ({ onNavigate }) => {
           </span>
 
           <span className="font-mono text-[9px] text-slate-700">
-            ASSESSMENT_INFRASTRUCTURE / V1.0
+            ASSESSMENT_INFRASTRUCTURE
           </span>
         </div>
       </div>

@@ -10,6 +10,7 @@ import { assignmentsRouter } from './server/routes/assignments.js';
 import { studentRouter } from './server/routes/student.js';
 import { registryRouter } from './server/routes/registry.js';
 import { healthRouter } from './server/routes/health.js';
+import { inquiriesRouter } from './server/routes/inquiries.js';
 import { initRepository } from './server/repository/index.js';
 import { loginRateLimiter, signupRateLimiter } from './server/middleware/rateLimiter.js';
 
@@ -106,6 +107,24 @@ async function startServer() {
     },
   }));
 
+  app.use(express.static(path.join(process.cwd(), 'public'), {
+    setHeaders: (res, filePath) => {
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+      if (filePath.endsWith('.mp4')) {
+        res.setHeader('Content-Type', 'video/mp4');
+      }
+    },
+  }));
+
+  // Explicit route for intro video to bypass Vite SPA fallback and serve video/mp4 with range streaming
+  app.get('/SyntaXViva_intro.mp4', (_req, res) => {
+    const videoPath = path.join(process.cwd(), 'public', 'SyntaXViva_intro.mp4');
+    res.setHeader('Content-Type', 'video/mp4');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.sendFile(videoPath);
+  });
+
   // Middleware
   app.use(express.json({ limit: '10mb' }));
   app.use(express.urlencoded({ extended: true }));
@@ -117,6 +136,7 @@ async function startServer() {
   app.use('/api/assignments', assignmentsRouter);
   app.use('/api/student', studentRouter);
   app.use('/api/mutation-registry', registryRouter);
+  app.use('/api/inquiries', inquiriesRouter);
 
   // Direct Auth Aliases for root endpoints with targeted rate limiting
   app.get('/user', authenticate, handleGetUser);

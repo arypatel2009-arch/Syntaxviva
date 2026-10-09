@@ -16,6 +16,7 @@ import {
   MutationRegistryEntity,
   ProctoringEventEntity,
   DashboardStatsEntity,
+  ContactInquiryEntity,
   UserRole,
 } from './types.js';
 import {
@@ -963,5 +964,70 @@ export class SqliteApplicationRepository implements IApplicationRepository {
       `SELECT * FROM proctoring_events WHERE attempt_id = ? ORDER BY created_at ASC`,
       [attemptId]
     );
+  }
+
+  async createInquiry(inquiry: Omit<ContactInquiryEntity, 'created_at' | 'updated_at'>): Promise<ContactInquiryEntity> {
+    const now = new Date().toISOString();
+    const record: ContactInquiryEntity = {
+      ...inquiry,
+      created_at: now,
+      updated_at: now,
+    };
+    dbRun(
+      `INSERT INTO contact_inquiries (id, name, institution, email, phone, role, inquiry_type, expected_usage, preferred_time, message, status, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        record.id,
+        record.name,
+        record.institution,
+        record.email,
+        record.phone,
+        record.role,
+        record.inquiry_type,
+        record.expected_usage,
+        record.preferred_time || null,
+        record.message || null,
+        record.status,
+        now,
+        now,
+      ]
+    );
+    return record;
+  }
+
+  async getInquiries(filter?: { status?: string }): Promise<ContactInquiryEntity[]> {
+    if (filter?.status) {
+      return dbQuery<ContactInquiryEntity>(
+        `SELECT * FROM contact_inquiries WHERE status = ? ORDER BY created_at DESC`,
+        [filter.status]
+      );
+    }
+    return dbQuery<ContactInquiryEntity>(
+      `SELECT * FROM contact_inquiries ORDER BY created_at DESC`
+    );
+  }
+
+  async updateInquiryStatus(id: string, status: 'NEW' | 'CONTACTED' | 'CLOSED'): Promise<ContactInquiryEntity | null> {
+    const now = new Date().toISOString();
+    dbRun(
+      `UPDATE contact_inquiries SET status = ?, updated_at = ? WHERE id = ?`,
+      [status, now, id]
+    );
+    const updated = await dbQuery<ContactInquiryEntity>(`SELECT * FROM contact_inquiries WHERE id = ?`, [id]);
+    return updated[0] || null;
+  }
+
+  async getRecentInquiryByContact(email: string, phone: string, withinMs: number = 300000): Promise<ContactInquiryEntity | null> {
+    const records = await dbQuery<ContactInquiryEntity>(
+      `SELECT * FROM contact_inquiries WHERE LOWER(email) = LOWER(?) OR phone = ? ORDER BY created_at DESC LIMIT 1`,
+      [email, phone]
+    );
+    if (records.length === 0) return null;
+    const rec = records[0];
+    const recTime = new Date(rec.created_at).getTime();
+    if (Date.now() - recTime <= withinMs) {
+      return rec;
+    }
+    return null;
   }
 }

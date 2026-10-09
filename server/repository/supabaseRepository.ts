@@ -18,6 +18,7 @@ import {
   MutationRegistryEntity,
   ProctoringEventEntity,
   DashboardStatsEntity,
+  ContactInquiryEntity,
   UserRole,
 } from './types.js';
 import { getResolvedServiceRoleKey } from '../lib/supabaseAdmin.js';
@@ -843,5 +844,60 @@ export class SupabaseApplicationRepository implements IApplicationRepository {
       details_json: typeof (d.details_json || d.metadata_json) === 'string' ? (d.details_json || d.metadata_json) : JSON.stringify(d.details_json || d.metadata_json || {}),
       created_at: d.created_at,
     }));
+  }
+
+  async createInquiry(inquiry: Omit<ContactInquiryEntity, 'created_at' | 'updated_at'>): Promise<ContactInquiryEntity> {
+    if (!this.client) throw new Error('Supabase client not initialized');
+    const now = new Date().toISOString();
+    const payload = {
+      ...inquiry,
+      created_at: now,
+      updated_at: now,
+    };
+    const { data: result, error } = await this.client.from('contact_inquiries').insert(payload).select().single();
+    if (error) throw error;
+    return result as ContactInquiryEntity;
+  }
+
+  async getInquiries(filter?: { status?: string }): Promise<ContactInquiryEntity[]> {
+    if (!this.client) return [];
+    let query = this.client.from('contact_inquiries').select('*');
+    if (filter?.status) {
+      query = query.eq('status', filter.status);
+    }
+    const { data, error } = await query.order('created_at', { ascending: false });
+    if (error || !data) return [];
+    return data as ContactInquiryEntity[];
+  }
+
+  async updateInquiryStatus(id: string, status: 'NEW' | 'CONTACTED' | 'CLOSED'): Promise<ContactInquiryEntity | null> {
+    if (!this.client) return null;
+    const now = new Date().toISOString();
+    const { data, error } = await this.client
+      .from('contact_inquiries')
+      .update({ status, updated_at: now })
+      .eq('id', id)
+      .select()
+      .single();
+    if (error || !data) return null;
+    return data as ContactInquiryEntity;
+  }
+
+  async getRecentInquiryByContact(email: string, phone: string, withinMs: number = 300000): Promise<ContactInquiryEntity | null> {
+    if (!this.client) return null;
+    const { data, error } = await this.client
+      .from('contact_inquiries')
+      .select('*')
+      .or(`email.ilike.${email},phone.eq.${phone}`)
+      .order('created_at', { ascending: false })
+      .limit(1);
+
+    if (error || !data || data.length === 0) return null;
+    const rec = data[0] as ContactInquiryEntity;
+    const recTime = new Date(rec.created_at).getTime();
+    if (Date.now() - recTime <= withinMs) {
+      return rec;
+    }
+    return null;
   }
 }

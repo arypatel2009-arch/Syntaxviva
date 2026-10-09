@@ -57,6 +57,19 @@ export interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Helper to construct dynamic redirect URL for email verification & auth callbacks
+export function getAuthRedirectUrl(path: string = '/login'): string | undefined {
+  if (typeof window === 'undefined') return undefined;
+
+  const metaEnv = (typeof import.meta !== 'undefined' && (import.meta as any)?.env) ? (import.meta as any).env : {};
+  const envUrl = (metaEnv.VITE_APP_URL || metaEnv.VITE_SITE_URL || '').trim();
+  const baseUrl = envUrl || window.location.origin;
+  const cleanBaseUrl = baseUrl.replace(/\/+$/, '');
+  const cleanPath = path.startsWith('/') ? path : `/${path}`;
+
+  return `${cleanBaseUrl}${cleanPath}`;
+}
+
 // Helper to format clean user-facing authentication errors
 export function formatAuthError(err: any): string {
   if (!err) return 'An unexpected authentication error occurred.';
@@ -450,7 +463,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             role: targetRole,
             faculty_authorized: targetRole === 'faculty' ? 'true' : 'false',
           },
-          emailRedirectTo: typeof window !== 'undefined' ? `${window.location.origin}/login` : undefined,
+          emailRedirectTo: getAuthRedirectUrl('/login'),
         },
       });
 
@@ -565,8 +578,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     try {
       if (isSupabaseConfigured && supabase) {
-        const redirectTo =
-          typeof window !== 'undefined' ? `${window.location.origin}/reset-password` : undefined;
+        const redirectTo = getAuthRedirectUrl('/reset-password');
         const { error: resetErr } = await supabase.auth.resetPasswordForEmail(cleanEmail, {
           redirectTo,
         });
@@ -650,7 +662,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     try {
-      const redirectTo = typeof window !== 'undefined' ? `${window.location.origin}/login` : undefined;
+      const redirectTo = getAuthRedirectUrl('/login');
       const { error: resendErr } = await supabase.auth.resend({
         type: 'signup',
         email: cleanEmail,

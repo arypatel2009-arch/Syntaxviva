@@ -11,6 +11,7 @@ import { FacultyStudentsView } from './faculty/FacultyStudentsView.tsx';
 import { SubmissionReviewModal } from './faculty/SubmissionReviewModal.tsx';
 import { FacultyAnalyticsView } from './faculty/FacultyAnalyticsView.tsx';
 import { StudentProfileView } from './student/StudentProfileView.tsx';
+import { BookACallModal } from './common/BookACallModal.tsx';
 
 interface FacultyDashboardProps {
   onOpenRegistry?: () => void;
@@ -35,6 +36,7 @@ export const FacultyDashboard: React.FC<FacultyDashboardProps> = () => {
   const [loading, setLoading] = useState(true);
 
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isBookModalOpen, setIsBookModalOpen] = useState(false);
   const [reviewSubmission, setReviewSubmission] = useState<any | null>(null);
 
   const loadData = async () => {
@@ -211,6 +213,13 @@ export const FacultyDashboard: React.FC<FacultyDashboardProps> = () => {
       <SubmissionReviewModal
         submission={reviewSubmission}
         onClose={() => setReviewSubmission(null)}
+      />
+
+      {/* Book a Call Inquiry Modal for Faculty Upgrade */}
+      <BookACallModal
+        isOpen={isBookModalOpen}
+        onClose={() => setIsBookModalOpen(false)}
+        initialInquiryType="Pro plan pricing"
       />
     </div>
   );

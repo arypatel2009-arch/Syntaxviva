@@ -245,4 +245,26 @@ export interface IApplicationRepository {
     divisionId: string
   ): Promise<{ success: boolean; session?: FacultyDivisionSessionEntity; error?: string }>;
   releaseFacultyDivisionSession(facultyId: string): Promise<{ success: boolean }>;
+
+  // Contact Inquiries
+  createInquiry(inquiry: Omit<ContactInquiryEntity, 'created_at' | 'updated_at'>): Promise<ContactInquiryEntity>;
+  getInquiries(filter?: { status?: string }): Promise<ContactInquiryEntity[]>;
+  updateInquiryStatus(id: string, status: 'NEW' | 'CONTACTED' | 'CLOSED'): Promise<ContactInquiryEntity | null>;
+  getRecentInquiryByContact(email: string, phone: string, withinMs?: number): Promise<ContactInquiryEntity | null>;
+}
+
+export interface ContactInquiryEntity {
+  id: string;
+  name: string;
+  institution: string;
+  email: string;
+  phone: string;
+  role: string;
+  inquiry_type: string;
+  expected_usage: string;
+  preferred_time?: string | null;
+  message?: string | null;
+  status: 'NEW' | 'CONTACTED' | 'CLOSED';
+  created_at: string;
+  updated_at: string;
 }

@@ -2,6 +2,8 @@ import React from 'react';
 import { ShieldCheck, LogOut, Database, User as UserIcon, GraduationCap, BookOpen, Layers } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.tsx';
 
+import { Logo } from './common/Logo.tsx';
+
 interface NavbarProps {
   onOpenSystemInspector: () => void;
   onOpenRegistry: () => void;
@@ -15,18 +17,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenSystemInspector, onOpenReg
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
         {/* Brand & Tagline */}
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold text-lg shadow-sm shadow-blue-500/20">
-            <span className="tracking-tighter font-mono">SV</span>
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="font-bold text-lg tracking-tight text-slate-900">SyntaXViva</span>
-              <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-100 uppercase tracking-wider">
-                Part 1 Foundation
-              </span>
-            </div>
-            <p className="text-xs text-slate-500 hidden sm:block">Proof of Comprehension, Not AI Detection</p>
-          </div>
+          <Logo size="md" showTagline variant="light" />
         </div>
 
         {/* Right side controls */}

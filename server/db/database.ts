@@ -89,6 +89,22 @@ async function initSchemaAndSeed(db: Database): Promise<void> {
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS contact_inquiries (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      institution TEXT NOT NULL,
+      email TEXT NOT NULL,
+      phone TEXT NOT NULL,
+      role TEXT NOT NULL,
+      inquiry_type TEXT NOT NULL,
+      expected_usage TEXT NOT NULL,
+      preferred_time TEXT,
+      message TEXT,
+      status TEXT NOT NULL DEFAULT 'NEW' CHECK(status IN ('NEW', 'CONTACTED', 'CLOSED')),
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
   `);
 
   // 2. Ensure academic columns exist on existing SQLite databases BEFORE creating indexes

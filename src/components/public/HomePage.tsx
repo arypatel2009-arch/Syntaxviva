@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { BookACallModal } from '../common/BookACallModal.tsx';
 
 interface HomePageProps {
   onNavigate: (path: string) => void;
@@ -36,9 +37,10 @@ const METHOD_STEPS = [
   },
 ];
 
-export const HomePage: React.FC<HomePageProps> = ({ onOpenAuth }) => {
+export const HomePage: React.FC<HomePageProps> = ({ onNavigate, onOpenAuth }) => {
   const [activeStep, setActiveStep] = useState<number>(0);
   const [previewEntering, setPreviewEntering] = useState<boolean>(false);
+  const [isBookModalOpen, setIsBookModalOpen] = useState<boolean>(false);
 
   const handleSelectStep = (index: number) => {
     if (index === activeStep) return;
@@ -921,178 +923,23 @@ export const HomePage: React.FC<HomePageProps> = ({ onOpenAuth }) => {
             </p>
           </div>
 
-          <div className="mt-14 grid md:grid-cols-3 gap-5">
-            {/* FREE */}
-            <div className="rounded-2xl border border-white/[.08] bg-[#0F1520] p-7">
-              <div className="text-sm font-semibold text-white">Free</div>
+          {/* Pricing Consultation Banner */}
+          <div className="mt-12 bg-gradient-to-r from-emerald-950/60 via-[#0F1520] to-slate-900 border border-emerald-500/30 rounded-3xl p-8 sm:p-10 text-center space-y-6 shadow-2xl">
+            <h3 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
+              Get Custom Pricing for Your Institution
+            </h3>
+            <p className="text-slate-400 max-w-2xl mx-auto text-sm leading-relaxed">
+              We offer flexible deployment packages tailored to your class size, campus infrastructure, and accreditation requirements. Reach out directly to discuss pricing or schedule a live demo.
+            </p>
 
-              <p className="mt-2 text-xs text-slate-500">
-                For exploring the platform.
-              </p>
-
-              <div className="mt-7">
-                <span className="font-display font-bold text-4xl text-white">
-                  $0
-                </span>
-                <span className="text-xs text-slate-500"> /month</span>
-              </div>
-
+            <div className="pt-2 flex items-center justify-center">
               <button
                 type="button"
-                onClick={() => onOpenAuth('signup')}
-                className="mt-7 w-full block text-center rounded-xl border border-slate-700 hover:border-slate-500 py-3 text-sm font-semibold text-white transition cursor-pointer"
+                onClick={() => setIsBookModalOpen(true)}
+                className="px-8 py-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-base transition cursor-pointer shadow-xl shadow-emerald-600/25 flex items-center gap-2"
               >
-                Get Started
+                <span>Book a Call</span>
               </button>
-
-              <div className="mt-8 space-y-4">
-                <div className="text-[10px] uppercase tracking-wider text-slate-600">
-                  Includes
-                </div>
-
-                <div className="space-y-3 text-sm text-slate-400">
-                  <div className="flex gap-2">
-                    <span className="text-emerald-400">✓</span>
-                    3 active assignments
-                  </div>
-
-                  <div className="flex gap-2">
-                    <span className="text-emerald-400">✓</span>
-                    Basic test execution
-                  </div>
-
-                  <div className="flex gap-2">
-                    <span className="text-emerald-400">✓</span>
-                    Student submissions
-                  </div>
-
-                  <div className="flex gap-2">
-                    <span className="text-emerald-400">✓</span>
-                    Basic reports
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* PRO */}
-            <div className="relative rounded-2xl border border-emerald-500/40 bg-[#101B19] p-7 shadow-[0_0_70px_rgba(16,185,129,.08)]">
-              <div className="absolute top-0 right-6 -translate-y-1/2 rounded-full bg-emerald-500 px-3 py-1 text-[9px] font-bold uppercase tracking-wider text-white">
-                Most Popular
-              </div>
-
-              <div className="text-sm font-semibold text-white">
-                Pro Faculty
-              </div>
-
-              <p className="mt-2 text-xs text-slate-500">
-                For serious individual educators.
-              </p>
-
-              <div className="mt-7">
-                <span className="font-display font-bold text-4xl text-white">
-                  $19
-                </span>
-                <span className="text-xs text-slate-500"> /month</span>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => onOpenAuth('signup')}
-                className="mt-7 w-full block text-center rounded-xl bg-emerald-600 hover:bg-emerald-500 py-3 text-sm font-semibold text-white transition cursor-pointer"
-              >
-                Start Pro
-              </button>
-
-              <div className="mt-8 space-y-4">
-                <div className="text-[10px] uppercase tracking-wider text-emerald-500/70">
-                  Everything in Free, plus
-                </div>
-
-                <div className="space-y-3 text-sm text-slate-300">
-                  <div className="flex gap-2">
-                    <span className="text-emerald-400">✓</span>
-                    Unlimited assignments
-                  </div>
-
-                  <div className="flex gap-2">
-                    <span className="text-emerald-400">✓</span>
-                    AST mutation engine
-                  </div>
-
-                  <div className="flex gap-2">
-                    <span className="text-emerald-400">✓</span>
-                    Live viva sessions
-                  </div>
-
-                  <div className="flex gap-2">
-                    <span className="text-emerald-400">✓</span>
-                    Advanced evidence reports
-                  </div>
-
-                  <div className="flex gap-2">
-                    <span className="text-emerald-400">✓</span>
-                    Integrity controls
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* INSTITUTION */}
-            <div className="rounded-2xl border border-white/[.08] bg-[#0F1520] p-7">
-              <div className="text-sm font-semibold text-white">
-                Institution &amp; University
-              </div>
-
-              <p className="mt-2 text-xs text-slate-500">
-                For departments and university systems.
-              </p>
-
-              <div className="mt-7">
-                <span className="font-display font-bold text-4xl text-white">
-                  Custom
-                </span>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => onOpenAuth('signup')}
-                className="mt-7 w-full block text-center rounded-xl bg-white text-slate-950 hover:bg-slate-200 py-3 text-sm font-semibold transition cursor-pointer"
-              >
-                Talk to Sales
-              </button>
-
-              <div className="mt-8 space-y-4">
-                <div className="text-[10px] uppercase tracking-wider text-slate-600">
-                  Includes
-                </div>
-
-                <div className="space-y-3 text-sm text-slate-400">
-                  <div className="flex gap-2">
-                    <span className="text-emerald-400">✓</span>
-                    Department-wide deployment
-                  </div>
-
-                  <div className="flex gap-2">
-                    <span className="text-emerald-400">✓</span>
-                    SSO &amp; role management
-                  </div>
-
-                  <div className="flex gap-2">
-                    <span className="text-emerald-400">✓</span>
-                    LMS integration
-                  </div>
-
-                  <div className="flex gap-2">
-                    <span className="text-emerald-400">✓</span>
-                    Advanced analytics
-                  </div>
-
-                  <div className="flex gap-2">
-                    <span className="text-emerald-400">✓</span>
-                    Dedicated support
-                  </div>
-                </div>
-              </div>
             </div>
           </div>
         </div>
@@ -1151,6 +998,12 @@ export const HomePage: React.FC<HomePageProps> = ({ onOpenAuth }) => {
           </div>
         </div>
       </section>
+
+      {/* Book a Call Modal */}
+      <BookACallModal
+        isOpen={isBookModalOpen}
+        onClose={() => setIsBookModalOpen(false)}
+      />
     </div>
   );
 };
