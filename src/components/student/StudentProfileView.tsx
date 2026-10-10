@@ -34,21 +34,22 @@ export const StudentProfileView: React.FC = () => {
     }
   }, [profile, user]);
 
-  const isComplete =
+  const isComplete = Boolean(
     isProfileComplete(user, profile, role) ||
-    Boolean(
-      formData.name &&
-      formData.name.trim().length >= 2 &&
-      formData.institution &&
-      formData.institution.trim() &&
-      (role === 'faculty' ||
-        (formData.rollNumber &&
-          formData.rollNumber.trim() &&
-          formData.classId &&
-          formData.classId.trim() &&
-          formData.divisionId &&
-          formData.divisionId.trim()))
-    );
+      (formData.name &&
+        formData.name.trim().length >= 2 &&
+        formData.institution &&
+        formData.institution.trim() &&
+        formData.avatarUrl &&
+        formData.avatarUrl.trim() &&
+        (role === 'faculty' ||
+          (formData.rollNumber &&
+            formData.rollNumber.trim() &&
+            formData.classId &&
+            formData.classId.trim() &&
+            formData.divisionId &&
+            formData.divisionId.trim())))
+  );
 
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -65,18 +66,37 @@ export const StudentProfileView: React.FC = () => {
     }
 
     const reader = new FileReader();
-    reader.onload = (event) => {
+    reader.onload = async (event) => {
       const result = event.target?.result as string;
       if (result) {
         setFormData((prev) => ({ ...prev, avatarUrl: result }));
+        // Instant sync to AuthContext and persistence so left-bottom & top-right avatars update immediately
+        try {
+          await updateUserProfile({
+            avatar_url: result,
+          });
+          await refreshUser();
+          setSaved(true);
+          setTimeout(() => setSaved(false), 3000);
+        } catch (err: any) {
+          console.error('Instant avatar upload sync note:', err);
+        }
       }
     };
     reader.readAsDataURL(file);
   };
 
-  const handleRemovePhoto = () => {
+  const handleRemovePhoto = async () => {
     setFormData((prev) => ({ ...prev, avatarUrl: '' }));
     if (fileInputRef.current) fileInputRef.current.value = '';
+    try {
+      await updateUserProfile({
+        avatar_url: '',
+      });
+      await refreshUser();
+    } catch (err) {
+      console.error('Instant avatar remove note:', err);
+    }
   };
 
   const handleSave = async (e: React.FormEvent) => {
@@ -126,8 +146,8 @@ export const StudentProfileView: React.FC = () => {
             <span className="font-bold text-sm text-amber-900">Profile Incomplete</span>
             <p className="text-amber-800 leading-relaxed">
               {role === 'faculty'
-                ? 'Please complete your Full Name and Institution Name to create lab assignments.'
-                : 'Please complete your Full Name, Roll Number, Institution, Class, and Division to submit lab assignments.'}
+                ? 'Please complete your Full Name, Institution Name, and upload a Profile Photo to verify your account.'
+                : 'Please complete your Full Name, Roll Number, Institution, Class, Division, and upload a Profile Photo to verify your account.'}
             </p>
           </div>
         </div>

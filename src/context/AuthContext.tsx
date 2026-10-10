@@ -73,6 +73,10 @@ export function isProfileComplete(
   if (!name || name.trim().length < 2) return false;
   if (!institution || !institution.trim()) return false;
 
+  // Profile photo is strictly mandatory for complete & verified status
+  const avatar = profile?.avatar_url || user?.avatarUrl || (user as any)?.avatar_url || '';
+  if (!avatar || !avatar.trim()) return false;
+
   if (targetRole === 'student') {
     const rollNumber = profile?.roll_number || user?.rollNumber || user?.roll_number || '';
     const classId = profile?.class_id || user?.classId || user?.class_id || '';

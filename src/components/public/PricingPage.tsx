@@ -40,7 +40,7 @@ export const PricingPage: React.FC<PricingPageProps> = () => {
         'Unlimited coding assignments & student attempts',
         '100+ AST & Relational complex mutation variants',
         'AI proctoring & vision snapshot verification',
-        'Full PDF accreditation evidence reports',
+        'Comprehensive Accreditation Audit Reports',
         'Priority 24/7 faculty support & lab onboarding',
       ],
     },
@@ -60,7 +60,7 @@ export const PricingPage: React.FC<PricingPageProps> = () => {
   ];
 
   return (
-    <div className="bg-white min-h-screen py-16">
+    <div className="bg-white min-h-screen pt-28 sm:pt-32 pb-16">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="text-center max-w-3xl mx-auto space-y-4 mb-12">

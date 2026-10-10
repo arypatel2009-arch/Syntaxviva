@@ -24,6 +24,7 @@ export interface DataTableColumn<T> {
   sortType?: SortDataType;
   getSortValue?: (row: T) => string | number | Date | null | undefined;
   align?: 'left' | 'center' | 'right';
+  width?: string;
   render: (row: T, index: number) => React.ReactNode;
 }
 
@@ -215,7 +216,7 @@ export function DataTable<T>({
       ) : (
         <>
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
+            <table className="w-full text-left text-xs min-w-[700px]">
               <thead>
                 <tr className="bg-slate-50/80 border-b border-slate-200/80 text-xs font-medium text-slate-500 uppercase tracking-wider select-none">
                   {selectable && (
@@ -252,6 +253,7 @@ export function DataTable<T>({
                     return (
                       <th
                         key={col.key}
+                        style={col.width ? { width: col.width } : undefined}
                         className={`py-3 ${
                           !selectable && idx === 0 ? 'pl-6' : 'px-3'
                         } ${idx === columns.length - 1 ? 'pr-6' : ''}`}
@@ -326,6 +328,7 @@ export function DataTable<T>({
                         return (
                           <td
                             key={col.key}
+                            style={col.width ? { width: col.width } : undefined}
                             className={`py-3.5 ${
                               !selectable && colIdx === 0 ? 'pl-6' : 'px-3'
                             } ${colIdx === columns.length - 1 ? 'pr-6' : ''} ${alignClass}`}

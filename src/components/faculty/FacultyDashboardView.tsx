@@ -18,6 +18,8 @@ import {
   Inbox,
   Lock,
   Unlock,
+  Copy,
+  X,
 } from 'lucide-react';
 import { Assignment } from '../../types/index.ts';
 import {
@@ -48,6 +50,7 @@ interface FacultyDashboardViewProps {
   onReviewSubmission: (submission: any) => void;
   onRefresh?: () => void;
   onDeleteAssignment?: (assignmentId: string) => Promise<void> | void;
+  viewMode?: 'dashboard' | 'submissions';
 }
 
 const isAssignmentDeadlinePassed = (dueDate?: string | null): boolean => {
@@ -91,6 +94,7 @@ export const FacultyDashboardView: React.FC<FacultyDashboardViewProps> = ({
   onReviewSubmission,
   onRefresh,
   onDeleteAssignment,
+  viewMode = 'dashboard',
 }) => {
   const { user } = useAuth();
   const [submissions, setSubmissions] = useState<any[]>([]);
@@ -103,6 +107,53 @@ export const FacultyDashboardView: React.FC<FacultyDashboardViewProps> = ({
   const [unlockingId, setUnlockingId] = useState<string | null>(null);
   const [unlockingAll, setUnlockingAll] = useState(false);
   const [phase2Overrides, setPhase2Overrides] = useState<Record<string, boolean>>({});
+
+  const [classrooms, setClassrooms] = useState<any[]>([]);
+  const [isCreateClassroomOpen, setIsCreateClassroomOpen] = useState(false);
+  const [newClassroomName, setNewClassroomName] = useState('');
+  const [newClassroomDesc, setNewClassroomDesc] = useState('');
+  const [creatingClassroom, setCreatingClassroom] = useState(false);
+  const [copiedCode, setCopiedCode] = useState<string | null>(null);
+
+  const fetchClassrooms = async () => {
+    try {
+      const res = await api.getClassrooms();
+      setClassrooms(res.classrooms || []);
+    } catch (err) {
+      console.warn('Failed to load classrooms:', err);
+    }
+  };
+
+  const handleCopyCode = (code: string) => {
+    navigator.clipboard.writeText(code);
+    setCopiedCode(code);
+    toast.success('Join Code Copied!', `Classroom code ${code} copied to clipboard.`);
+    setTimeout(() => setCopiedCode(null), 2500);
+  };
+
+  const handleCreateClassroom = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newClassroomName.trim()) return;
+    setCreatingClassroom(true);
+    try {
+      const res = await api.createClassroom({
+        name: newClassroomName.trim(),
+        description: newClassroomDesc.trim(),
+      });
+      toast.success(
+        'Classroom Created!',
+        `Classroom "${res.classroom.name}" ready with Join Code ${res.joinCode}.`
+      );
+      setNewClassroomName('');
+      setNewClassroomDesc('');
+      setIsCreateClassroomOpen(false);
+      fetchClassrooms();
+    } catch (err: any) {
+      toast.error('Failed to create classroom', err?.message || 'Error creating classroom');
+    } finally {
+      setCreatingClassroom(false);
+    }
+  };
 
   const fetchDashboardActivity = async () => {
     setLoadingSubmissions(true);
@@ -122,6 +173,7 @@ export const FacultyDashboardView: React.FC<FacultyDashboardViewProps> = ({
 
   useEffect(() => {
     fetchDashboardActivity();
+    fetchClassrooms();
   }, []);
 
   const isPhase2UnlockedFor = (asg: Assignment) => {
@@ -217,14 +269,18 @@ export const FacultyDashboardView: React.FC<FacultyDashboardViewProps> = ({
     }
   };
 
-  const totalStudentsLoggedIn = Math.max(students.length, stats.totalStudents ?? 0);
+  const enrolledStudentsCount =
+    classrooms.reduce((acc, c) => acc + (c.student_count || 0), 0) ||
+    students.length ||
+    (stats.totalStudents ?? 0);
+  const totalStudentsLoggedIn = enrolledStudentsCount;
   const activeAssignments = assignments.length;
   const totalSubmissions = submissions.length > 0 ? submissions.length : stats.totalAttempts ?? 0;
   const uniqueSubmittingStudents =
     submissions.length > 0
       ? new Set(submissions.map((s) => s.studentId || s.studentEmail)).size
       : students.filter((s) => (s.attemptsCount ?? 0) > 0).length;
-  const studentsNotSubmittedCount = Math.max(0, totalStudentsLoggedIn - uniqueSubmittingStudents);
+  const studentsNotSubmittedCount = Math.max(0, enrolledStudentsCount - uniqueSubmittingStudents);
 
   const submittedPairSet = new Set(
     submissions.map((s) => `${s.studentId || s.studentEmail}__${s.assignmentId}`)
@@ -261,9 +317,7 @@ export const FacultyDashboardView: React.FC<FacultyDashboardViewProps> = ({
           assignmentLanguage: asg.language,
           language: asg.language,
           state: deadlineExpired ? 'DEADLINE_EXPIRED_NOT_SUBMITTED' : 'NOT_SUBMITTED',
-          failureReason: deadlineExpired
-            ? `Deadline (${effectiveDue}) khatam ho chuki hai — Is student ne assignment submit nahi kiya`
-            : `Is student ne abhi tak assignment submit nahi kiya (Due: ${effectiveDue})`,
+          failureReason: null,
           submittedAt: null,
           createdAt: null,
         };
@@ -353,6 +407,7 @@ export const FacultyDashboardView: React.FC<FacultyDashboardViewProps> = ({
       header: 'Language',
       sortable: true,
       sortType: 'string',
+      width: '110px',
       getSortValue: (asg) => asg.language,
       render: (asg) => (
         <span className="font-mono text-slate-600 uppercase bg-slate-100 border border-slate-200/70 px-2 py-0.5 rounded text-[11px] font-medium">
@@ -365,6 +420,7 @@ export const FacultyDashboardView: React.FC<FacultyDashboardViewProps> = ({
       header: 'Students Submitted / Not Submitted',
       sortable: true,
       sortType: 'number',
+      width: '180px',
       getSortValue: (asg) => Number(asg.submissionCount ?? 0),
       render: (asg) => {
         const subCount = Number(asg.submissionCount ?? 0);
@@ -391,6 +447,7 @@ export const FacultyDashboardView: React.FC<FacultyDashboardViewProps> = ({
       header: 'Deadline Date',
       sortable: true,
       sortType: 'date',
+      width: '180px',
       getSortValue: (asg) =>
         deadlineDrafts[asg.id] ||
         (asg.dueDate ? String(asg.dueDate).slice(0, 10) : '2026-10-20'),
@@ -438,6 +495,7 @@ export const FacultyDashboardView: React.FC<FacultyDashboardViewProps> = ({
     {
       key: 'phase2Access',
       header: 'Phase 2 Access (All Students)',
+      width: '190px',
       render: (asg) => {
         const unlocked = isPhase2UnlockedFor(asg);
         const isBusy = unlockingId === asg.id;
@@ -483,6 +541,7 @@ export const FacultyDashboardView: React.FC<FacultyDashboardViewProps> = ({
       key: 'actions',
       header: 'Actions',
       align: 'right',
+      width: '140px',
       render: (asg) => (
         <div className="flex items-center justify-end gap-1.5 whitespace-nowrap">
           <button
@@ -536,7 +595,7 @@ export const FacultyDashboardView: React.FC<FacultyDashboardViewProps> = ({
           </h1>
           <p className="text-sm text-slate-600 leading-relaxed">
             <strong className="text-slate-900 font-semibold">
-              {totalStudentsLoggedIn} students logged in
+              {enrolledStudentsCount} students enrolled
             </strong>{' '}
             across{' '}
             <strong className="text-slate-900 font-semibold">
@@ -585,8 +644,8 @@ export const FacultyDashboardView: React.FC<FacultyDashboardViewProps> = ({
       {/* 2. STAT CARDS (Clean Sans-Serif Numbers & Unified Emerald Accent) */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
-          label="Students Logged In"
-          value={totalStudentsLoggedIn}
+          label="Enrolled Students"
+          value={enrolledStudentsCount}
           icon={Users}
         />
         <StatCard
@@ -607,6 +666,141 @@ export const FacultyDashboardView: React.FC<FacultyDashboardViewProps> = ({
         />
       </div>
 
+      {/* 2.5 MY CLASSROOMS & ENROLLMENT CODES (Multi-Tenancy) */}
+      <div className="bg-white rounded-xl border border-slate-200/80 p-5 shadow-xs space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <div className="flex items-center gap-2">
+              <h2 className="text-base font-semibold text-slate-900 tracking-tight">
+                My Classrooms &amp; Join Codes
+              </h2>
+            </div>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsCreateClassroomOpen(true)}
+            icon={Plus}
+          >
+            New Classroom
+          </Button>
+        </div>
+
+        {classrooms.length === 0 ? (
+          <div className="p-6 text-center border border-dashed border-slate-200 rounded-xl bg-slate-50/50">
+            <Users className="w-8 h-8 text-slate-400 mx-auto mb-2" />
+            <p className="text-sm font-medium text-slate-700">No Classrooms Found</p>
+            <p className="text-xs text-slate-400 mt-1 mb-3">
+              Create a classroom to generate a join code for your students.
+            </p>
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => setIsCreateClassroomOpen(true)}
+              icon={Plus}
+            >
+              Create First Classroom
+            </Button>
+          </div>
+        ) : classrooms.length === 1 ? (
+          <div className="w-full p-5 sm:p-6 rounded-2xl border border-emerald-200/90 bg-gradient-to-r from-emerald-50/40 via-white to-slate-50/60 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div className="space-y-3 max-w-2xl">
+              <div className="flex flex-wrap items-center gap-2.5">
+                <h3 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight">
+                  {classrooms[0].name}
+                </h3>
+                <span className="text-[11px] font-mono text-emerald-800 uppercase bg-emerald-100/80 border border-emerald-200 px-2.5 py-0.5 rounded-full font-semibold">
+                  {classrooms[0].college_name || 'SyntaxViva Academic Institute'}
+                </span>
+              </div>
+              {classrooms[0].description && (
+                <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
+                  {classrooms[0].description}
+                </p>
+              )}
+              <div className="flex flex-wrap items-center gap-3 pt-1">
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-white border border-slate-200 text-xs font-semibold text-slate-700 shadow-2xs">
+                  <Users className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>{classrooms[0].student_count ?? 0} Enrolled Students</span>
+                </div>
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-white border border-slate-200 text-xs font-semibold text-slate-700 shadow-2xs">
+                  <BookOpen className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>{classrooms[0].assignment_count ?? assignments.length} Active Assignments</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="shrink-0 flex flex-col sm:flex-row items-stretch sm:items-center gap-3 bg-white p-3.5 sm:p-4 rounded-xl border border-slate-200/90 shadow-xs">
+              <div className="px-3 py-1">
+                <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block">
+                  Classroom Join Code
+                </span>
+                <span className="font-mono text-2xl font-black tracking-widest text-emerald-700">
+                  {classrooms[0].join_code}
+                </span>
+              </div>
+              <Button
+                variant="primary"
+                size="md"
+                onClick={() => handleCopyCode(classrooms[0].join_code)}
+                icon={copiedCode === classrooms[0].join_code ? Check : Copy}
+              >
+                {copiedCode === classrooms[0].join_code ? 'Copied!' : 'Copy Code'}
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            {classrooms.map((cls) => (
+              <div
+                key={cls.id}
+                className="p-4 rounded-xl border border-slate-200/80 bg-slate-50/40 hover:bg-white hover:border-slate-300 transition-all flex flex-col justify-between space-y-3"
+              >
+                <div>
+                  <div className="flex items-start justify-between gap-2">
+                    <h3 className="text-sm font-bold text-slate-900 leading-snug">
+                      {cls.name}
+                    </h3>
+                    <span className="text-[10px] font-mono text-slate-500 uppercase bg-slate-200/70 px-1.5 py-0.5 rounded shrink-0">
+                      {cls.college_name || 'College'}
+                    </span>
+                  </div>
+                  {cls.description && (
+                    <p className="text-xs text-slate-500 line-clamp-1 mt-1">
+                      {cls.description}
+                    </p>
+                  )}
+                </div>
+
+                <div className="pt-2 border-t border-slate-200/60 flex items-center justify-between">
+                  <div>
+                    <span className="text-[10px] uppercase font-semibold text-slate-400 block tracking-wider">
+                      Join Code
+                    </span>
+                    <span className="font-mono text-lg font-bold tracking-widest text-emerald-700">
+                      {cls.join_code}
+                    </span>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleCopyCode(cls.join_code)}
+                    icon={copiedCode === cls.join_code ? Check : Copy}
+                  >
+                    {copiedCode === cls.join_code ? 'Copied!' : 'Copy Code'}
+                  </Button>
+                </div>
+
+                <div className="text-[11px] text-slate-500 flex items-center justify-between font-medium pt-1">
+                  <span>{cls.student_count ?? 0} Enrolled Students</span>
+                  <span>{cls.assignment_count ?? 0} Assignments</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       {/* 3. ENTERPRISE LAB ASSIGNMENTS DATA TABLE */}
       <div className="space-y-3">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
@@ -614,9 +808,6 @@ export const FacultyDashboardView: React.FC<FacultyDashboardViewProps> = ({
             <h2 className="text-base font-semibold text-slate-900 tracking-tight">
               Lab Assignments ({assignments.length})
             </h2>
-            <p className="text-xs text-slate-500">
-              Use &ldquo;Unlock Phase 2&rdquo; to unlock Phase 2 AST Viva for all students in 1 click, or manage deadlines and submissions.
-            </p>
           </div>
           <div className="flex items-center gap-2">
             <Button
@@ -710,17 +901,16 @@ export const FacultyDashboardView: React.FC<FacultyDashboardViewProps> = ({
         />
       </div>
 
-      {/* 4. 2-COLUMN MAIN CONTENT: PROFESSOR'S SUBMISSION & LOGIN HISTORY */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* Left Column (8 cols): Professor's Submission History */}
-        <div className="lg:col-span-8 bg-white rounded-xl border border-slate-200/80 shadow-xs overflow-visible">
+      {/* 4. PROFESSOR'S SUBMISSIONS AUDIT TABLE (Shown when viewing Submissions tab) */}
+      {viewMode === 'submissions' && (
+        <div className="w-full bg-white rounded-xl border border-slate-200/80 shadow-xs overflow-visible">
           <div className="p-5 border-b border-slate-200/80 flex items-center justify-between">
             <div>
               <h2 className="text-base font-semibold text-slate-900 tracking-tight">
-                Professor&apos;s Submission &amp; Non-Submission Status ({combinedActivityRows.length})
+                Student Submissions Roster ({combinedActivityRows.length})
               </h2>
               <p className="text-xs text-slate-500 mt-0.5">
-                Student assignment submissions and students who have not submitted assignments.
+                Recent submissions and status for students in your classrooms.
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -750,19 +940,19 @@ export const FacultyDashboardView: React.FC<FacultyDashboardViewProps> = ({
           ) : combinedActivityRows.length === 0 ? (
             <EmptyState
               icon={FileCheck}
-              title="No results found"
-              description="No student submissions have been recorded yet. Submissions will appear here with Day, Date, and Time."
+              title="No submissions found"
+              description="No student submissions have been recorded yet in your classrooms."
             />
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
+              <table className="w-full text-left text-xs min-w-[720px]">
                 <thead>
                   <tr className="bg-slate-50/70 border-b border-slate-200/80 text-xs font-medium text-slate-500 uppercase tracking-wider">
-                    <th className="py-3 pl-6">Student</th>
-                    <th className="py-3">Assignment</th>
-                    <th className="py-3">Result / Submission Status</th>
-                    <th className="py-3">Submitted (Day, Date &amp; Time)</th>
-                    <th className="py-3 pr-6 text-right">Audit</th>
+                    <th className="py-3 pl-6 w-auto min-w-[180px]">Student</th>
+                    <th className="py-3 w-48">Assignment</th>
+                    <th className="py-3 w-44">Submission Status</th>
+                    <th className="py-3 w-48">Submitted Date / Time</th>
+                    <th className="py-3 pr-6 w-32 text-right">Audit</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -787,11 +977,7 @@ export const FacultyDashboardView: React.FC<FacultyDashboardViewProps> = ({
                     return (
                       <tr
                         key={sub.id}
-                        className={`group transition-colors ${
-                          isNotSubmitted
-                            ? 'bg-rose-50/30 hover:bg-rose-50/60'
-                            : 'hover:bg-slate-50/80'
-                        }`}
+                        className="group hover:bg-slate-50/80 transition-colors"
                       >
                         <td className="py-3.5 pl-6">
                           <div className="font-medium text-slate-900">{sub.studentName}</div>
@@ -811,16 +997,9 @@ export const FacultyDashboardView: React.FC<FacultyDashboardViewProps> = ({
                         </td>
                         <td className="py-3.5">
                           {isNotSubmitted ? (
-                            <div className="space-y-1">
-                              <Badge variant="danger" size="sm" dot>
-                                {sub.isDeadlineExpired
-                                  ? 'Deadline Over — Not Submitted'
-                                  : 'Assignment Not Submitted'}
-                              </Badge>
-                              <div className="text-[11px] font-medium text-rose-700 bg-rose-50 border border-rose-200/80 rounded-md px-2 py-1 max-w-xs leading-snug">
-                                {sub.failureReason}
-                              </div>
-                            </div>
+                            <Badge variant={sub.isDeadlineExpired ? 'danger' : 'neutral'} size="sm" dot>
+                              {sub.isDeadlineExpired ? 'Deadline Expired' : 'Not Submitted'}
+                            </Badge>
                           ) : isPassed ? (
                             <Badge variant="success" size="sm" dot>
                               Passed Viva
@@ -830,15 +1009,9 @@ export const FacultyDashboardView: React.FC<FacultyDashboardViewProps> = ({
                               Failed Tests
                             </Badge>
                           ) : isTerminated ? (
-                            <div className="space-y-1">
-                              <Badge variant="danger" size="sm" dot>
-                                Exam Cancelled
-                              </Badge>
-                              <div className="text-[11px] font-medium text-rose-700 bg-rose-50 border border-rose-200/80 rounded-md px-2 py-1 max-w-xs leading-snug">
-                                {sub.failureReason ||
-                                  'Exam Cancelled: Student pressed Back, minimized window, or closed browser tab'}
-                              </div>
-                            </div>
+                            <Badge variant="danger" size="sm" dot>
+                              Exam Cancelled
+                            </Badge>
                           ) : (
                             <Badge variant="neutral" size="sm" dot>
                               {sub.state}
@@ -852,14 +1025,9 @@ export const FacultyDashboardView: React.FC<FacultyDashboardViewProps> = ({
                         </td>
                         <td className="py-3.5 text-slate-700 whitespace-nowrap">
                           {isNotSubmitted ? (
-                            <div>
-                              <div className="font-bold text-rose-700">Not Submitted</div>
-                              {sub.dueDate && (
-                                <div className="text-[11px] text-slate-500 tabular-nums mt-0.5">
-                                  Due: {sub.dueDate}
-                                </div>
-                              )}
-                            </div>
+                            <span className="text-slate-500 text-xs tabular-nums">
+                              {sub.dueDate ? `Due: ${sub.dueDate}` : '—'}
+                            </span>
                           ) : dt ? (
                             <div>
                               <div className="font-medium text-slate-800">{dt.dayAndDate}</div>
@@ -873,9 +1041,7 @@ export const FacultyDashboardView: React.FC<FacultyDashboardViewProps> = ({
                         </td>
                         <td className="py-3.5 pr-6 text-right">
                           {isNotSubmitted ? (
-                            <span className="text-[11px] font-semibold text-rose-600">
-                              Not Submitted
-                            </span>
+                            <span className="text-slate-400 text-xs">—</span>
                           ) : (
                             <div className="flex items-center justify-end gap-1.5">
                               <button
@@ -906,153 +1072,92 @@ export const FacultyDashboardView: React.FC<FacultyDashboardViewProps> = ({
             </div>
           )}
         </div>
+      )}
 
-        {/* Right Column (4 cols): Assessment Summary & Student Login Activity */}
-        <div className="lg:col-span-4 space-y-6">
-          <div className="bg-white rounded-xl border border-slate-200/80 p-6 shadow-xs space-y-6">
-            <div>
-              <h2 className="text-base font-semibold text-slate-900 tracking-tight">
-                Submission &amp; Login Summary
-              </h2>
-              <p className="text-xs text-slate-500">Live student participation overview</p>
+      {/* CREATE CLASSROOM MODAL */}
+      {isCreateClassroomOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xl max-w-md w-full overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-600 flex items-center justify-center shrink-0">
+                  <Users className="w-5 h-5" />
+                </div>
+                <div>
+                  <h2 className="text-base font-bold text-slate-900 tracking-tight">
+                    Create New Classroom
+                  </h2>
+                  <p className="text-xs text-slate-500">
+                    Scoped multi-tenant student cohort
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsCreateClassroomOpen(false)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
 
-            <div className="py-2">
-              <CircularProgress
-                value={passRate}
-                size={140}
-                strokeWidth={12}
-                label={totalSubmissions > 0 ? `${passRate}%` : '0%'}
-                sublabel="Pass Rate"
-              />
-            </div>
+            <form onSubmit={handleCreateClassroom} className="p-6 space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-700">
+                  Classroom Name <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  autoFocus
+                  value={newClassroomName}
+                  onChange={(e) => setNewClassroomName(e.target.value)}
+                  placeholder="e.g. CS201 - Algorithms & Data Structures (Div A)"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600"
+                />
+              </div>
 
-            <div className="space-y-3 pt-3 border-t border-slate-100 text-xs">
-              <div className="flex items-center justify-between">
-                <span className="text-slate-500 font-medium">Students Logged In</span>
-                <span className="font-semibold text-slate-900 tabular-nums">
-                  {totalStudentsLoggedIn}
-                </span>
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-700">
+                  Description / Batch Info (Optional)
+                </label>
+                <textarea
+                  rows={2}
+                  value={newClassroomDesc}
+                  onChange={(e) => setNewClassroomDesc(e.target.value)}
+                  placeholder="e.g. Fall Semester 2026 - Morning Batch"
+                  className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-sm focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600"
+                />
               </div>
-              <div className="flex items-center justify-between">
-                <span className="text-slate-500 font-medium">Students Who Submitted</span>
-                <span className="font-semibold text-emerald-700 tabular-nums">
-                  {uniqueSubmittingStudents}
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-rose-600 font-semibold">Students Not Submitted</span>
-                <span className="font-bold text-rose-600 tabular-nums">
-                  {studentsNotSubmittedCount}
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-slate-500 font-medium">Total Recorded Submissions</span>
-                <span className="font-semibold text-slate-900 tabular-nums">
-                  {totalSubmissions}
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-slate-500 font-medium">Passed Attempts</span>
-                <span className="font-semibold text-emerald-700 tabular-nums">
-                  {passedAttempts}
-                </span>
-              </div>
-            </div>
-          </div>
 
-          {/* Logged-In Students History */}
-          <div className="bg-white rounded-xl border border-slate-200/80 p-6 shadow-xs space-y-4">
-            <div>
-              <h3 className="text-sm font-semibold text-slate-900 tracking-tight">
-                Student Login &amp; Submission Status ({totalStudentsLoggedIn})
-              </h3>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Shows which students submitted and which students have NOT submitted assignments
+              <p className="text-[11px] text-slate-500">
+                A unique 6-character join code (e.g. SYN789) will be generated automatically for your students to join.
               </p>
-            </div>
 
-            {loadingSubmissions ? (
-              <div className="space-y-2.5">
-                {[1, 2, 3].map((i) => (
-                  <div
-                    key={i}
-                    className="p-3 rounded-lg bg-slate-50 border border-slate-200/60 space-y-2"
-                  >
-                    <div className="h-3.5 w-28 animate-pulse bg-slate-200 rounded" />
-                    <div className="h-3 w-40 animate-pulse bg-slate-200 rounded" />
-                  </div>
-                ))}
+              <div className="pt-3 flex items-center justify-end gap-3 border-t border-slate-100">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="md"
+                  onClick={() => setIsCreateClassroomOpen(false)}
+                  disabled={creatingClassroom}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  variant="primary"
+                  size="md"
+                  disabled={creatingClassroom || !newClassroomName.trim()}
+                  icon={creatingClassroom ? Loader2 : Plus}
+                >
+                  {creatingClassroom ? 'Creating...' : 'Create Classroom'}
+                </Button>
               </div>
-            ) : students.length === 0 ? (
-              <EmptyState
-                icon={Users}
-                title="No results found"
-                description="No student accounts have logged in yet."
-              />
-            ) : (
-              <div className="space-y-2.5 max-h-80 overflow-y-auto pr-1">
-                {students.map((std) => {
-                  const loginDt = formatFullDayDateTime(std.lastLoginAt || std.createdAt);
-                  const missingList: any[] = Array.isArray(std.missingAssignments)
-                    ? std.missingAssignments
-                    : [];
-                  const hasNotSubmitted =
-                    (std.attemptsCount ?? 0) === 0 || missingList.length > 0;
-
-                  return (
-                    <div
-                      key={std.id}
-                      className={`p-3 rounded-lg border flex flex-col gap-2 text-xs ${
-                        hasNotSubmitted
-                          ? 'bg-rose-50/40 border-rose-200/80'
-                          : 'bg-slate-50/70 border-slate-200/80'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="min-w-0">
-                          <div className="font-medium text-slate-900 truncate">{std.name}</div>
-                          <div className="text-[11px] text-slate-500 truncate">
-                            {std.rollNumber ? `Roll: ${std.rollNumber} • ` : ''}
-                            {std.email}
-                          </div>
-                          {loginDt && (
-                            <div className="text-[11px] text-slate-400 tabular-nums mt-0.5">
-                              {loginDt.dayAndDate} • {loginDt.time}
-                            </div>
-                          )}
-                        </div>
-                        <div className="shrink-0 flex flex-col items-end gap-1">
-                          {(std.attemptsCount ?? 0) > 0 && (
-                            <Badge variant="success" size="sm">
-                              {std.attemptsCount} Submitted
-                            </Badge>
-                          )}
-                          {hasNotSubmitted && (
-                            <Badge variant="danger" size="sm" dot>
-                              {(std.attemptsCount ?? 0) === 0
-                                ? 'Assignment Not Submitted'
-                                : `${missingList.length} Not Submitted`}
-                            </Badge>
-                          )}
-                        </div>
-                      </div>
-                      {missingList.length > 0 && (
-                        <div className="text-[11px] font-medium text-rose-700 bg-white/80 border border-rose-200/70 rounded px-2 py-1">
-                          Not Submitted:{' '}
-                          <span className="font-semibold">
-                            {missingList.map((m) => m.title).join(', ')}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+            </form>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };

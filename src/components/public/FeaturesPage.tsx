@@ -51,11 +51,11 @@ export const FeaturesPage: React.FC<FeaturesPageProps> = ({ onNavigate, onOpenAu
       tags: ['Camera Verification', 'Multi-Strike Rule', 'Attempt Locking'],
     },
     {
-      title: 'Comprehensive Evidence Reports',
+      title: 'Comprehensive Audit Dossiers',
       category: 'Audit & Accreditation',
       desc: 'Generates detailed diagnostic reports with code diffs, mutation records, timestamped event logs, and test execution outcomes suitable for university accreditation audits.',
       icon: Award,
-      tags: ['PDF / Print Ready', 'Audit Compliant', 'Full Traceability'],
+      tags: ['Official Dossier', 'Audit Compliant', 'Full Traceability'],
     },
     {
       title: 'Faculty Analytics & Insights',
@@ -81,7 +81,7 @@ export const FeaturesPage: React.FC<FeaturesPageProps> = ({ onNavigate, onOpenAu
   ];
 
   return (
-    <div className="bg-white min-h-screen py-16">
+    <div className="bg-white min-h-screen pt-28 sm:pt-32 pb-16">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="text-center max-w-3xl mx-auto space-y-4 mb-16">

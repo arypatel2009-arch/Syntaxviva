@@ -8,6 +8,9 @@ import crypto from 'crypto';
 import {
   IApplicationRepository,
   ProfileEntity,
+  CollegeEntity,
+  ClassroomEntity,
+  ClassroomEnrollmentEntity,
   AssignmentEntity,
   StudentAttemptEntity,
   AttemptMutationEntity,
@@ -120,12 +123,225 @@ export class SupabaseApplicationRepository implements IApplicationRepository {
     return data as ProfileEntity;
   }
 
-  async getAssignments(filter?: { role?: UserRole; studentId?: string; status?: string }): Promise<any[]> {
+  // ----------------------------------------------------------------------------
+  // Multi-Tenant Colleges
+  // ----------------------------------------------------------------------------
+  async getCollegeById(id: string): Promise<CollegeEntity | null> {
+    if (!this.client) return null;
+    const { data } = await this.client.from('colleges').select('*').eq('id', id).maybeSingle();
+    return data as CollegeEntity | null;
+  }
+
+  async getCollegeByName(name: string): Promise<CollegeEntity | null> {
+    if (!this.client) return null;
+    const { data } = await this.client.from('colleges').select('*').ilike('name', name.trim()).maybeSingle();
+    return data as CollegeEntity | null;
+  }
+
+  async getOrCreateCollege(name: string, code?: string): Promise<CollegeEntity> {
+    if (!this.client) throw new Error('Supabase client not initialized');
+    const existing = await this.getCollegeByName(name);
+    if (existing) return existing;
+
+    const cleanName = name.trim();
+    const colId = `col_${cleanName.toLowerCase().replace(/[^a-z0-9]/g, '_').substring(0, 32)}`;
+    const colCode = (code || cleanName.replace(/[^A-Za-z0-9]/g, '').substring(0, 6)).toUpperCase();
+    const now = new Date().toISOString();
+
+    const { data, error } = await this.client.from('colleges').upsert({
+      id: colId,
+      name: cleanName,
+      code: colCode,
+      created_at: now,
+      updated_at: now,
+    }).select().single();
+
+    if (error) throw error;
+    return data as CollegeEntity;
+  }
+
+  async listColleges(): Promise<CollegeEntity[]> {
     if (!this.client) return [];
-    let query = this.client.from('assignments').select('*').order('created_at', { ascending: false });
+    const { data } = await this.client.from('colleges').select('*').order('name', { ascending: true });
+    return (data || []) as CollegeEntity[];
+  }
+
+  // ----------------------------------------------------------------------------
+  // Multi-Tenant Classrooms
+  async createClassroom(data: {
+    id?: string;
+    college_id: string;
+    faculty_id: string;
+    name: string;
+    description?: string;
+    join_code?: string;
+  }): Promise<ClassroomEntity> {
+    if (!this.client) throw new Error('Supabase client not initialized');
+    const now = new Date().toISOString();
+    const id = data.id || `cls_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    const joinCode = (data.join_code || (await this.generateUniqueJoinCode())).toUpperCase().trim();
+
+    const { data: created, error } = await this.client.from('classrooms').insert({
+      id,
+      college_id: data.college_id,
+      faculty_id: data.faculty_id,
+      name: data.name.trim(),
+      description: data.description?.trim() || '',
+      join_code: joinCode,
+      created_at: now,
+      updated_at: now,
+    }).select().single();
+
+    if (error) throw error;
+    return created as ClassroomEntity;
+  }
+
+  async getClassroomById(id: string): Promise<ClassroomEntity | null> {
+    if (!this.client) return null;
+    const { data } = await this.client.from('classrooms').select('*, colleges(name)').eq('id', id).maybeSingle();
+    if (!data) return null;
+    return {
+      ...data,
+      college_name: (data as any).colleges?.name,
+    } as ClassroomEntity;
+  }
+
+  async getClassroomByJoinCode(joinCode: string): Promise<ClassroomEntity | null> {
+    if (!this.client) return null;
+    const { data } = await this.client.from('classrooms').select('*, colleges(name)').ilike('join_code', joinCode.trim()).maybeSingle();
+    if (!data) return null;
+    return {
+      ...data,
+      college_name: (data as any).colleges?.name,
+    } as ClassroomEntity;
+  }
+
+  async getClassroomsByFaculty(facultyId: string): Promise<ClassroomEntity[]> {
+    if (!this.client) return [];
+    const { data } = await this.client.from('classrooms').select('*, colleges(name)').eq('faculty_id', facultyId).order('created_at', { ascending: false });
+    return (data || []).map((c: any) => ({
+      ...c,
+      college_name: c.colleges?.name,
+    })) as ClassroomEntity[];
+  }
+
+  async getClassroomsByCollege(collegeId: string): Promise<ClassroomEntity[]> {
+    if (!this.client) return [];
+    const { data } = await this.client.from('classrooms').select('*, colleges(name)').eq('college_id', collegeId).order('created_at', { ascending: false });
+    return (data || []).map((c: any) => ({
+      ...c,
+      college_name: c.colleges?.name,
+    })) as ClassroomEntity[];
+  }
+
+  async getClassroomsByStudent(studentId: string): Promise<ClassroomEntity[]> {
+    if (!this.client) return [];
+    const { data: enrollments } = await this.client.from('classroom_enrollments').select('classroom_id').eq('student_id', studentId);
+    const clsIds = (enrollments || []).map((e: any) => e.classroom_id).filter(Boolean);
+    if (clsIds.length === 0) return [];
+    const { data } = await this.client.from('classrooms').select('*, colleges(name)').in('id', clsIds).order('created_at', { ascending: false });
+    return (data || []).map((c: any) => ({
+      ...c,
+      college_name: c.colleges?.name,
+    })) as ClassroomEntity[];
+  }
+
+  async generateUniqueJoinCode(): Promise<string> {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    for (let attempt = 0; attempt < 50; attempt++) {
+      let code = 'SYN';
+      for (let i = 0; i < 3; i++) code += chars.charAt(Math.floor(Math.random() * chars.length));
+      if (this.client) {
+        const { data } = await this.client.from('classrooms').select('id').eq('join_code', code).maybeSingle();
+        if (!data) return code;
+      } else {
+        return code;
+      }
+    }
+    return `SY${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+  }
+
+  // ----------------------------------------------------------------------------
+  // Multi-Tenant Classroom Enrollments
+  // ----------------------------------------------------------------------------
+  async enrollStudent(classroomId: string, studentId: string): Promise<ClassroomEnrollmentEntity> {
+    if (!this.client) throw new Error('Supabase client not initialized');
+    const existing = await this.client.from('classroom_enrollments').select('*').eq('classroom_id', classroomId).eq('student_id', studentId).maybeSingle();
+    if (existing.data) return existing.data as ClassroomEnrollmentEntity;
+
+    const id = `enr_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    const now = new Date().toISOString();
+    const { data, error } = await this.client.from('classroom_enrollments').insert({
+      id,
+      classroom_id: classroomId,
+      student_id: studentId,
+      enrolled_at: now,
+    }).select().single();
+
+    if (error) throw error;
+    return data as ClassroomEnrollmentEntity;
+  }
+
+  async isStudentEnrolled(classroomId: string, studentId: string): Promise<boolean> {
+    if (!this.client) return false;
+    const { data } = await this.client.from('classroom_enrollments').select('id').eq('classroom_id', classroomId).eq('student_id', studentId).maybeSingle();
+    return Boolean(data);
+  }
+
+  async getEnrollmentsByClassroom(classroomId: string): Promise<ClassroomEnrollmentEntity[]> {
+    if (!this.client) return [];
+    const { data } = await this.client.from('classroom_enrollments').select('*, profiles(full_name, email, roll_number)').eq('classroom_id', classroomId);
+    return (data || []).map((e: any) => ({
+      ...e,
+      student_name: e.profiles?.full_name,
+      student_email: e.profiles?.email,
+      roll_number: e.profiles?.roll_number,
+    })) as ClassroomEnrollmentEntity[];
+  }
+
+  async getEnrollmentsByStudent(studentId: string): Promise<ClassroomEnrollmentEntity[]> {
+    if (!this.client) return [];
+    const { data } = await this.client.from('classroom_enrollments').select('*').eq('student_id', studentId);
+    return (data || []) as ClassroomEnrollmentEntity[];
+  }
+
+  async getAssignments(filter?: {
+    role?: UserRole;
+    studentId?: string;
+    facultyId?: string;
+    collegeId?: string;
+    classroomId?: string;
+    status?: string;
+  }): Promise<any[]> {
+    if (!this.client) return [];
+    let query = this.client.from('assignments').select('*, classrooms(name, join_code)').order('created_at', { ascending: false });
 
     if (filter?.role === 'student') {
       query = query.in('status', ['active', 'published', 'open']);
+      if (filter.studentId) {
+        // HIERARCHICAL ISOLATION: Student must be actively enrolled in assignment's parent classroom
+        const { data: enrollments } = await this.client
+          .from('classroom_enrollments')
+          .select('classroom_id')
+          .eq('student_id', filter.studentId);
+        const enrolledClassroomIds = (enrollments || []).map((e: any) => e.classroom_id).filter(Boolean);
+        if (enrolledClassroomIds.length === 0) {
+          return [];
+        }
+        query = query.in('classroom_id', enrolledClassroomIds);
+      } else {
+        return [];
+      }
+    } else if (filter?.role === 'faculty') {
+      if (filter.classroomId) {
+        query = query.eq('classroom_id', filter.classroomId);
+      } else if (filter.facultyId) {
+        query = query.eq('created_by', filter.facultyId);
+      }
+    }
+
+    if (filter?.classroomId && filter.role !== 'faculty') {
+      query = query.eq('classroom_id', filter.classroomId);
     }
 
     const { data, error } = await query;
@@ -184,11 +400,18 @@ export class SupabaseApplicationRepository implements IApplicationRepository {
 
   async getAssignmentById(id: string): Promise<AssignmentEntity | null> {
     if (!this.client) return null;
-    const { data, error } = await this.client.from('assignments').select('*').eq('id', id).maybeSingle();
+    const { data, error } = await this.client
+      .from('assignments')
+      .select('*, classrooms(name, college_id)')
+      .eq('id', id)
+      .maybeSingle();
     if (error || !data) return null;
 
     return {
       ...data,
+      classroom_id: data.classroom_id,
+      classroom_name: (data as any).classrooms?.name,
+      college_id: (data as any).classrooms?.college_id,
       due_date: data.due_date || '2026-10-20',
       test_cases_json: typeof data.test_cases_json === 'string' ? data.test_cases_json : JSON.stringify(data.test_cases_json || []),
     } as AssignmentEntity;
@@ -205,6 +428,7 @@ export class SupabaseApplicationRepository implements IApplicationRepository {
 
     const payload = {
       id: data.id,
+      classroom_id: data.classroom_id || null,
       title: data.title,
       description: data.description,
       language: data.language,
@@ -220,6 +444,7 @@ export class SupabaseApplicationRepository implements IApplicationRepository {
     if (error) throw error;
     return {
       ...result,
+      classroom_id: result.classroom_id,
       test_cases_json: JSON.stringify(result.test_cases_json || []),
     };
   }

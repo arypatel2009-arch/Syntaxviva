@@ -1071,13 +1071,13 @@ export const Phase2ChallengeView: React.FC<Phase2ChallengeViewProps> = ({
         </div>
       )}
 
-      {/* Gemini AI Evaluation Outcome Banner */}
+      {/* SyntaXViva AI Evaluation Outcome Banner */}
       {isPassed && (
         <div className="p-5 bg-emerald-50 border border-emerald-200 rounded-2xl flex flex-col gap-2 text-emerald-900 text-xs shadow-xs">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
-              <span className="font-bold text-sm text-emerald-950">Gemini AI Verification: PASSED</span>
+              <span className="font-bold text-sm text-emerald-950">SyntaXViva AI Verification: PASSED</span>
             </div>
             {(phase2State as any)?.evaluation?.score !== undefined && (
               <span className="px-3 py-1 bg-emerald-600 text-white font-mono font-bold rounded-full text-xs">
@@ -1087,7 +1087,7 @@ export const Phase2ChallengeView: React.FC<Phase2ChallengeViewProps> = ({
           </div>
           <div className="text-xs text-emerald-800 leading-relaxed font-medium">
             {(phase2State as any)?.evaluation?.summary ||
-              'Your Phase 2 solution was verified by Gemini AI as a valid modification of the approved Phase 1 baseline.'}
+              'Your Phase 2 solution was verified by SyntaXViva AI as a valid modification of the approved Phase 1 baseline.'}
           </div>
         </div>
       )}
@@ -1097,7 +1097,7 @@ export const Phase2ChallengeView: React.FC<Phase2ChallengeViewProps> = ({
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <XCircle className="w-5 h-5 text-rose-600 shrink-0" />
-              <span className="font-bold text-sm text-rose-950">Gemini AI Verification: FAILED</span>
+              <span className="font-bold text-sm text-rose-950">SyntaXViva AI Verification: FAILED</span>
             </div>
             {(phase2State as any)?.evaluation?.score !== undefined && (
               <span className="px-3 py-1 bg-rose-600 text-white font-mono font-bold rounded-full text-xs">

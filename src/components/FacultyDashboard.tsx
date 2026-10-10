@@ -140,6 +140,8 @@ export const FacultyDashboard: React.FC<FacultyDashboardProps> = () => {
         {/* Header */}
         <FacultyHeader
           onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
+          onToggleCollapse={() => setSidebarCollapsed((prev) => !prev)}
+          collapsed={sidebarCollapsed}
           searchTerm={searchTerm}
           onSearchChange={setSearchTerm}
           onCreateAssignment={handleOpenCreateAssignment}
@@ -157,6 +159,7 @@ export const FacultyDashboard: React.FC<FacultyDashboardProps> = () => {
               onReviewSubmission={(sub) => setReviewSubmission(sub)}
               onRefresh={loadData}
               onDeleteAssignment={handleDeleteAssignment}
+              viewMode="dashboard"
             />
           )}
 
@@ -203,6 +206,7 @@ export const FacultyDashboard: React.FC<FacultyDashboardProps> = () => {
                 onReviewSubmission={(sub) => setReviewSubmission(sub)}
                 onRefresh={loadData}
                 onDeleteAssignment={handleDeleteAssignment}
+                viewMode="submissions"
               />
             </div>
           )}

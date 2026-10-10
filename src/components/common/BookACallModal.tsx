@@ -77,6 +77,7 @@ export const BookACallModal: React.FC<BookACallModalProps> = ({ isOpen, onClose,
       }
 
       setSubmittedId(data.inquiryId);
+      handleLaunchWhatsApp();
     } catch (err: any) {
       setErrorMsg(err?.message || 'Failed to submit inquiry. Please check your details or network connection.');
     } finally {
@@ -102,8 +103,8 @@ Please let me know the next steps.`;
     const encodedText = encodeURIComponent(text);
 
     // Business numbers configuration
-    const targetPhone1 = (import.meta as any)?.env?.VITE_WHATSAPP_NUMBER || '916351003457';
-    const targetPhone2 = '919104115655';
+    const targetPhone1 = '919104115655';
+    const targetPhone2 = '916351003457';
 
     const whatsappUrl1 = `https://wa.me/${targetPhone1}?text=${encodedText}`;
     const whatsappUrl2 = `https://wa.me/${targetPhone2}?text=${encodedText}`;

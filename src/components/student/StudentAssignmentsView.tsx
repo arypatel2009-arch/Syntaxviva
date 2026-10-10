@@ -6,6 +6,7 @@ import {
   Bug,
   Eye,
   Lock,
+  Users,
 } from 'lucide-react';
 import { Assignment } from '../../types/index.ts';
 import {
@@ -14,6 +15,7 @@ import {
   RowActionMenu,
   EmptyState,
 } from '../common/UIComponents.tsx';
+import { JoinClassroomModal } from './JoinClassroomModal.tsx';
 
 function isAssignmentDeadlinePassed(dueDate?: string | null): boolean {
   if (!dueDate || typeof dueDate !== 'string' || !dueDate.trim()) return false;
@@ -33,16 +35,19 @@ interface StudentAssignmentsViewProps {
   assignments: Assignment[];
   onSelectAssignment: (assignmentId: string, phase?: 'phase1' | 'phase2') => void;
   onViewDetails: (assignment: Assignment) => void;
+  onRefresh?: () => void;
 }
 
 export const StudentAssignmentsView: React.FC<StudentAssignmentsViewProps> = ({
   assignments,
   onSelectAssignment,
   onViewDetails,
+  onRefresh,
 }) => {
   const [filterTab, setFilterTab] = useState<'all' | 'pending' | 'in_progress' | 'completed'>('all');
   const [search, setSearch] = useState('');
   const [languageFilter, setLanguageFilter] = useState('all');
+  const [showJoinModal, setShowJoinModal] = useState(false);
 
   const filtered = assignments.filter((asg) => {
     const matchesSearch =
@@ -95,6 +100,14 @@ export const StudentAssignmentsView: React.FC<StudentAssignmentsViewProps> = ({
             View, implement, and verify your enrolled computer science assessments.
           </p>
         </div>
+        <Button
+          variant="primary"
+          size="md"
+          icon={Users}
+          onClick={() => setShowJoinModal(true)}
+        >
+          Join Classroom
+        </Button>
       </div>
 
       {/* Tabs & Search Filter Bar */}
@@ -155,7 +168,15 @@ export const StudentAssignmentsView: React.FC<StudentAssignmentsViewProps> = ({
 
       {/* Assignments Table / List */}
       <div className="bg-white rounded-xl border border-slate-200/80 shadow-xs overflow-visible">
-        {filtered.length === 0 ? (
+        {assignments.length === 0 ? (
+          <EmptyState
+            icon={Users}
+            title="No Enrolled Classrooms"
+            description="You are not enrolled in any classrooms yet. Enter your professor's 6-character code to join your classroom and unlock assignments."
+            actionLabel="Join Classroom"
+            onAction={() => setShowJoinModal(true)}
+          />
+        ) : filtered.length === 0 ? (
           <EmptyState
             icon={Search}
             title="No results found"
@@ -173,15 +194,15 @@ export const StudentAssignmentsView: React.FC<StudentAssignmentsViewProps> = ({
           />
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
+            <table className="w-full text-left text-xs min-w-[700px]">
               <thead>
                 <tr className="bg-slate-50/70 border-b border-slate-200/80 text-xs font-medium text-slate-500 uppercase tracking-wider">
-                  <th className="py-3 pl-6">Assignment Title</th>
-                  <th className="py-3">Language</th>
-                  <th className="py-3">Created By</th>
-                  <th className="py-3">Deadline Date</th>
-                  <th className="py-3">Status</th>
-                  <th className="py-3 text-right pr-6">Action</th>
+                  <th className="py-3 pl-6 w-auto min-w-[200px]">Assignment Title</th>
+                  <th className="py-3 w-28 whitespace-nowrap">Language</th>
+                  <th className="py-3 w-36 whitespace-nowrap">Created By</th>
+                  <th className="py-3 w-36 whitespace-nowrap">Deadline Date</th>
+                  <th className="py-3 w-40 whitespace-nowrap">Status</th>
+                  <th className="py-3 text-right pr-6 w-44 whitespace-nowrap">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -361,6 +382,12 @@ export const StudentAssignmentsView: React.FC<StudentAssignmentsViewProps> = ({
           </div>
         )}
       </div>
+
+      <JoinClassroomModal
+        isOpen={showJoinModal}
+        onClose={() => setShowJoinModal(false)}
+        onSuccess={() => onRefresh?.()}
+      />
     </div>
   );
 };

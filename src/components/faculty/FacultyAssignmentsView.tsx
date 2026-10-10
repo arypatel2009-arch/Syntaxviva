@@ -269,6 +269,7 @@ export const FacultyAssignmentsView: React.FC<FacultyAssignmentsViewProps> = ({
       header: 'Language',
       sortable: true,
       sortType: 'string',
+      width: '110px',
       getSortValue: (asg) => asg.language,
       render: (asg) => (
         <span className="font-mono text-slate-600 uppercase bg-slate-100 border border-slate-200/70 px-2 py-0.5 rounded text-[11px] font-medium">
@@ -281,6 +282,7 @@ export const FacultyAssignmentsView: React.FC<FacultyAssignmentsViewProps> = ({
       header: 'Students Submitted',
       sortable: true,
       sortType: 'number',
+      width: '160px',
       getSortValue: (asg) => Number(asg.submissionCount ?? 0),
       render: (asg) => (
         <span className="font-medium text-slate-700 tabular-nums">
@@ -296,6 +298,7 @@ export const FacultyAssignmentsView: React.FC<FacultyAssignmentsViewProps> = ({
       header: 'Deadline Date',
       sortable: true,
       sortType: 'date',
+      width: '180px',
       getSortValue: (asg) =>
         deadlineDrafts[asg.id] ||
         (asg.dueDate ? String(asg.dueDate).slice(0, 10) : '2026-10-20'),
@@ -337,6 +340,7 @@ export const FacultyAssignmentsView: React.FC<FacultyAssignmentsViewProps> = ({
     {
       key: 'phase2Access',
       header: 'Phase 2 Access (All Students)',
+      width: '190px',
       render: (asg) => {
         const unlocked = isPhase2UnlockedFor(asg);
         const isBusy = unlockingId === asg.id;
@@ -383,6 +387,7 @@ export const FacultyAssignmentsView: React.FC<FacultyAssignmentsViewProps> = ({
       header: 'Status',
       sortable: true,
       sortType: 'string',
+      width: '110px',
       getSortValue: (asg) => asg.status,
       render: (asg) => (
         <Badge
@@ -402,6 +407,7 @@ export const FacultyAssignmentsView: React.FC<FacultyAssignmentsViewProps> = ({
       key: 'actions',
       header: 'Actions',
       align: 'right',
+      width: '140px',
       render: (asg) => (
         <div className="flex items-center justify-end gap-2 whitespace-nowrap">
           <button
@@ -449,9 +455,6 @@ export const FacultyAssignmentsView: React.FC<FacultyAssignmentsViewProps> = ({
           <h1 className="text-2xl font-semibold text-slate-900 tracking-tight">
             Lab Assignments
           </h1>
-          <p className="text-sm text-slate-500 mt-0.5">
-            Unlock Phase 2 AST Viva for all students in 1 click, or manage deadlines and submissions.
-          </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5">

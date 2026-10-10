@@ -12,6 +12,7 @@ export interface ProfileEntity {
   full_name: string;
   role: UserRole;
   institution_id: string | null;
+  college_id?: string | null;
   roll_number: string | null;
   class_id: string | null;
   division_id: string | null;
@@ -21,8 +22,42 @@ export interface ProfileEntity {
   updated_at: string;
 }
 
+export interface CollegeEntity {
+  id: string;
+  name: string;
+  code?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ClassroomEntity {
+  id: string;
+  college_id: string;
+  faculty_id: string;
+  name: string;
+  description?: string;
+  join_code: string;
+  created_at: string;
+  updated_at: string;
+  faculty_name?: string;
+  college_name?: string;
+  student_count?: number;
+  assignment_count?: number;
+}
+
+export interface ClassroomEnrollmentEntity {
+  id: string;
+  classroom_id: string;
+  student_id: string;
+  enrolled_at: string;
+  student_name?: string;
+  student_email?: string;
+  roll_number?: string;
+}
+
 export interface AssignmentEntity {
   id: string;
+  classroom_id?: string;
   title: string;
   description: string;
   language: string;
@@ -186,8 +221,43 @@ export interface IApplicationRepository {
   upsertProfile(data: Partial<ProfileEntity> & { id: string; email: string; full_name: string }): Promise<ProfileEntity>;
   updateProfile(id: string, updates: Partial<ProfileEntity>): Promise<ProfileEntity | null>;
 
+  // Colleges (Tenant Boundary)
+  getCollegeById(id: string): Promise<CollegeEntity | null>;
+  getCollegeByName(name: string): Promise<CollegeEntity | null>;
+  getOrCreateCollege(name: string, code?: string): Promise<CollegeEntity>;
+  listColleges(): Promise<CollegeEntity[]>;
+
+  // Classrooms (Scoped Multi-Tenant Unit)
+  createClassroom(data: {
+    id?: string;
+    college_id: string;
+    faculty_id: string;
+    name: string;
+    description?: string;
+    join_code?: string;
+  }): Promise<ClassroomEntity>;
+  getClassroomById(id: string): Promise<ClassroomEntity | null>;
+  getClassroomByJoinCode(joinCode: string): Promise<ClassroomEntity | null>;
+  getClassroomsByFaculty(facultyId: string): Promise<ClassroomEntity[]>;
+  getClassroomsByCollege(collegeId: string): Promise<ClassroomEntity[]>;
+  getClassroomsByStudent(studentId: string): Promise<ClassroomEntity[]>;
+  generateUniqueJoinCode(): Promise<string>;
+
+  // Classroom Enrollments
+  enrollStudent(classroomId: string, studentId: string): Promise<ClassroomEnrollmentEntity>;
+  isStudentEnrolled(classroomId: string, studentId: string): Promise<boolean>;
+  getEnrollmentsByClassroom(classroomId: string): Promise<ClassroomEnrollmentEntity[]>;
+  getEnrollmentsByStudent(studentId: string): Promise<ClassroomEnrollmentEntity[]>;
+
   // Assignments
-  getAssignments(filter?: { role?: UserRole; studentId?: string; status?: string }): Promise<any[]>;
+  getAssignments(filter?: {
+    role?: UserRole;
+    studentId?: string;
+    facultyId?: string;
+    collegeId?: string;
+    classroomId?: string;
+    status?: string;
+  }): Promise<any[]>;
   getAssignmentById(id: string): Promise<AssignmentEntity | null>;
   createAssignment(data: Omit<AssignmentEntity, 'created_at' | 'updated_at'>): Promise<AssignmentEntity>;
   updateAssignment(id: string, data: Partial<AssignmentEntity>): Promise<AssignmentEntity | null>;

@@ -91,6 +91,37 @@ async function initSchemaAndSeed(db: Database): Promise<void> {
       updated_at TEXT NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS colleges (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL UNIQUE,
+      code TEXT UNIQUE,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS classrooms (
+      id TEXT PRIMARY KEY,
+      college_id TEXT NOT NULL,
+      faculty_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      description TEXT DEFAULT '',
+      join_code TEXT NOT NULL UNIQUE,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      FOREIGN KEY (college_id) REFERENCES colleges(id),
+      FOREIGN KEY (faculty_id) REFERENCES users(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS classroom_enrollments (
+      id TEXT PRIMARY KEY,
+      classroom_id TEXT NOT NULL,
+      student_id TEXT NOT NULL,
+      enrolled_at TEXT NOT NULL,
+      FOREIGN KEY (classroom_id) REFERENCES classrooms(id) ON DELETE CASCADE,
+      FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE,
+      UNIQUE(classroom_id, student_id)
+    );
+
     CREATE TABLE IF NOT EXISTS contact_inquiries (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
@@ -299,7 +330,12 @@ async function initSchemaAndSeed(db: Database): Promise<void> {
     CREATE INDEX IF NOT EXISTS idx_phase2_challenges_attempt ON phase2_challenges(attempt_id);
     CREATE INDEX IF NOT EXISTS idx_phase2_challenges_student_asg ON phase2_challenges(student_id, assignment_id);
     CREATE INDEX IF NOT EXISTS idx_phase2_evaluations_challenge ON phase2_evaluations(challenge_id);
-    CREATE INDEX IF NOT EXISTS idx_phase2_evaluations_attempt ON phase2_evaluations(attempt_id);
+    CREATE INDEX IF NOT EXISTS idx_classrooms_college ON classrooms(college_id);
+    CREATE INDEX IF NOT EXISTS idx_classrooms_faculty ON classrooms(faculty_id);
+    CREATE INDEX IF NOT EXISTS idx_classrooms_join_code ON classrooms(join_code);
+    CREATE INDEX IF NOT EXISTS idx_enrollments_classroom ON classroom_enrollments(classroom_id);
+    CREATE INDEX IF NOT EXISTS idx_enrollments_student ON classroom_enrollments(student_id);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_enrollments_unique ON classroom_enrollments(classroom_id, student_id);
   `);
 
   // Safe migration for existing student_attempts tables
@@ -330,13 +366,17 @@ async function initSchemaAndSeed(db: Database): Promise<void> {
     console.warn('Migration note for student_attempts:', err);
   }
 
-  // Safe migration for existing assignments table (Faculty 1-click Phase 2 Unlock)
+  // Safe migration for existing assignments table (Faculty 1-click Phase 2 Unlock & classroom_id)
   try {
     const asgTableInfo = db.exec("PRAGMA table_info(assignments)");
     if (asgTableInfo && asgTableInfo[0]) {
       const asgCols = asgTableInfo[0].values.map((row) => row[1] as string);
       if (!asgCols.includes('phase2_unlocked')) {
         db.run('ALTER TABLE assignments ADD COLUMN phase2_unlocked INTEGER NOT NULL DEFAULT 0');
+      }
+      if (!asgCols.includes('classroom_id')) {
+        db.run('ALTER TABLE assignments ADD COLUMN classroom_id TEXT');
+        db.run('CREATE INDEX IF NOT EXISTS idx_assignments_classroom ON assignments(classroom_id)');
       }
     }
   } catch (err) {
@@ -351,6 +391,7 @@ async function initSchemaAndSeed(db: Database): Promise<void> {
       if (!userCols.includes('roll_number')) db.run('ALTER TABLE users ADD COLUMN roll_number TEXT');
       if (!userCols.includes('class_id')) db.run('ALTER TABLE users ADD COLUMN class_id TEXT');
       if (!userCols.includes('division_id')) db.run('ALTER TABLE users ADD COLUMN division_id TEXT');
+      if (!userCols.includes('college_id')) db.run('ALTER TABLE users ADD COLUMN college_id TEXT');
     }
 
     const profilesTableInfo = db.exec("PRAGMA table_info(profiles)");
@@ -359,9 +400,129 @@ async function initSchemaAndSeed(db: Database): Promise<void> {
       if (!profCols.includes('roll_number')) db.run('ALTER TABLE profiles ADD COLUMN roll_number TEXT');
       if (!profCols.includes('class_id')) db.run('ALTER TABLE profiles ADD COLUMN class_id TEXT');
       if (!profCols.includes('division_id')) db.run('ALTER TABLE profiles ADD COLUMN division_id TEXT');
+      if (!profCols.includes('college_id')) db.run('ALTER TABLE profiles ADD COLUMN college_id TEXT');
     }
   } catch (err) {
     console.warn('Migration note for academic columns:', err);
+  }
+
+  // Safe migration: Multi-tenancy colleges, classrooms, and assignments backfill
+  try {
+    const nowIso = new Date().toISOString();
+
+    // 1. Ensure colleges exist for all existing institutions
+    const instRows = db.exec(`
+      SELECT DISTINCT TRIM(institution_id) FROM profiles WHERE institution_id IS NOT NULL AND TRIM(institution_id) != ''
+      UNION
+      SELECT DISTINCT TRIM(institution) FROM users WHERE institution IS NOT NULL AND TRIM(institution) != ''
+    `);
+    if (instRows && instRows[0]) {
+      for (const row of instRows[0].values) {
+        const instName = String(row[0] || '').trim();
+        if (!instName) continue;
+        const colId = `col_${instName.toLowerCase().replace(/[^a-z0-9]/g, '_').substring(0, 32)}`;
+        const colCode = instName.replace(/[^A-Za-z0-9]/g, '').substring(0, 6).toUpperCase();
+        db.run(
+          `INSERT OR IGNORE INTO colleges (id, name, code, created_at, updated_at) VALUES (?, ?, ?, ?, ?)`,
+          [colId, instName, colCode || 'COL', nowIso, nowIso]
+        );
+      }
+    }
+
+    // 2. Ensure default college exists as baseline
+    db.run(
+      `INSERT OR IGNORE INTO colleges (id, name, code, created_at, updated_at)
+       VALUES ('col_default', 'SyntaXViva Academic Institute', 'SVAI', ?, ?)`,
+      [nowIso, nowIso]
+    );
+
+    // 3. Sync college_id on profiles and users
+    db.run(`
+      UPDATE profiles
+      SET college_id = COALESCE(
+        (SELECT id FROM colleges WHERE lower(colleges.name) = lower(trim(profiles.institution_id)) LIMIT 1),
+        college_id,
+        'col_default'
+      )
+      WHERE college_id IS NULL;
+    `);
+
+    db.run(`
+      UPDATE users
+      SET college_id = COALESCE(
+        (SELECT id FROM colleges WHERE lower(colleges.name) = lower(trim(users.institution)) LIMIT 1),
+        college_id,
+        'col_default'
+      )
+      WHERE college_id IS NULL;
+    `);
+
+    // 4. Backfill any legacy assignments without classroom_id
+    const unassigned = db.exec("SELECT id, created_by FROM assignments WHERE classroom_id IS NULL OR classroom_id = ''");
+    if (unassigned && unassigned[0] && unassigned[0].values.length > 0) {
+      for (const row of unassigned[0].values) {
+        const asgId = String(row[0]);
+        const creatorId = String(row[1]);
+
+        // Find creator's college_id
+        const creatorProf = db.exec(`SELECT college_id FROM profiles WHERE id = '${creatorId}' UNION SELECT college_id FROM users WHERE id = '${creatorId}' LIMIT 1`);
+        const colId = (creatorProf && creatorProf[0]?.values[0]?.[0])
+          ? String(creatorProf[0].values[0][0])
+          : 'col_default';
+
+        // Check if creator already has a classroom
+        const existingCls = db.exec(`SELECT id FROM classrooms WHERE faculty_id = '${creatorId}' LIMIT 1`);
+        let clsId: string;
+        if (existingCls && existingCls[0]?.values[0]?.[0]) {
+          clsId = String(existingCls[0].values[0][0]);
+        } else {
+          clsId = `cls_legacy_${creatorId.substring(0, 8)}_${Date.now()}`;
+          const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+          let joinCode = 'SYN';
+          for (let i = 0; i < 3; i++) joinCode += chars.charAt(Math.floor(Math.random() * chars.length));
+          db.run(
+            `INSERT OR IGNORE INTO classrooms (id, college_id, faculty_id, name, description, join_code, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            [clsId, colId, creatorId, 'Computer Science Lab', 'Default enrolled classroom', joinCode, nowIso, nowIso]
+          );
+        }
+
+        db.run(`UPDATE assignments SET classroom_id = ? WHERE id = ?`, [clsId, asgId]);
+      }
+    }
+
+    // 5. Ensure EVERY faculty member in the system has at least one classroom with an active join code
+    const allFaculty = db.exec("SELECT id, college_id, full_name, institution_id FROM profiles WHERE role = 'faculty' UNION SELECT id, college_id, name, institution FROM users WHERE role = 'faculty'");
+    if (allFaculty && allFaculty[0] && allFaculty[0].values.length > 0) {
+      for (const fRow of allFaculty[0].values) {
+        const facId = String(fRow[0]);
+        let colId = fRow[1] ? String(fRow[1]) : 'col_default';
+        const facName = fRow[2] ? String(fRow[2]) : 'Faculty';
+        const instName = fRow[3] ? String(fRow[3]) : 'SyntaXViva Academic Institute';
+
+        if (!colId || colId === 'col_default') {
+          const colCheck = db.exec(`SELECT id FROM colleges WHERE lower(name) = lower('${instName.replace(/'/g, "''")}') LIMIT 1`);
+          if (colCheck && colCheck[0]?.values[0]?.[0]) {
+            colId = String(colCheck[0].values[0][0]);
+          }
+        }
+
+        const existingCls = db.exec(`SELECT id FROM classrooms WHERE faculty_id = '${facId}' LIMIT 1`);
+        if (!existingCls || !existingCls[0] || existingCls[0].values.length === 0) {
+          const newClsId = `cls_${facId.substring(0, 8)}_${Date.now()}`;
+          const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+          let jCode = 'SYN';
+          for (let i = 0; i < 3; i++) jCode += chars.charAt(Math.floor(Math.random() * chars.length));
+          db.run(
+            `INSERT INTO classrooms (id, college_id, faculty_id, name, description, join_code, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            [newClsId, colId, facId, `${facName}'s Computer Science Lab`, 'Primary classroom cohort for assignments and viva assessments.', jCode, nowIso, nowIso]
+          );
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('Migration note for multi-tenant colleges and classrooms:', err);
   }
 
   // Safe migration for security_events table
@@ -486,6 +647,7 @@ export interface ProfileRow {
   full_name: string;
   role: 'student' | 'faculty' | 'admin';
   institution_id: string | null;
+  college_id?: string | null;
   roll_number: string | null;
   class_id: string | null;
   division_id: string | null;
@@ -539,6 +701,7 @@ export function upsertProfile(data: {
   full_name: string;
   role?: 'student' | 'faculty' | 'admin';
   institution_id?: string | null;
+  college_id?: string | null;
   roll_number?: string | null;
   class_id?: string | null;
   division_id?: string | null;
@@ -547,6 +710,12 @@ export function upsertProfile(data: {
 }): ProfileRow {
   const existing = getProfileById(data.id) || getProfileByEmail(data.email);
   const now = new Date().toISOString();
+
+  let resolvedColId: string | null = data.college_id || null;
+  if (!resolvedColId && data.institution_id && data.institution_id.trim()) {
+    resolvedColId = getOrCreateCollege(data.institution_id.trim()).id;
+  }
+
   if (existing) {
     if (existing.id !== data.id) {
       // Migrate legacy ID to authenticated Supabase user ID (auth.users.id)
@@ -557,6 +726,7 @@ export function upsertProfile(data: {
           full_name = ?, 
           role = COALESCE(?, role),
           institution_id = COALESCE(?, institution_id),
+          college_id = COALESCE(?, college_id),
           roll_number = COALESCE(?, roll_number),
           class_id = COALESCE(?, class_id),
           division_id = COALESCE(?, division_id),
@@ -569,6 +739,7 @@ export function upsertProfile(data: {
           data.full_name,
           data.role && ['faculty', 'admin', 'student'].includes(data.role) ? data.role : null,
           data.institution_id || null,
+          resolvedColId,
           data.roll_number || null,
           data.class_id || null,
           data.division_id || null,
@@ -581,6 +752,8 @@ export function upsertProfile(data: {
       dbRun(`UPDATE student_attempts SET student_id = ? WHERE student_id = ?`, [data.id, existing.id]);
       dbRun(`UPDATE phase2_challenges SET student_id = ? WHERE student_id = ?`, [data.id, existing.id]);
       dbRun(`UPDATE assignments SET created_by = ? WHERE created_by = ?`, [data.id, existing.id]);
+      dbRun(`UPDATE classrooms SET faculty_id = ? WHERE faculty_id = ?`, [data.id, existing.id]);
+      dbRun(`UPDATE classroom_enrollments SET student_id = ? WHERE student_id = ?`, [data.id, existing.id]);
       dbRun(
         `UPDATE users SET 
           id = ?,
@@ -588,6 +761,7 @@ export function upsertProfile(data: {
           roll_number = COALESCE(?, roll_number),
           class_id = COALESCE(?, class_id),
           division_id = COALESCE(?, division_id),
+          college_id = COALESCE(?, college_id),
           avatar_url = COALESCE(?, avatar_url)
         WHERE id = ?`,
         [
@@ -596,6 +770,7 @@ export function upsertProfile(data: {
           data.roll_number || null,
           data.class_id || null,
           data.division_id || null,
+          resolvedColId,
           data.avatar_url || null,
           existing.id,
         ]
@@ -609,6 +784,7 @@ export function upsertProfile(data: {
           full_name = ?, 
           role = COALESCE(?, role),
           institution_id = COALESCE(?, institution_id),
+          college_id = COALESCE(?, college_id),
           roll_number = COALESCE(?, roll_number),
           class_id = COALESCE(?, class_id),
           division_id = COALESCE(?, division_id),
@@ -620,6 +796,7 @@ export function upsertProfile(data: {
           data.full_name,
           data.role && ['faculty', 'admin', 'student'].includes(data.role) ? data.role : null,
           data.institution_id || null,
+          resolvedColId,
           data.roll_number || null,
           data.class_id || null,
           data.division_id || null,
@@ -635,6 +812,7 @@ export function upsertProfile(data: {
           class_id = COALESCE(?, class_id),
           division_id = COALESCE(?, division_id),
           institution = COALESCE(?, institution),
+          college_id = COALESCE(?, college_id),
           avatar_url = COALESCE(?, avatar_url)
         WHERE id = ?`,
         [
@@ -643,6 +821,7 @@ export function upsertProfile(data: {
           data.class_id || null,
           data.division_id || null,
           data.institution_id || null,
+          resolvedColId,
           data.avatar_url || null,
           existing.id,
         ]
@@ -654,14 +833,15 @@ export function upsertProfile(data: {
     // Normal registration defaults strictly to 'student' unless specifically established
     const assignedRole = (data.role && ['faculty', 'admin', 'student'].includes(data.role)) ? data.role : 'student';
     dbRun(
-      `INSERT INTO profiles (id, email, full_name, role, institution_id, roll_number, class_id, division_id, avatar_url, status, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO profiles (id, email, full_name, role, institution_id, college_id, roll_number, class_id, division_id, avatar_url, status, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         data.id,
         data.email.toLowerCase(),
         data.full_name,
         assignedRole,
         data.institution_id || null,
+        resolvedColId,
         data.roll_number || null,
         data.class_id || null,
         data.division_id || null,
@@ -673,14 +853,15 @@ export function upsertProfile(data: {
     );
     // Ensure users table also has a matching record for relational integrity
     dbRun(
-      `INSERT OR IGNORE INTO users (id, name, email, password_hash, role, institution, roll_number, class_id, division_id, avatar_url, created_at, updated_at)
-       VALUES (?, ?, ?, 'SUPABASE_AUTH_EXTERNAL', ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT OR IGNORE INTO users (id, name, email, password_hash, role, institution, college_id, roll_number, class_id, division_id, avatar_url, created_at, updated_at)
+       VALUES (?, ?, ?, 'SUPABASE_AUTH_EXTERNAL', ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         data.id,
         data.full_name,
         data.email.toLowerCase(),
         assignedRole,
         data.institution_id || null,
+        resolvedColId,
         data.roll_number || null,
         data.class_id || null,
         data.division_id || null,
@@ -699,6 +880,7 @@ export function updateProfile(
   updates: {
     full_name?: string;
     institution_id?: string | null;
+    college_id?: string | null;
     roll_number?: string | null;
     class_id?: string | null;
     division_id?: string | null;
@@ -711,6 +893,10 @@ export function updateProfile(
   const now = new Date().toISOString();
   const newName = updates.full_name !== undefined ? updates.full_name.trim() : existing.full_name;
   const newInst = updates.institution_id !== undefined ? updates.institution_id : existing.institution_id;
+  let newColId: string | null = updates.college_id !== undefined ? updates.college_id : (existing.college_id || null);
+  if (!newColId && newInst && newInst.trim()) {
+    newColId = getOrCreateCollege(newInst.trim()).id;
+  }
   const newRoll = updates.roll_number !== undefined ? updates.roll_number : existing.roll_number;
   const newClass = updates.class_id !== undefined ? updates.class_id : existing.class_id;
   const newDiv = updates.division_id !== undefined ? updates.division_id : existing.division_id;
@@ -721,6 +907,7 @@ export function updateProfile(
     `UPDATE profiles SET 
       full_name = ?, 
       institution_id = ?, 
+      college_id = ?,
       roll_number = ?, 
       class_id = ?, 
       division_id = ?, 
@@ -728,8 +915,23 @@ export function updateProfile(
       role = ?, 
       updated_at = ? 
     WHERE id = ?`,
-    [newName, newInst, newRoll, newClass, newDiv, newAvatar, newRole, now, id]
+    [newName, newInst, newColId, newRoll, newClass, newDiv, newAvatar, newRole, now, id]
   );
+  dbRun(
+    `UPDATE users SET 
+      name = ?, 
+      institution = ?, 
+      college_id = ?,
+      roll_number = ?, 
+      class_id = ?, 
+      division_id = ?, 
+      avatar_url = ?, 
+      role = ?, 
+      updated_at = ? 
+    WHERE id = ?`,
+    [newName, newInst, newColId, newRoll, newClass, newDiv, newAvatar, newRole, now, id]
+  );
+  saveDatabaseToDisk();
   return getProfileById(id);
 }
 
@@ -882,4 +1084,242 @@ export function releaseFacultyDivisionSession(facultyId: string): { success: boo
   dbRun(`DELETE FROM faculty_division_sessions WHERE faculty_id = ?`, [facultyId]);
   return { success: true };
 }
+
+// ============================================================================
+// Multi-Tenant College, Classroom & Enrollment Types & Database Helpers
+// ============================================================================
+
+export interface CollegeRow {
+  id: string;
+  name: string;
+  code: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ClassroomRow {
+  id: string;
+  college_id: string;
+  faculty_id: string;
+  name: string;
+  description: string | null;
+  join_code: string;
+  created_at: string;
+  updated_at: string;
+  faculty_name?: string;
+  college_name?: string;
+  student_count?: number;
+  assignment_count?: number;
+}
+
+export interface ClassroomEnrollmentRow {
+  id: string;
+  classroom_id: string;
+  student_id: string;
+  enrolled_at: string;
+  student_name?: string;
+  student_email?: string;
+  roll_number?: string;
+}
+
+export function getCollegeById(id: string): CollegeRow | null {
+  return dbGet<CollegeRow>('SELECT * FROM colleges WHERE id = ?', [id]);
+}
+
+export function getCollegeByName(name: string): CollegeRow | null {
+  return dbGet<CollegeRow>('SELECT * FROM colleges WHERE lower(name) = lower(?)', [name.trim()]);
+}
+
+export function listColleges(): CollegeRow[] {
+  return dbQuery<CollegeRow>('SELECT * FROM colleges ORDER BY name ASC');
+}
+
+export function getOrCreateCollege(name: string, code?: string): CollegeRow {
+  const cleanName = name.trim();
+  const existing = getCollegeByName(cleanName);
+  if (existing) return existing;
+
+  const now = new Date().toISOString();
+  const colId = `col_${cleanName.toLowerCase().replace(/[^a-z0-9]/g, '_').substring(0, 32)}`;
+  const colCode = (code || cleanName.replace(/[^A-Za-z0-9]/g, '').substring(0, 6)).toUpperCase();
+
+  dbRun(
+    `INSERT OR IGNORE INTO colleges (id, name, code, created_at, updated_at) VALUES (?, ?, ?, ?, ?)`,
+    [colId, cleanName, colCode || 'COL', now, now]
+  );
+
+  return getCollegeById(colId) || {
+    id: colId,
+    name: cleanName,
+    code: colCode,
+    created_at: now,
+    updated_at: now,
+  };
+}
+
+export function generateUniqueJoinCode(): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  for (let attempt = 0; attempt < 50; attempt++) {
+    let code = 'SYN';
+    for (let i = 0; i < 3; i++) {
+      code += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    const existing = dbGet('SELECT id FROM classrooms WHERE join_code = ?', [code]);
+    if (!existing) return code;
+  }
+  return `SY${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+}
+
+export function createClassroom(data: {
+  id?: string;
+  college_id: string;
+  faculty_id: string;
+  name: string;
+  description?: string;
+  join_code?: string;
+}): ClassroomRow {
+  const id = data.id || `cls_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+  const joinCode = (data.join_code || generateUniqueJoinCode()).toUpperCase().trim();
+  const now = new Date().toISOString();
+
+  dbRun(
+    `INSERT INTO classrooms (id, college_id, faculty_id, name, description, join_code, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    [id, data.college_id, data.faculty_id, data.name.trim(), data.description?.trim() || '', joinCode, now, now]
+  );
+
+  return getClassroomById(id)!;
+}
+
+export function getClassroomById(id: string): ClassroomRow | null {
+  return dbGet<ClassroomRow>(
+    `SELECT c.*, 
+            col.name as college_name,
+            COALESCE(p.full_name, u.name, 'Faculty') as faculty_name,
+            (SELECT COUNT(*) FROM classroom_enrollments ce WHERE ce.classroom_id = c.id) as student_count,
+            (SELECT COUNT(*) FROM assignments a WHERE a.classroom_id = c.id) as assignment_count
+     FROM classrooms c
+     LEFT JOIN colleges col ON col.id = c.college_id
+     LEFT JOIN profiles p ON p.id = c.faculty_id
+     LEFT JOIN users u ON u.id = c.faculty_id
+     WHERE c.id = ?`,
+    [id]
+  );
+}
+
+export function getClassroomByJoinCode(joinCode: string): ClassroomRow | null {
+  return dbGet<ClassroomRow>(
+    `SELECT c.*, 
+            col.name as college_name,
+            COALESCE(p.full_name, u.name, 'Faculty') as faculty_name,
+            (SELECT COUNT(*) FROM classroom_enrollments ce WHERE ce.classroom_id = c.id) as student_count,
+            (SELECT COUNT(*) FROM assignments a WHERE a.classroom_id = c.id) as assignment_count
+     FROM classrooms c
+     LEFT JOIN colleges col ON col.id = c.college_id
+     LEFT JOIN profiles p ON p.id = c.faculty_id
+     LEFT JOIN users u ON u.id = c.faculty_id
+     WHERE upper(trim(c.join_code)) = upper(trim(?))`,
+    [joinCode.trim()]
+  );
+}
+
+export function getClassroomsByFaculty(facultyId: string): ClassroomRow[] {
+  return dbQuery<ClassroomRow>(
+    `SELECT c.*, 
+            col.name as college_name,
+            COALESCE(p.full_name, u.name, 'Faculty') as faculty_name,
+            (SELECT COUNT(*) FROM classroom_enrollments ce WHERE ce.classroom_id = c.id) as student_count,
+            (SELECT COUNT(*) FROM assignments a WHERE a.classroom_id = c.id) as assignment_count
+     FROM classrooms c
+     LEFT JOIN colleges col ON col.id = c.college_id
+     LEFT JOIN profiles p ON p.id = c.faculty_id
+     LEFT JOIN users u ON u.id = c.faculty_id
+     WHERE c.faculty_id = ?
+     ORDER BY c.created_at DESC`,
+    [facultyId]
+  );
+}
+
+export function getClassroomsByCollege(collegeId: string): ClassroomRow[] {
+  return dbQuery<ClassroomRow>(
+    `SELECT c.*, 
+            col.name as college_name,
+            COALESCE(p.full_name, u.name, 'Faculty') as faculty_name,
+            (SELECT COUNT(*) FROM classroom_enrollments ce WHERE ce.classroom_id = c.id) as student_count,
+            (SELECT COUNT(*) FROM assignments a WHERE a.classroom_id = c.id) as assignment_count
+     FROM classrooms c
+     LEFT JOIN colleges col ON col.id = c.college_id
+     LEFT JOIN profiles p ON p.id = c.faculty_id
+     LEFT JOIN users u ON u.id = c.faculty_id
+     WHERE c.college_id = ?
+     ORDER BY c.created_at DESC`,
+    [collegeId]
+  );
+}
+
+export function getClassroomsByStudent(studentId: string): ClassroomRow[] {
+  return dbQuery<ClassroomRow>(
+    `SELECT c.*, 
+            col.name as college_name,
+            COALESCE(p.full_name, u.name, 'Faculty') as faculty_name,
+            (SELECT COUNT(*) FROM classroom_enrollments ce WHERE ce.classroom_id = c.id) as student_count,
+            (SELECT COUNT(*) FROM assignments a WHERE a.classroom_id = c.id) as assignment_count
+     FROM classrooms c
+     JOIN classroom_enrollments ce ON ce.classroom_id = c.id
+     LEFT JOIN colleges col ON col.id = c.college_id
+     LEFT JOIN profiles p ON p.id = c.faculty_id
+     LEFT JOIN users u ON u.id = c.faculty_id
+     WHERE ce.student_id = ?
+     ORDER BY ce.enrolled_at DESC`,
+    [studentId]
+  );
+}
+
+export function enrollStudent(classroomId: string, studentId: string): ClassroomEnrollmentRow {
+  const existing = dbGet<ClassroomEnrollmentRow>(
+    `SELECT * FROM classroom_enrollments WHERE classroom_id = ? AND student_id = ?`,
+    [classroomId, studentId]
+  );
+  if (existing) return existing;
+
+  const id = `enr_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+  const now = new Date().toISOString();
+  dbRun(
+    `INSERT INTO classroom_enrollments (id, classroom_id, student_id, enrolled_at) VALUES (?, ?, ?, ?)`,
+    [id, classroomId, studentId, now]
+  );
+
+  return dbGet<ClassroomEnrollmentRow>(`SELECT * FROM classroom_enrollments WHERE id = ?`, [id])!;
+}
+
+export function isStudentEnrolled(classroomId: string, studentId: string): boolean {
+  const row = dbGet(`SELECT id FROM classroom_enrollments WHERE classroom_id = ? AND student_id = ? LIMIT 1`, [
+    classroomId,
+    studentId,
+  ]);
+  return Boolean(row);
+}
+
+export function getEnrollmentsByClassroom(classroomId: string): ClassroomEnrollmentRow[] {
+  return dbQuery<ClassroomEnrollmentRow>(
+    `SELECT ce.*, 
+            COALESCE(p.full_name, u.name, 'Student') as student_name,
+            COALESCE(p.email, u.email, '') as student_email,
+            COALESCE(p.roll_number, u.roll_number, '') as roll_number
+     FROM classroom_enrollments ce
+     LEFT JOIN profiles p ON p.id = ce.student_id
+     LEFT JOIN users u ON u.id = ce.student_id
+     WHERE ce.classroom_id = ?
+     ORDER BY ce.enrolled_at ASC`,
+    [classroomId]
+  );
+}
+
+export function getEnrollmentsByStudent(studentId: string): ClassroomEnrollmentRow[] {
+  return dbQuery<ClassroomEnrollmentRow>(
+    `SELECT * FROM classroom_enrollments WHERE student_id = ? ORDER BY enrolled_at DESC`,
+    [studentId]
+  );
+}
+
 

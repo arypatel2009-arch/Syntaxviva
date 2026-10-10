@@ -75,7 +75,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const { user, profile, role, logout } = useAuth();
 
-  const displayName = user?.name || user?.email?.split('@')[0] || 'User';
+  const displayName = profile?.full_name || user?.name || user?.email?.split('@')[0] || 'User';
+  const avatarUrl = profile?.avatar_url || user?.avatarUrl || (user as any)?.avatar_url || null;
   const displayRole =
     role === 'faculty' || role === 'admin'
       ? 'Faculty / Admin'
@@ -103,36 +104,54 @@ export const Sidebar: React.FC<SidebarProps> = ({
       >
         {/* Top Brand Section */}
         <div>
-          <div className="h-16 px-4 flex items-center justify-between border-b border-slate-200/80">
-            <div className="flex items-center gap-2.5 min-w-0">
-              <Logo size="md" imageOnly={collapsed} variant="light" />
-            </div>
+          <div className={`h-16 ${collapsed ? 'px-2 justify-center' : 'px-4 justify-between'} flex items-center border-b border-slate-200/80`}>
+            {collapsed ? (
+              <div className="flex items-center justify-center">
+                <Logo size="md" imageOnly variant="light" />
+              </div>
+            ) : (
+              <>
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <Logo size="md" imageOnly={false} variant="light" />
+                </div>
 
-            {/* Mobile Close or Desktop Collapse Toggle */}
-            <div className="flex items-center">
-              {onToggleCollapse && (
-                <button
-                  type="button"
-                  onClick={onToggleCollapse}
-                  className="hidden lg:inline-flex p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
-                  title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-                >
-                  {collapsed ? (
-                    <ChevronRight className="w-4 h-4" />
-                  ) : (
-                    <ChevronLeft className="w-4 h-4" />
+                <div className="flex items-center">
+                  {onToggleCollapse && (
+                    <button
+                      type="button"
+                      onClick={onToggleCollapse}
+                      className="hidden lg:inline-flex p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
+                      title="Collapse sidebar"
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                    </button>
                   )}
-                </button>
-              )}
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    className="lg:hidden p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Dedicated Expand Button When Collapsed (Desktop) */}
+          {collapsed && onToggleCollapse && (
+            <div className="hidden lg:flex justify-center py-2.5 px-2 border-b border-slate-100 bg-slate-50/50">
               <button
                 type="button"
-                onClick={onClose}
-                className="lg:hidden p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100"
+                onClick={onToggleCollapse}
+                className="w-12 h-8 flex items-center justify-center rounded-lg text-slate-600 hover:text-emerald-700 hover:bg-emerald-50 bg-white border border-slate-200 shadow-2xs transition-all cursor-pointer group"
+                title="Expand sidebar"
+                aria-label="Expand sidebar"
               >
-                <X className="w-4 h-4" />
+                <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
               </button>
             </div>
-          </div>
+          )}
 
           {/* Navigation Links */}
           <nav className="py-4 px-2.5 space-y-1">
@@ -198,9 +217,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
             } gap-2.5 px-2 py-1.5 rounded-lg`}
           >
             <div className="flex items-center gap-2.5 min-w-0">
-              <div className="w-8 h-8 rounded-full bg-emerald-600 text-white font-semibold flex items-center justify-center text-xs shrink-0 shadow-2xs">
-                {displayName.charAt(0).toUpperCase()}
-              </div>
+              {avatarUrl ? (
+                <img
+                  src={avatarUrl}
+                  alt={displayName}
+                  className="w-8 h-8 rounded-full object-cover shrink-0 shadow-2xs border border-emerald-500/30"
+                />
+              ) : (
+                <div className="w-8 h-8 rounded-full bg-emerald-600 text-white font-semibold flex items-center justify-center text-xs shrink-0 shadow-2xs">
+                  {displayName.charAt(0).toUpperCase()}
+                </div>
+              )}
               {!collapsed && (
                 <div className="min-w-0 text-left">
                   <div className="text-xs font-semibold text-slate-900 truncate">
@@ -234,6 +261,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
 interface GlobalTopHeaderProps {
   onToggleSidebar: () => void;
+  onToggleCollapse?: () => void;
+  collapsed?: boolean;
   searchTerm: string;
   onSearchChange: (value: string) => void;
   onCreateAssignment?: () => void;
@@ -249,6 +278,8 @@ const INSTITUTIONS = [
 
 export const GlobalTopHeader: React.FC<GlobalTopHeaderProps> = ({
   onToggleSidebar,
+  onToggleCollapse,
+  collapsed,
   searchTerm,
   onSearchChange,
   onCreateAssignment,
@@ -308,7 +339,8 @@ export const GlobalTopHeader: React.FC<GlobalTopHeaderProps> = ({
   }, []);
 
   const unreadCount = notifications.filter((n) => n.unread).length;
-  const displayName = user?.name || user?.email?.split('@')[0] || 'User';
+  const displayName = profile?.full_name || user?.name || user?.email?.split('@')[0] || 'User';
+  const avatarUrl = profile?.avatar_url || user?.avatarUrl || (user as any)?.avatar_url || null;
   const displayEmail = user?.email || 'user@syntaxviva.edu';
   const roleLabel =
     role === 'faculty' || role === 'admin' ? 'Faculty / Admin' : 'Student Examinee';
@@ -347,15 +379,29 @@ export const GlobalTopHeader: React.FC<GlobalTopHeaderProps> = ({
     <>
       <header className="sticky top-0 z-30 h-16 bg-white/95 backdrop-blur-md border-b border-slate-200 px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4">
         {/* Left: Mobile Menu & Search */}
-        <div className="flex items-center gap-3 grow max-w-md">
+        <div className="flex items-center gap-2.5 grow max-w-md">
+          {/* Mobile hamburger menu */}
           <button
             type="button"
             onClick={onToggleSidebar}
-            className="lg:hidden p-2 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition cursor-pointer"
+            className="lg:hidden p-2 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition cursor-pointer shrink-0"
             aria-label="Toggle menu"
           >
             <Menu className="w-5 h-5" />
           </button>
+
+          {/* Desktop collapse/expand sidebar toggle */}
+          {onToggleCollapse && (
+            <button
+              type="button"
+              onClick={onToggleCollapse}
+              className="hidden lg:inline-flex p-2 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition cursor-pointer shrink-0"
+              title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+              aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            >
+              <Menu className="w-4 h-4" />
+            </button>
+          )}
 
           <div className="relative w-full">
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5 pointer-events-none" />
@@ -574,9 +620,17 @@ export const GlobalTopHeader: React.FC<GlobalTopHeaderProps> = ({
               onClick={() => setProfileMenuOpen((prev) => !prev)}
               className="flex items-center gap-2 p-1 rounded-lg hover:bg-slate-100 transition cursor-pointer"
             >
-              <div className="w-8 h-8 rounded-full bg-emerald-600 text-white font-semibold flex items-center justify-center text-xs shadow-2xs">
-                {displayName.charAt(0).toUpperCase()}
-              </div>
+              {avatarUrl ? (
+                <img
+                  src={avatarUrl}
+                  alt={displayName}
+                  className="w-8 h-8 rounded-full object-cover shrink-0 shadow-2xs border border-emerald-500/30"
+                />
+              ) : (
+                <div className="w-8 h-8 rounded-full bg-emerald-600 text-white font-semibold flex items-center justify-center text-xs shadow-2xs">
+                  {displayName.charAt(0).toUpperCase()}
+                </div>
+              )}
               <div className="hidden md:block text-left leading-tight">
                 <div className="text-xs font-semibold text-slate-900 max-w-[120px] truncate">
                   {displayName}
@@ -589,16 +643,29 @@ export const GlobalTopHeader: React.FC<GlobalTopHeaderProps> = ({
             {profileMenuOpen && (
               <div className="absolute right-0 mt-1.5 w-64 bg-white border border-slate-200/90 rounded-xl shadow-lg py-1.5 z-50">
                 {/* User Summary Header */}
-                <div className="px-4 py-3 border-b border-slate-100 space-y-1">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-xs font-semibold text-slate-900 truncate">
-                      {displayName}
-                    </span>
-                    <span className="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200/60 text-[10px] font-semibold shrink-0">
-                      {roleLabel}
-                    </span>
+                <div className="px-4 py-3 border-b border-slate-100 flex items-center gap-3">
+                  {avatarUrl ? (
+                    <img
+                      src={avatarUrl}
+                      alt={displayName}
+                      className="w-9 h-9 rounded-full object-cover shrink-0 shadow-2xs border border-emerald-500/30"
+                    />
+                  ) : (
+                    <div className="w-9 h-9 rounded-full bg-emerald-600 text-white font-semibold flex items-center justify-center text-xs shrink-0 shadow-2xs">
+                      {displayName.charAt(0).toUpperCase()}
+                    </div>
+                  )}
+                  <div className="min-w-0 flex-1 space-y-0.5">
+                    <div className="flex items-center justify-between gap-1">
+                      <span className="text-xs font-semibold text-slate-900 truncate">
+                        {displayName}
+                      </span>
+                      <span className="px-1.5 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200/60 text-[10px] font-semibold shrink-0">
+                        {roleLabel}
+                      </span>
+                    </div>
+                    <div className="text-[11px] text-slate-500 truncate">{displayEmail}</div>
                   </div>
-                  <div className="text-[11px] text-slate-500 truncate">{displayEmail}</div>
                 </div>
 
                 {/* Menu Links */}

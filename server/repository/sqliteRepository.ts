@@ -6,6 +6,9 @@
 import {
   IApplicationRepository,
   ProfileEntity,
+  CollegeEntity,
+  ClassroomEntity,
+  ClassroomEnrollmentEntity,
   AssignmentEntity,
   StudentAttemptEntity,
   AttemptMutationEntity,
@@ -29,6 +32,21 @@ import {
   getStudentByAcademicRoll as dbGetStudentByAcademicRoll,
   upsertProfile as dbUpsertProfile,
   updateProfile as dbUpdateProfile,
+  getCollegeById as dbGetCollegeById,
+  getCollegeByName as dbGetCollegeByName,
+  getOrCreateCollege as dbGetOrCreateCollege,
+  listColleges as dbListColleges,
+  createClassroom as dbCreateClassroom,
+  getClassroomById as dbGetClassroomById,
+  getClassroomByJoinCode as dbGetClassroomByJoinCode,
+  getClassroomsByFaculty as dbGetClassroomsByFaculty,
+  getClassroomsByCollege as dbGetClassroomsByCollege,
+  getClassroomsByStudent as dbGetClassroomsByStudent,
+  generateUniqueJoinCode as dbGenerateUniqueJoinCode,
+  enrollStudent as dbEnrollStudent,
+  isStudentEnrolled as dbIsStudentEnrolled,
+  getEnrollmentsByClassroom as dbGetEnrollmentsByClassroom,
+  getEnrollmentsByStudent as dbGetEnrollmentsByStudent,
   getFacultyDivisionSession as dbGetFacultyDivisionSession,
   claimFacultyDivisionSession as dbClaimFacultyDivisionSession,
   heartbeatFacultyDivisionSession as dbHeartbeatFacultyDivisionSession,
@@ -81,7 +99,94 @@ export class SqliteApplicationRepository implements IApplicationRepository {
     return p ? (p as ProfileEntity) : null;
   }
 
-  async getAssignments(filter?: { role?: UserRole; studentId?: string; status?: string }): Promise<any[]> {
+  // ----------------------------------------------------------------------------
+  // Multi-Tenant Colleges
+  // ----------------------------------------------------------------------------
+  async getCollegeById(id: string): Promise<CollegeEntity | null> {
+    const row = dbGetCollegeById(id);
+    return row ? (row as CollegeEntity) : null;
+  }
+
+  async getCollegeByName(name: string): Promise<CollegeEntity | null> {
+    const row = dbGetCollegeByName(name);
+    return row ? (row as CollegeEntity) : null;
+  }
+
+  async getOrCreateCollege(name: string, code?: string): Promise<CollegeEntity> {
+    return dbGetOrCreateCollege(name, code) as CollegeEntity;
+  }
+
+  async listColleges(): Promise<CollegeEntity[]> {
+    return dbListColleges() as CollegeEntity[];
+  }
+
+  // ----------------------------------------------------------------------------
+  // Multi-Tenant Classrooms
+  // ----------------------------------------------------------------------------
+  async createClassroom(data: {
+    id?: string;
+    college_id: string;
+    faculty_id: string;
+    name: string;
+    description?: string;
+    join_code?: string;
+  }): Promise<ClassroomEntity> {
+    return dbCreateClassroom(data) as ClassroomEntity;
+  }
+
+  async getClassroomById(id: string): Promise<ClassroomEntity | null> {
+    const row = dbGetClassroomById(id);
+    return row ? (row as ClassroomEntity) : null;
+  }
+
+  async getClassroomByJoinCode(joinCode: string): Promise<ClassroomEntity | null> {
+    const row = dbGetClassroomByJoinCode(joinCode);
+    return row ? (row as ClassroomEntity) : null;
+  }
+
+  async getClassroomsByFaculty(facultyId: string): Promise<ClassroomEntity[]> {
+    return dbGetClassroomsByFaculty(facultyId) as ClassroomEntity[];
+  }
+
+  async getClassroomsByCollege(collegeId: string): Promise<ClassroomEntity[]> {
+    return dbGetClassroomsByCollege(collegeId) as ClassroomEntity[];
+  }
+
+  async getClassroomsByStudent(studentId: string): Promise<ClassroomEntity[]> {
+    return dbGetClassroomsByStudent(studentId) as ClassroomEntity[];
+  }
+
+  async generateUniqueJoinCode(): Promise<string> {
+    return dbGenerateUniqueJoinCode();
+  }
+
+  // ----------------------------------------------------------------------------
+  // Multi-Tenant Classroom Enrollments
+  // ----------------------------------------------------------------------------
+  async enrollStudent(classroomId: string, studentId: string): Promise<ClassroomEnrollmentEntity> {
+    return dbEnrollStudent(classroomId, studentId) as ClassroomEnrollmentEntity;
+  }
+
+  async isStudentEnrolled(classroomId: string, studentId: string): Promise<boolean> {
+    return dbIsStudentEnrolled(classroomId, studentId);
+  }
+
+  async getEnrollmentsByClassroom(classroomId: string): Promise<ClassroomEnrollmentEntity[]> {
+    return dbGetEnrollmentsByClassroom(classroomId) as ClassroomEnrollmentEntity[];
+  }
+
+  async getEnrollmentsByStudent(studentId: string): Promise<ClassroomEnrollmentEntity[]> {
+    return dbGetEnrollmentsByStudent(studentId) as ClassroomEnrollmentEntity[];
+  }
+
+  async getAssignments(filter?: {
+    role?: UserRole;
+    studentId?: string;
+    facultyId?: string;
+    collegeId?: string;
+    classroomId?: string;
+    status?: string;
+  }): Promise<any[]> {
     // Clean up any legacy Phase-1-only security terminations, clear template starter_code, and remove old template-only attempts
     try {
       dbRun(`UPDATE assignments SET starter_code = '' WHERE starter_code IS NOT NULL AND starter_code != ''`);
@@ -186,7 +291,7 @@ export class SqliteApplicationRepository implements IApplicationRepository {
 
     let querySql = `
       SELECT 
-        a.id, a.title, a.description, a.language, a.requirements, '' as starterCode,
+        a.id, a.classroom_id, a.classroom_id as classroomId, a.title, a.description, a.language, a.requirements, '' as starterCode,
         a.test_cases_json as testCasesJson, a.status,
         COALESCE(a.phase2_unlocked, 0) as phase2Unlocked,
         COALESCE(a.phase2_unlocked, 0) as phase2_unlocked,
@@ -194,16 +299,56 @@ export class SqliteApplicationRepository implements IApplicationRepository {
         COALESCE(NULLIF(TRIM(a.due_date), ''), '2026-10-20') as dueDate,
         a.created_at as createdAt, a.updated_at as updatedAt,
         COALESCE(p.full_name, u.name, 'Faculty') as createdByName,
+        cls.name as classroomName,
+        cls.join_code as classroomJoinCode,
         (SELECT COUNT(*) FROM student_attempts sa WHERE sa.assignment_id = a.id) as submissionCount
         ${studentFields}
       FROM assignments a
+      LEFT JOIN classrooms cls ON a.classroom_id = cls.id
       LEFT JOIN users u ON a.created_by = u.id
       LEFT JOIN profiles p ON a.created_by = p.id
     `;
 
+    const whereClauses: string[] = [];
+
     if (filter?.role === 'student') {
-      querySql += ` WHERE LOWER(a.status) IN ('active', 'published', 'open')`;
+      whereClauses.push(`LOWER(a.status) IN ('active', 'published', 'open')`);
+      if (filter.studentId) {
+        // HIERARCHICAL ISOLATION: A student can ONLY view assignments belonging to classrooms they have actively joined
+        whereClauses.push(`a.classroom_id IN (SELECT ce.classroom_id FROM classroom_enrollments ce WHERE ce.student_id = ?)`);
+        params.push(filter.studentId);
+      } else {
+        // Student role with no studentId cannot view any assignments
+        whereClauses.push('1 = 0');
+      }
+    } else if (filter?.role === 'faculty') {
+      if (filter.classroomId) {
+        whereClauses.push(`a.classroom_id = ?`);
+        params.push(filter.classroomId);
+      } else if (filter.facultyId || filter.collegeId) {
+        const facultyConds: string[] = [];
+        if (filter.facultyId) {
+          facultyConds.push(`a.created_by = ?`);
+          facultyConds.push(`cls.faculty_id = ?`);
+          params.push(filter.facultyId, filter.facultyId);
+        }
+        if (filter.collegeId) {
+          facultyConds.push(`cls.college_id = ?`);
+          params.push(filter.collegeId);
+        }
+        whereClauses.push(`(${facultyConds.join(' OR ')})`);
+      }
     }
+
+    if (filter?.classroomId && filter.role !== 'faculty') {
+      whereClauses.push(`a.classroom_id = ?`);
+      params.push(filter.classroomId);
+    }
+
+    if (whereClauses.length > 0) {
+      querySql += ` WHERE ${whereClauses.join(' AND ')}`;
+    }
+
     querySql += ` ORDER BY a.created_at DESC`;
 
     const rows = dbQuery(querySql, params);
@@ -219,8 +364,12 @@ export class SqliteApplicationRepository implements IApplicationRepository {
 
   async getAssignmentById(id: string): Promise<AssignmentEntity | null> {
     const row = dbGet<AssignmentEntity>(
-      `SELECT a.*, COALESCE(p.full_name, u.name, 'Faculty') as createdByName
+      `SELECT a.*, 
+              COALESCE(p.full_name, u.name, 'Faculty') as createdByName,
+              cls.name as classroom_name,
+              cls.college_id
        FROM assignments a
+       LEFT JOIN classrooms cls ON a.classroom_id = cls.id
        LEFT JOIN users u ON a.created_by = u.id
        LEFT JOIN profiles p ON a.created_by = p.id
        WHERE a.id = ?`,
@@ -260,15 +409,35 @@ export class SqliteApplicationRepository implements IApplicationRepository {
       // ignore if user already exists
     }
 
+    // Resolve or verify classroom_id
+    let classroomId = data.classroom_id;
+    if (!classroomId) {
+      const creatorProf = dbGetProfileById(creatorId);
+      const colId = creatorProf?.college_id || (creatorProf?.institution_id ? dbGetOrCreateCollege(creatorProf.institution_id).id : 'col_default');
+      const existingCls = dbGetClassroomsByFaculty(creatorId);
+      if (existingCls && existingCls.length > 0) {
+        classroomId = existingCls[0].id;
+      } else {
+        const newCls = dbCreateClassroom({
+          college_id: colId,
+          faculty_id: creatorId,
+          name: 'Computer Science Lab',
+          description: 'Default academic classroom',
+        });
+        classroomId = newCls.id;
+      }
+    }
+
     const phase2UnlockedVal = data.phase2_unlocked || data.phase2Unlocked ? 1 : 0;
 
     dbRun(
       `INSERT INTO assignments (
-        id, title, description, language, requirements, starter_code, 
+        id, classroom_id, title, description, language, requirements, starter_code, 
         test_cases_json, status, phase2_unlocked, created_by, due_date, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         data.id,
+        classroomId,
         data.title || 'Untitled Assignment',
         data.description || data.title || '',
         data.language || 'python',
@@ -283,6 +452,7 @@ export class SqliteApplicationRepository implements IApplicationRepository {
         now,
       ]
     );
+    saveDatabaseToDisk();
     return (await this.getAssignmentById(data.id))!;
   }
 
@@ -374,6 +544,32 @@ export class SqliteApplicationRepository implements IApplicationRepository {
 
   async getDashboardStats(user: { userId: string; role: UserRole }): Promise<DashboardStatsEntity> {
     if (user.role === 'faculty' || user.role === 'admin') {
+      if (user.role === 'faculty') {
+        const totalAssignments = dbGet<{ count: number }>(
+          'SELECT COUNT(*) as count FROM assignments WHERE created_by = ? OR classroom_id IN (SELECT id FROM classrooms WHERE faculty_id = ?)',
+          [user.userId, user.userId]
+        )?.count ?? 0;
+        const totalStudents = dbGet<{ count: number }>(
+          'SELECT COUNT(DISTINCT ce.student_id) as count FROM classroom_enrollments ce JOIN classrooms c ON ce.classroom_id = c.id WHERE c.faculty_id = ?',
+          [user.userId]
+        )?.count ?? 0;
+        const totalSubmissions = dbGet<{ count: number }>(
+          'SELECT COUNT(*) as count FROM student_attempts sa JOIN assignments a ON sa.assignment_id = a.id WHERE a.created_by = ? OR a.classroom_id IN (SELECT id FROM classrooms WHERE faculty_id = ?)',
+          [user.userId, user.userId]
+        )?.count ?? 0;
+        const completedAttempts = dbGet<{ count: number }>(
+          "SELECT COUNT(*) as count FROM student_attempts sa JOIN assignments a ON sa.assignment_id = a.id WHERE (a.created_by = ? OR a.classroom_id IN (SELECT id FROM classrooms WHERE faculty_id = ?)) AND sa.state IN ('PASSED', 'PHASE2_PASSED')",
+          [user.userId, user.userId]
+        )?.count ?? 0;
+
+        return {
+          totalAssignments,
+          totalStudents,
+          totalSubmissions,
+          completedAttempts,
+        };
+      }
+
       const totalAssignments = dbGet<{ count: number }>('SELECT COUNT(*) as count FROM assignments')?.count ?? 0;
       const totalStudents =
         dbGet<{ count: number }>(
@@ -522,6 +718,10 @@ export class SqliteApplicationRepository implements IApplicationRepository {
       sql += ` AND sa.student_id = ?`;
       params.push(filter.studentId);
     }
+    if (filter?.facultyId) {
+      sql += ` AND (a.created_by = ? OR a.classroom_id IN (SELECT id FROM classrooms WHERE faculty_id = ?))`;
+      params.push(filter.facultyId, filter.facultyId);
+    }
 
     sql += ` ORDER BY COALESCE(p2c.submitted_at, sa.submitted_at, sa.updated_at, sa.created_at) DESC`;
 
@@ -601,7 +801,14 @@ export class SqliteApplicationRepository implements IApplicationRepository {
     });
   }
 
-  async getEnrolledStudents(_facultyId?: string): Promise<any[]> {
+  async getEnrolledStudents(facultyId?: string): Promise<any[]> {
+    const params: any[] = [];
+    let enrollmentWhere = '';
+    if (facultyId) {
+      enrollmentWhere = ` WHERE cs.id IN (SELECT ce.student_id FROM classroom_enrollments ce JOIN classrooms c ON ce.classroom_id = c.id WHERE c.faculty_id = ?)`;
+      params.push(facultyId);
+    }
+
     const sql = `
       WITH combined_students AS (
         SELECT
@@ -644,16 +851,18 @@ export class SqliteApplicationRepository implements IApplicationRepository {
           LIMIT 1
         ) as latest_failure_reason
       FROM combined_students cs
+      ${enrollmentWhere}
       LEFT JOIN student_attempts sa ON sa.student_id = cs.id
       GROUP BY cs.id
       ORDER BY cs.last_login_at DESC, cs.name ASC
     `;
-    const rows = dbQuery<any>(sql);
+    const rows = dbQuery<any>(sql, params);
     const activeAssignments = dbQuery<any>(
       `SELECT id, title, COALESCE(NULLIF(TRIM(due_date), ''), '2026-10-20') as due_date
        FROM assignments
-       WHERE LOWER(status) IN ('active', 'published', 'open')
-       ORDER BY created_at DESC`
+       WHERE LOWER(status) IN ('active', 'published', 'open') ${facultyId ? 'AND (created_by = ? OR classroom_id IN (SELECT id FROM classrooms WHERE faculty_id = ?))' : ''}
+       ORDER BY created_at DESC`,
+      facultyId ? [facultyId, facultyId] : []
     );
     const allAttempts = dbQuery<any>(
       `SELECT student_id, assignment_id, state, submitted_at FROM student_attempts`

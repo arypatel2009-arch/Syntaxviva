@@ -131,7 +131,19 @@ assignmentsRouter.get('/', authenticate, async (req: AuthenticatedRequest, res: 
     const user = req.user!;
     const repo = getRepository();
     const studentId = user.userId || (user as any).id;
-    const assignments = await repo.getAssignments({ role: user.role, studentId });
+    let facultyCollegeId: string | undefined;
+
+    if (user.role === 'faculty') {
+      const profile = await repo.getProfileById(user.userId);
+      facultyCollegeId = profile?.college_id || undefined;
+    }
+
+    const assignments = await repo.getAssignments({
+      role: user.role,
+      studentId: user.role === 'student' ? studentId : undefined,
+      facultyId: user.role === 'faculty' ? user.userId : undefined,
+      collegeId: facultyCollegeId,
+    });
     res.json({ assignments });
   } catch (err: any) {
     console.error('Error querying assignments:', err);
@@ -151,8 +163,41 @@ assignmentsRouter.get('/:id', authenticate, async (req: AuthenticatedRequest, re
       return;
     }
 
+    // DIRECT ACCESS PROTECTION
+    // 1. If student: strictly verify active enrollment in parent classroom
+    if (req.user?.role === 'student') {
+      if (rawAssignment.classroom_id) {
+        const isEnrolled = await repo.isStudentEnrolled(rawAssignment.classroom_id, req.user.userId);
+        if (!isEnrolled) {
+          res.status(403).json({
+            error: 'Forbidden: You are not enrolled in the classroom for this assignment.',
+            code: 'not_enrolled',
+          });
+          return;
+        }
+      }
+    } else if (req.user?.role === 'faculty') {
+      // 2. If faculty: verify assignment belongs to their college scope
+      if (rawAssignment.classroom_id) {
+        const classroom = await repo.getClassroomById(rawAssignment.classroom_id);
+        const facultyProfile = await repo.getProfileById(req.user.userId);
+        const isOwn = rawAssignment.created_by === req.user.userId || classroom?.faculty_id === req.user.userId;
+        const isSameCollege = Boolean(
+          classroom && facultyProfile?.college_id && classroom.college_id === facultyProfile.college_id
+        );
+        if (!isOwn && !isSameCollege) {
+          res.status(403).json({
+            error: 'Forbidden: You do not have permission to view assignments from another college.',
+            code: 'cross_college_forbidden',
+          });
+          return;
+        }
+      }
+    }
+
     const assignment: any = {
       ...rawAssignment,
+      classroomId: rawAssignment.classroom_id,
       testCasesJson: rawAssignment.test_cases_json || (rawAssignment as any).testCasesJson || '[]',
       starterCode: rawAssignment.starter_code || (rawAssignment as any).starterCode || '',
       dueDate: rawAssignment.due_date || (rawAssignment as any).dueDate || '2026-10-20',
@@ -204,7 +249,11 @@ assignmentsRouter.post('/', authenticate, requireRole('faculty', 'admin'), async
       starterCode = '',
       testCases = [],
       dueDate,
+      classroomId: requestedClassroomId,
+      classroom_id: requestedClassroomIdSnake,
     } = req.body || {};
+
+    const rawClassroomId = requestedClassroomId || requestedClassroomIdSnake;
 
     if (!title || typeof title !== 'string' || title.trim().length === 0) {
       res.status(400).json({ error: 'Assignment title is required.' });
@@ -265,7 +314,42 @@ assignmentsRouter.post('/', authenticate, requireRole('faculty', 'admin'), async
       }
     }
 
-
+    // Classroom Scoping & College Tenant Verification
+    let targetClassroomId: string | undefined = rawClassroomId;
+    if (targetClassroomId) {
+      const cls = await repo.getClassroomById(targetClassroomId);
+      if (!cls) {
+        res.status(404).json({ error: 'Specified classroom not found.' });
+        return;
+      }
+      const facultyProfile = await repo.getProfileById(req.user!.userId);
+      const isOwner = cls.faculty_id === req.user!.userId;
+      const isSameCollege = Boolean(facultyProfile?.college_id && cls.college_id === facultyProfile.college_id);
+      if (!isOwner && !isSameCollege) {
+        res.status(403).json({
+          error: 'Forbidden: You cannot create assignments in a classroom from another college.',
+          code: 'cross_college_forbidden',
+        });
+        return;
+      }
+    } else {
+      // Resolve or default to faculty's active classroom in their college
+      const facultyClassrooms = await repo.getClassroomsByFaculty(req.user!.userId);
+      if (facultyClassrooms.length > 0) {
+        targetClassroomId = facultyClassrooms[0].id;
+      } else {
+        const facultyProfile = await repo.getProfileById(req.user!.userId);
+        const institutionName = facultyProfile?.institution_id || 'SyntaXViva Academic Institute';
+        const college = await repo.getOrCreateCollege(institutionName);
+        const newClassroom = await repo.createClassroom({
+          college_id: college.id,
+          faculty_id: req.user!.userId,
+          name: 'Computer Science Lab',
+          description: 'Default academic classroom',
+        });
+        targetClassroomId = newClassroom.id;
+      }
+    }
 
     const finalDueDate =
       typeof dueDate === 'string' && dueDate.trim().length > 0
@@ -276,6 +360,7 @@ assignmentsRouter.post('/', authenticate, requireRole('faculty', 'admin'), async
 
     const created = await repo.createAssignment({
       id: assignmentId,
+      classroom_id: targetClassroomId,
       title: cleanTitle,
       description: cleanDescription,
       language: cleanLanguage,
@@ -287,28 +372,30 @@ assignmentsRouter.post('/', authenticate, requireRole('faculty', 'admin'), async
       due_date: finalDueDate,
     });
 
-    // Notify all students who have logged into their account
+    // Notify ONLY students enrolled in this classroom (Scoped Data Isolation)
     let notifiedCount = 0;
     try {
-      const loggedInStudents = await repo.getEnrolledStudents().catch(() => []);
-      notifiedCount = loggedInStudents.length;
-      const targetStudentIds = loggedInStudents.map((s: any) => String(s.id));
-      const newNotification: AssignmentNotificationRecord = {
-        id: `notif_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-        assignmentId: created.id,
-        title: `New Assignment: ${created.title}`,
-        assignmentTitle: created.title,
-        language: created.language,
-        dueDate: created.due_date || finalDueDate,
-        message: `New ${created.language.toUpperCase()} lab assignment published.`,
-        targetStudentIds,
-        notifiedStudentCount: loggedInStudents.length,
-        dismissedBy: [],
-        readBy: [],
-        createdAt: new Date().toISOString(),
-      };
-      const existingNotifs = loadNotifications();
-      saveNotifications([newNotification, ...existingNotifs]);
+      const enrolledStudents = await repo.getEnrollmentsByClassroom(created.classroom_id || targetClassroomId);
+      notifiedCount = enrolledStudents.length;
+      const targetStudentIds = enrolledStudents.map((s: any) => String(s.student_id));
+      if (targetStudentIds.length > 0) {
+        const newNotification: AssignmentNotificationRecord = {
+          id: `notif_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+          assignmentId: created.id,
+          title: `New Assignment: ${created.title}`,
+          assignmentTitle: created.title,
+          language: created.language,
+          dueDate: created.due_date || finalDueDate,
+          message: `New ${created.language.toUpperCase()} lab assignment published in your classroom.`,
+          targetStudentIds,
+          notifiedStudentCount: enrolledStudents.length,
+          dismissedBy: [],
+          readBy: [],
+          createdAt: new Date().toISOString(),
+        };
+        const existingNotifs = loadNotifications();
+        saveNotifications([newNotification, ...existingNotifs]);
+      }
     } catch (notifErr) {
       console.warn('Could not save assignment notification:', notifErr);
     }
@@ -327,6 +414,8 @@ assignmentsRouter.post('/', authenticate, requireRole('faculty', 'admin'), async
         status: created.status,
         phase2Unlocked: Boolean(created.phase2_unlocked),
         createdBy: created.created_by,
+        classroomId: created.classroom_id || targetClassroomId,
+        classroom_id: created.classroom_id || targetClassroomId,
         dueDate: created.due_date,
         createdAt: created.created_at,
         updatedAt: created.updated_at,
@@ -546,10 +635,11 @@ assignmentsRouter.get('/meta/stats', authenticate, async (req: AuthenticatedRequ
 });
 
 // Faculty: Get all submissions across assignments
-assignmentsRouter.get('/meta/all-submissions', authenticate, requireRole('faculty', 'admin'), async (_req: AuthenticatedRequest, res: Response): Promise<void> => {
+assignmentsRouter.get('/meta/all-submissions', authenticate, requireRole('faculty', 'admin'), async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
+    const user = req.user!;
     const repo = getRepository();
-    const submissions = await repo.getSubmissions({});
+    const submissions = await repo.getSubmissions(user.role === 'admin' ? {} : { facultyId: user.userId });
     res.json({ submissions });
   } catch (err: any) {
     console.error('Error fetching all submissions:', err);

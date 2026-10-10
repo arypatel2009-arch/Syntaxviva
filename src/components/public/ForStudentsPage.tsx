@@ -21,7 +21,7 @@ export const ForStudentsPage: React.FC<ForStudentsPageProps> = ({
   onOpenAuth,
 }) => {
   return (
-    <div className="bg-white min-h-screen py-16">
+    <div className="bg-white min-h-screen pt-28 sm:pt-32 pb-16">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Top Hero */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center mb-20">

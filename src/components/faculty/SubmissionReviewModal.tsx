@@ -171,7 +171,7 @@ export const SubmissionReviewModal: React.FC<SubmissionReviewModalProps> = ({
         <div className="px-6 border-b border-slate-200 flex gap-4 text-xs font-semibold">
           {[
             { id: 'diff', label: 'Code & Mutation Diff', icon: Bug },
-            { id: 'tests', label: `Gemini AI Evaluation (${aiEval?.score !== undefined ? `Score: ${aiEval.score}` : isPassed ? 'PASS' : 'REVIEW'})`, icon: Sparkles },
+            { id: 'tests', label: `SyntaXViva AI Evaluation (${aiEval?.score !== undefined ? `Score: ${aiEval.score}` : isPassed ? 'PASS' : 'REVIEW'})`, icon: Sparkles },
             { id: 'forensics', label: 'Forensics & Audit Trail', icon: ShieldCheck },
           ].map((tab) => {
             const Icon = tab.icon;
@@ -272,7 +272,7 @@ export const SubmissionReviewModal: React.FC<SubmissionReviewModalProps> = ({
               <div className="flex items-center justify-between p-5 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl border border-blue-200 text-xs">
                 <div>
                   <span className="font-bold text-slate-900 text-sm flex items-center gap-1.5">
-                    <Sparkles className="w-4 h-4 text-blue-600" /> Server-Side Gemini AI Code Evaluation
+                    <Sparkles className="w-4 h-4 text-blue-600" /> Server-Side SyntaXViva AI Code Evaluation
                   </span>
                   <p className="text-slate-600 mt-1">
                     Automated AI evaluation of student source code against assignment requirements and Phase 1 baseline.

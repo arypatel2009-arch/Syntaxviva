@@ -135,7 +135,7 @@ export const Phase1SubmissionView: React.FC<Phase1SubmissionViewProps> = ({
     }
   }
 
-  // Direct Submission Handler (Phase 1 Gemini AI Code Evaluation)
+  // Direct Submission Handler (Phase 1 SyntaXViva AI Code Evaluation)
   const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (submitting) return;
@@ -169,7 +169,7 @@ export const Phase1SubmissionView: React.FC<Phase1SubmissionViewProps> = ({
         mutationStatus: res.mutation?.status || (res.submission as any)?.state || 'MUTATION_READY',
       };
       setAttempt(submittedAttempt as StudentAttempt);
-      setSuccessNotice(res.message || 'Phase 1 code approved by Gemini AI.');
+      setSuccessNotice(res.message || 'Phase 1 code approved by SyntaXViva AI.');
     } catch (err: any) {
       if (err.evaluation) {
         const failedAttempt: any = {
@@ -557,14 +557,14 @@ export const Phase1SubmissionView: React.FC<Phase1SubmissionViewProps> = ({
           <div className="bg-blue-50/70 border border-blue-200/80 rounded-2xl p-4 text-xs text-blue-900 space-y-2">
             <div className="font-bold flex items-center gap-1.5 text-blue-950">
               <Sparkles className="w-4 h-4 text-blue-600" />
-              Phase 1: Gemini AI Evaluation
+              Phase 1: SyntaXViva AI Evaluation
             </div>
             <p className="text-blue-800 leading-relaxed text-[11px]">
-              Submit your code to have Gemini AI evaluate your implementation against the problem statement.
+              Submit your code to have SyntaXViva AI evaluate your implementation against the problem statement.
             </p>
           </div>
 
-          {/* Gemini AI Evaluation Feedback Card */}
+          {/* SyntaXViva AI Evaluation Feedback Card */}
           {aiEval && (
             <div
               className={`border rounded-2xl p-5 space-y-3 shadow-xs ${
@@ -576,7 +576,7 @@ export const Phase1SubmissionView: React.FC<Phase1SubmissionViewProps> = ({
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <div className="font-bold flex items-center gap-2 text-xs uppercase tracking-wider">
                   <Sparkles className="w-4 h-4 text-blue-600" />
-                  <span>Gemini AI Evaluation</span>
+                  <span>SyntaXViva AI Evaluation</span>
                 </div>
                 <span
                   className={`px-2.5 py-0.5 rounded-full text-xs font-bold font-mono ${
@@ -765,12 +765,12 @@ export const Phase1SubmissionView: React.FC<Phase1SubmissionViewProps> = ({
                     {submitting ? (
                       <>
                         <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                        <span>Evaluating with Gemini AI...</span>
+                        <span>Evaluating with SyntaXViva AI...</span>
                       </>
                     ) : (
                       <>
                         <Sparkles className="w-4 h-4 text-amber-300" />
-                        <span>Submit for Gemini AI Evaluation</span>
+                        <span>Submit for SyntaXViva AI Evaluation</span>
                       </>
                     )}
                   </button>

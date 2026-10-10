@@ -11,6 +11,7 @@ import {
   Eye,
   Inbox,
   Lock,
+  Users,
 } from 'lucide-react';
 import { Assignment } from '../../types/index.ts';
 import {
@@ -46,6 +47,7 @@ interface StudentDashboardViewProps {
   };
   onSelectAssignment: (assignmentId: string, phase?: 'phase1' | 'phase2') => void;
   onViewAllAssignments: () => void;
+  onJoinClassroom?: () => void;
 }
 
 export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
@@ -53,6 +55,7 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
   stats,
   onSelectAssignment,
   onViewAllAssignments,
+  onJoinClassroom,
 }) => {
   const { user } = useAuth();
 
@@ -83,7 +86,15 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
           </p>
         </div>
 
-        <div className="shrink-0 flex items-center gap-3">
+        <div className="shrink-0 flex flex-wrap items-center gap-2.5">
+          <Button
+            variant="outline"
+            size="md"
+            onClick={onJoinClassroom}
+            icon={Users}
+          >
+            Join Classroom
+          </Button>
           <Button
             variant="primary"
             size="md"
@@ -143,20 +154,22 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
 
           {assignments.length === 0 ? (
             <EmptyState
-              icon={Inbox}
-              title="No results found"
-              description="No assignments matched your search criteria or none have been published yet."
+              icon={Users}
+              title="No Enrolled Classrooms or Assignments"
+              description="You are not enrolled in any classrooms yet. Enter your professor's 6-character join code to enroll in a classroom and unlock assignments."
+              actionLabel="Join Classroom"
+              onAction={onJoinClassroom}
             />
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
+              <table className="w-full text-left text-xs min-w-[660px]">
                 <thead>
                   <tr className="bg-slate-50/70 border-b border-slate-200/80 text-xs font-medium text-slate-500 uppercase tracking-wider">
-                    <th className="py-3 pl-6">Assignment</th>
-                    <th className="py-3">Language</th>
-                    <th className="py-3">Deadline Date</th>
-                    <th className="py-3">Status</th>
-                    <th className="py-3 text-right pr-6">Action</th>
+                    <th className="py-3 pl-6 w-auto min-w-[200px]">Assignment</th>
+                    <th className="py-3 w-28 whitespace-nowrap">Language</th>
+                    <th className="py-3 w-36 whitespace-nowrap">Deadline Date</th>
+                    <th className="py-3 w-40 whitespace-nowrap">Status</th>
+                    <th className="py-3 text-right pr-6 w-44 whitespace-nowrap">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">

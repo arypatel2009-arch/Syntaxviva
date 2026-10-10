@@ -6,6 +6,7 @@ export interface UserProfile {
   full_name: string;
   role: UserRole;
   institution_id?: string | null;
+  college_id?: string | null;
   roll_number?: string | null;
   class_id?: string | null;
   division_id?: string | null;
@@ -15,12 +16,48 @@ export interface UserProfile {
   updated_at?: string;
 }
 
+export interface College {
+  id: string;
+  name: string;
+  code?: string | null;
+  domain?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface Classroom {
+  id: string;
+  college_id: string;
+  college_name?: string;
+  faculty_id: string;
+  faculty_name?: string;
+  name: string;
+  description?: string;
+  join_code: string;
+  student_count?: number;
+  assignment_count?: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ClassroomEnrollment {
+  id: string;
+  classroom_id: string;
+  student_id: string;
+  student_name?: string;
+  student_email?: string;
+  roll_number?: string;
+  enrolled_at: string;
+}
+
 export interface User {
   id: string;
   name: string;
   email: string;
   role: UserRole;
   institution?: string;
+  collegeId?: string;
+  college_id?: string;
   rollNumber?: string;
   roll_number?: string;
   classId?: string;
@@ -63,6 +100,12 @@ export interface Assignment {
   starterCode: string;
   testCasesJson: string;
   status: 'active' | 'draft' | 'archived';
+  classroomId?: string;
+  classroom_id?: string;
+  classroomName?: string;
+  classroom_name?: string;
+  collegeId?: string;
+  college_id?: string;
   phase2Unlocked?: boolean;
   phase2_unlocked?: number | boolean;
   createdBy: string;

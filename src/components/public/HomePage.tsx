@@ -890,10 +890,10 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate, onOpenAuth }) =>
 
             <div className="py-10 px-5 text-center">
               <div className="font-display font-bold text-3xl text-white">
-                PDF
+                100%
               </div>
               <div className="mt-2 text-xs text-slate-500">
-                Evidence-ready reporting
+                Accreditation audit readiness
               </div>
             </div>
           </div>

@@ -3,6 +3,8 @@ import { GlobalTopHeader } from '../layout/Sidebar.tsx';
 
 interface FacultyHeaderProps {
   onToggleSidebar: () => void;
+  onToggleCollapse?: () => void;
+  collapsed?: boolean;
   searchTerm: string;
   onSearchChange: (value: string) => void;
   onCreateAssignment: () => void;
@@ -11,6 +13,8 @@ interface FacultyHeaderProps {
 
 export const FacultyHeader: React.FC<FacultyHeaderProps> = ({
   onToggleSidebar,
+  onToggleCollapse,
+  collapsed,
   searchTerm,
   onSearchChange,
   onCreateAssignment,
@@ -19,6 +23,8 @@ export const FacultyHeader: React.FC<FacultyHeaderProps> = ({
   return (
     <GlobalTopHeader
       onToggleSidebar={onToggleSidebar}
+      onToggleCollapse={onToggleCollapse}
+      collapsed={collapsed}
       searchTerm={searchTerm}
       onSearchChange={onSearchChange}
       onCreateAssignment={onCreateAssignment}

@@ -126,6 +126,25 @@ function sanitizeAssignmentForStudent(assignment: AssignmentRow | null) {
   return clone;
 }
 
+async function verifyStudentEnrollment(
+  repo: any,
+  rawAssignment: any,
+  studentId: string,
+  res: Response
+): Promise<boolean> {
+  if (rawAssignment && rawAssignment.classroom_id) {
+    const isEnrolled = await repo.isStudentEnrolled(rawAssignment.classroom_id, studentId);
+    if (!isEnrolled) {
+      res.status(403).json({
+        error: 'Forbidden: You must be enrolled in this assignment\'s classroom to access it.',
+        code: 'not_enrolled',
+      });
+      return false;
+    }
+  }
+  return true;
+}
+
 /**
  * GET /api/student/assignments/:assignmentId/phase1
  * Retrieves assignment details and the current student's Phase 1 attempt state.
@@ -151,6 +170,10 @@ studentRouter.get(
         res.status(404).json({ error: 'Assignment not found.' });
         return;
       }
+
+      // Multi-tenant scoped direct access protection
+      const isAllowed = await verifyStudentEnrollment(repo, rawAssignment, studentId, res);
+      if (!isAllowed) return;
 
       const isPhase2Unlocked = Boolean((rawAssignment as any).phase2_unlocked || (rawAssignment as any).phase2Unlocked);
       const deadlineExpired = isAssignmentDeadlinePassed(rawAssignment.due_date);
@@ -300,6 +323,10 @@ studentRouter.post(
         res.status(404).json({ error: 'Assignment not found.' });
         return;
       }
+
+      // Multi-tenant scoped direct access protection
+      const isAllowed = await verifyStudentEnrollment(repo, assignment, studentId, res);
+      if (!isAllowed) return;
 
       const statusLower = (assignment.status || '').toLowerCase();
       if (statusLower !== 'active' && statusLower !== 'published' && statusLower !== 'open') {
@@ -545,7 +572,7 @@ studentRouter.post(
 
       res.status(201).json({
         success: true,
-        message: 'Phase 1 code approved by Gemini AI. Phase 2 mutation generated.',
+        message: 'Phase 1 code approved by SyntaXViva AI. Phase 2 mutation generated.',
         evaluation: aiEvaluation,
         submission: {
           id: attemptId,
@@ -616,6 +643,11 @@ studentRouter.get(
         res.status(404).json({ error: 'Assignment not found.' });
         return;
       }
+
+      // Multi-tenant scoped direct access protection
+      const isAllowed = await verifyStudentEnrollment(repo, rawAssignment, studentId, res);
+      if (!isAllowed) return;
+
       const assignment = sanitizeAssignmentForStudent(rawAssignment as any);
 
       const isPhase2Unlocked = Boolean((rawAssignment as any).phase2_unlocked || (rawAssignment as any).phase2Unlocked);
@@ -979,6 +1011,10 @@ studentRouter.post(
         res.status(404).json({ error: 'Assignment not found.' });
         return;
       }
+
+      // Multi-tenant scoped direct access protection
+      const isAllowed = await verifyStudentEnrollment(repo, assignment, studentId, res);
+      if (!isAllowed) return;
 
       const isPhase2Unlocked = Boolean((assignment as any).phase2_unlocked || (assignment as any).phase2Unlocked);
       if (!isPhase2Unlocked) {
@@ -1428,6 +1464,10 @@ studentRouter.post(
         return;
       }
 
+      // Multi-tenant scoped direct access protection
+      const isAllowed = await verifyStudentEnrollment(repo, assignment, studentId, res);
+      if (!isAllowed) return;
+
       const attempt = await repo.getAttemptByStudentAndAssignment(studentId, assignmentId);
 
       let rawTests: TestCase[] = [];
@@ -1515,6 +1555,16 @@ studentRouter.post(
 
       // Fetch challenge
       const repo = getRepository();
+      const assignment = await repo.getAssignmentById(assignmentId);
+      if (!assignment) {
+        res.status(404).json({ error: 'Assignment not found.' });
+        return;
+      }
+
+      // Multi-tenant scoped direct access protection
+      const isAllowed = await verifyStudentEnrollment(repo, assignment, studentId, res);
+      if (!isAllowed) return;
+
       const challenge = await repo.getPhase2ChallengeById(challengeId);
       if (!challenge) {
         res.status(404).json({ error: 'Challenge not found.' });
@@ -1606,7 +1656,6 @@ studentRouter.post(
       const submittedAt = now.toISOString();
       const codeHash = computeCodeHash(finalCode);
 
-      const assignment = await repo.getAssignmentById(assignmentId);
       const evalLanguage = attempt.language || assignment?.language || 'python';
 
       let meta: any = null;

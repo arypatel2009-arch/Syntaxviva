@@ -17,6 +17,40 @@ CREATE TABLE IF NOT EXISTS public.institutions (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS public.colleges (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL UNIQUE,
+  code TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.classrooms (
+  id TEXT PRIMARY KEY,
+  college_id TEXT NOT NULL REFERENCES public.colleges(id) ON DELETE RESTRICT,
+  faculty_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  description TEXT DEFAULT '',
+  join_code TEXT NOT NULL UNIQUE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_classrooms_college ON public.classrooms(college_id);
+CREATE INDEX IF NOT EXISTS idx_classrooms_faculty ON public.classrooms(faculty_id);
+CREATE INDEX IF NOT EXISTS idx_classrooms_join_code ON public.classrooms(join_code);
+
+CREATE TABLE IF NOT EXISTS public.classroom_enrollments (
+  id TEXT PRIMARY KEY,
+  classroom_id TEXT NOT NULL REFERENCES public.classrooms(id) ON DELETE CASCADE,
+  student_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  enrolled_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CONSTRAINT uq_classroom_student_enrollment UNIQUE (classroom_id, student_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_classroom_enrollments_classroom ON public.classroom_enrollments(classroom_id);
+CREATE INDEX IF NOT EXISTS idx_classroom_enrollments_student ON public.classroom_enrollments(student_id);
+
 CREATE TABLE IF NOT EXISTS public.academic_classes (
   id TEXT PRIMARY KEY,
   institution_id TEXT NOT NULL REFERENCES public.institutions(id) ON DELETE CASCADE,
@@ -42,6 +76,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   full_name TEXT NOT NULL,
   role TEXT NOT NULL CHECK (role IN ('student', 'faculty', 'admin')) DEFAULT 'student',
   institution_id TEXT,
+  college_id TEXT REFERENCES public.colleges(id) ON DELETE SET NULL,
   roll_number TEXT,
   class_id TEXT,
   division_id TEXT,
@@ -108,12 +143,14 @@ CREATE TABLE IF NOT EXISTS public.assignments (
   starter_code TEXT NOT NULL DEFAULT '',
   test_cases_json JSONB NOT NULL DEFAULT '[]'::jsonb,
   status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'draft', 'archived', 'published', 'open')),
+  classroom_id TEXT REFERENCES public.classrooms(id) ON DELETE CASCADE,
   created_by TEXT NOT NULL,
   due_date TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+CREATE INDEX IF NOT EXISTS idx_assignments_classroom_id ON public.assignments(classroom_id);
 CREATE INDEX IF NOT EXISTS idx_assignments_created_by ON public.assignments(created_by);
 CREATE INDEX IF NOT EXISTS idx_assignments_status ON public.assignments(status);
 

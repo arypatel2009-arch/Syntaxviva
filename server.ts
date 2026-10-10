@@ -11,6 +11,7 @@ import { studentRouter } from './server/routes/student.js';
 import { registryRouter } from './server/routes/registry.js';
 import { healthRouter } from './server/routes/health.js';
 import { inquiriesRouter } from './server/routes/inquiries.js';
+import { classroomsRouter } from './server/routes/classrooms.js';
 import { initRepository } from './server/repository/index.js';
 import { loginRateLimiter, signupRateLimiter } from './server/middleware/rateLimiter.js';
 
@@ -158,6 +159,7 @@ async function startServer() {
   // API Routes (Mounted first)
   app.use('/api/health', healthRouter);
   app.use('/api/auth', authRouter);
+  app.use('/api/classrooms', classroomsRouter);
   app.use('/api/assignments', assignmentsRouter);
   app.use('/api/student', studentRouter);
   app.use('/api/mutation-registry', registryRouter);

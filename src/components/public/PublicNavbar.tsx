@@ -167,12 +167,18 @@ export const PublicNavbar: React.FC<PublicNavbarProps> = ({
             id="mobileMenuBtn"
             type="button"
             onClick={() => setMobileMenuOpen((prev) => !prev)}
-            className="lg:hidden p-2 text-slate-300 cursor-pointer"
-            aria-label="Open navigation"
+            className="lg:hidden p-2 text-slate-300 hover:text-white transition cursor-pointer"
+            aria-label={mobileMenuOpen ? 'Close navigation' : 'Open navigation'}
           >
-            <svg width="23" height="23" fill="none" stroke="currentColor" strokeWidth="1.7">
-              <path d="M4 7h16M4 12h16M4 17h16" />
-            </svg>
+            {mobileMenuOpen ? (
+              <svg width="23" height="23" fill="none" stroke="currentColor" strokeWidth="1.7">
+                <path d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            ) : (
+              <svg width="23" height="23" fill="none" stroke="currentColor" strokeWidth="1.7">
+                <path d="M4 7h16M4 12h16M4 17h16" />
+              </svg>
+            )}
           </button>
         </div>
 

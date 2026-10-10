@@ -12,6 +12,7 @@ import { StudentAssignmentDetailsModal } from './student/StudentAssignmentDetail
 import { StudentResultsView } from './student/StudentResultsView.tsx';
 import { StudentSubmissionsView } from './student/StudentSubmissionsView.tsx';
 import { StudentProfileView } from './student/StudentProfileView.tsx';
+import { JoinClassroomModal } from './student/JoinClassroomModal.tsx';
 import { AlertCircle, User, X } from 'lucide-react';
 import { Button } from './common/UIComponents.tsx';
 
@@ -35,6 +36,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = () => {
 
   const [selectedResultAssignment, setSelectedResultAssignment] = useState<Assignment | null>(null);
   const [showProfileGateModal, setShowProfileGateModal] = useState(false);
+  const [showJoinModal, setShowJoinModal] = useState(false);
 
   const userProfileComplete = isProfileComplete(user, profile, role);
 
@@ -140,6 +142,8 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = () => {
         {/* Header with Search & User Pill */}
         <StudentHeader
           onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
+          onToggleCollapse={() => setSidebarCollapsed((prev) => !prev)}
+          collapsed={sidebarCollapsed}
           searchTerm={searchTerm}
           onSearchChange={setSearchTerm}
           onNavigateSettings={() => setCurrentTab('settings')}
@@ -157,6 +161,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = () => {
               }}
               onSelectAssignment={handleOpenAssignment}
               onViewAllAssignments={() => setCurrentTab('assignments')}
+              onJoinClassroom={() => setShowJoinModal(true)}
             />
           )}
 
@@ -165,6 +170,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = () => {
               assignments={filteredAssignments}
               onSelectAssignment={handleOpenAssignment}
               onViewDetails={(asg) => setInspectAssignment(asg)}
+              onRefresh={() => loadAssignments(false)}
             />
           )}
 
@@ -201,6 +207,13 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = () => {
         assignment={inspectAssignment}
         onClose={() => setInspectAssignment(null)}
         onStart={(id, phase) => handleOpenAssignment(id, phase)}
+      />
+
+      {/* Join Classroom Modal */}
+      <JoinClassroomModal
+        isOpen={showJoinModal}
+        onClose={() => setShowJoinModal(false)}
+        onSuccess={() => loadAssignments(false)}
       />
 
       {/* Mandatory Profile Gate Modal */}

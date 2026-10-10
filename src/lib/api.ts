@@ -13,6 +13,9 @@ import {
   Phase2SubmitResponse,
   TestRunResponse,
   TestRunResult,
+  Classroom,
+  ClassroomEnrollment,
+  College,
 } from '../types/index.ts';
 
 const TOKEN_KEY = 'syntaxviva_token';
@@ -254,6 +257,7 @@ export const api = {
     language: string;
     requirements: string;
     starterCode: string;
+    classroomId?: string;
     testCases?: Array<{ input: string; expected: string; description?: string }>;
     dueDate?: string;
   }): Promise<{ success: boolean; assignment: Assignment; notifiedStudentCount?: number }> {
@@ -475,5 +479,48 @@ export const api = {
       body: JSON.stringify(bodyParams),
       ...(keepalive ? { keepalive: true } : {}),
     });
+  },
+
+  // -------------------------------------------------------------------------
+  // Classrooms & Multi-Tenancy (College -> Classroom -> Assignment)
+  // -------------------------------------------------------------------------
+  async getClassrooms(): Promise<{ classrooms: Classroom[] }> {
+    return apiFetch<{ classrooms: Classroom[] }>('/api/classrooms');
+  },
+
+  async getClassroom(id: string): Promise<{ classroom: Classroom; isEnrolled?: boolean }> {
+    return apiFetch<{ classroom: Classroom; isEnrolled?: boolean }>(`/api/classrooms/${id}`);
+  },
+
+  async createClassroom(params: { name: string; description?: string }): Promise<{ classroom: Classroom; joinCode: string }> {
+    return apiFetch<{ classroom: Classroom; joinCode: string }>('/api/classrooms', {
+      method: 'POST',
+      body: JSON.stringify(params),
+    });
+  },
+
+  async joinClassroom(joinCode: string): Promise<{
+    message: string;
+    classroom: Classroom;
+    enrollment: ClassroomEnrollment;
+  }> {
+    return apiFetch<{
+      message: string;
+      classroom: Classroom;
+      enrollment: ClassroomEnrollment;
+    }>('/api/classrooms/join', {
+      method: 'POST',
+      body: JSON.stringify({ joinCode }),
+    });
+  },
+
+  async getClassroomStudents(id: string): Promise<{
+    students: ClassroomEnrollment[];
+    total: number;
+  }> {
+    return apiFetch<{
+      students: ClassroomEnrollment[];
+      total: number;
+    }>(`/api/classrooms/${id}/students`);
   },
 };

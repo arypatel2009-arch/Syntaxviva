@@ -1434,6 +1434,8 @@ export const CodeEditorModal: React.FC<CodeEditorModalProps> = ({
   const [requirements, setRequirements] = useState('');
   const [language, setLanguage] = useState('python');
   const [dueDate, setDueDate] = useState('2026-12-31');
+  const [classrooms, setClassrooms] = useState<any[]>([]);
+  const [selectedClassroomId, setSelectedClassroomId] = useState<string>('');
 
   const [testCases, setTestCases] = useState<TestCaseItem[]>([
     { input: '', expected: '', description: 'Test Case #1' },
@@ -1443,6 +1445,18 @@ export const CodeEditorModal: React.FC<CodeEditorModalProps> = ({
     if (isOpen) {
       setError(null);
       setLoading(false);
+      api
+        .getClassrooms()
+        .then((res) => {
+          const list = res.classrooms || [];
+          setClassrooms(list);
+          if (list.length > 0 && !selectedClassroomId) {
+            setSelectedClassroomId(list[0].id);
+          }
+        })
+        .catch((err) => {
+          console.warn('Could not fetch faculty classrooms:', err);
+        });
     }
   }, [isOpen]);
 
@@ -1506,6 +1520,7 @@ export const CodeEditorModal: React.FC<CodeEditorModalProps> = ({
         language: language || 'python',
         starterCode: '',
         dueDate: dueDate || '2026-12-31',
+        classroomId: selectedClassroomId || undefined,
         testCases: nonEmptyTestCases,
       });
       toast.success(
@@ -1557,6 +1572,32 @@ export const CodeEditorModal: React.FC<CodeEditorModalProps> = ({
                 <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
                 <span>{error}</span>
               </div>
+            </div>
+          )}
+
+          {/* Target Classroom */}
+          {classrooms.length > 0 && (
+            <div className="space-y-1.5 bg-slate-50 p-3.5 rounded-xl border border-slate-200/80">
+              <label className="text-xs font-semibold text-slate-800 flex items-center justify-between">
+                <span>Target Classroom (Scoped Multi-Tenancy)</span>
+                <span className="text-[11px] text-emerald-700 font-mono bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                  Join Code Enabled
+                </span>
+              </label>
+              <select
+                value={selectedClassroomId}
+                onChange={(e) => setSelectedClassroomId(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm bg-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 font-medium"
+              >
+                {classrooms.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name} — Join Code: {c.join_code} ({c.student_count ?? 0} enrolled students)
+                  </option>
+                ))}
+              </select>
+              <p className="text-[11px] text-slate-500">
+                Only students who join this classroom using its 6-character code will see and submit this assignment.
+              </p>
             </div>
           )}
 
@@ -1620,13 +1661,13 @@ export const CodeEditorModal: React.FC<CodeEditorModalProps> = ({
             />
           </div>
 
-          {/* Gemini AI Evaluation Banner */}
+          {/* SyntaXViva AI Evaluation Banner */}
           <div className="p-3.5 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-900 flex items-start gap-2.5 shadow-xs">
             <Sparkles className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
             <div className="space-y-0.5">
-              <span className="font-bold text-blue-950 block">Gemini AI Code Evaluation Enabled</span>
+              <span className="font-bold text-blue-950 block">SyntaXViva AI Code Evaluation Enabled</span>
               <p className="text-blue-800 text-[11px] leading-relaxed">
-                Faculty no longer need to create manual test cases. Gemini AI will automatically evaluate students&apos; code directly against your problem statement and functional requirements.
+                Faculty no longer need to create manual test cases. SyntaXViva AI will automatically evaluate students&apos; code directly against your problem statement and functional requirements.
               </p>
             </div>
           </div>

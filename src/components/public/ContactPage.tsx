@@ -16,14 +16,59 @@ export const ContactPage: React.FC<ContactPageProps> = ({ onNavigate }) => {
     message: '',
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleLaunchWhatsApp = (customMsg?: string) => {
+    const text = `Hello SyntaXViva Team,
+
+I submitted an inquiry through the Contact page.
+
+Name: ${formData.name}
+Email: ${formData.email}
+Subject: ${formData.subject}
+Institution: ${formData.institution || 'N/A'}
+Message:
+${customMsg || formData.message}
+
+Please get back to me.`;
+
+    const encoded = encodeURIComponent(text);
+    const url1 = `https://wa.me/919104115655?text=${encoded}`;
+    const url2 = `https://wa.me/916351003457?text=${encoded}`;
+
+    window.open(url1, '_blank');
+    setTimeout(() => {
+      window.open(url2, '_blank');
+    }, 400);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name || !formData.email || !formData.message) return;
+
+    try {
+      await fetch('/api/inquiries', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: formData.name.trim(),
+          institution: formData.institution.trim() || 'General Inquiry',
+          email: formData.email.trim().toLowerCase(),
+          phone: '+91 91041 15655 / +91 63510 03457',
+          role: 'Contact Inquirer',
+          inquiryType: formData.subject,
+          expectedUsage: 'Contact Form',
+          message: formData.message.trim(),
+        }),
+      });
+    } catch (err) {
+      console.warn('Inquiry background record note:', err);
+    }
+
+    handleLaunchWhatsApp();
     setSubmitted(true);
   };
 
   return (
-    <div className="bg-white min-h-screen py-16">
+    <div className="bg-white min-h-screen pt-28 sm:pt-32 pb-16">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="text-center max-w-3xl mx-auto space-y-4 mb-16">
@@ -73,10 +118,29 @@ export const ContactPage: React.FC<ContactPageProps> = ({ onNavigate }) => {
                   </div>
                   <div>
                     <span className="text-xs text-emerald-300 font-semibold uppercase tracking-wider">
-                      Phone & WhatsApp
+                      Phone &amp; WhatsApp
                     </span>
-                    <div className="text-sm font-medium text-white font-mono mt-0.5">
-                      +91 98765 43210
+                    <div className="text-sm font-medium text-white font-mono mt-1 space-y-1">
+                      <div>
+                        <a
+                          href="https://wa.me/919104115655"
+                          target="_blank"
+                          rel="noreferrer"
+                          className="hover:text-emerald-300 transition flex items-center gap-1.5"
+                        >
+                          <span>+91 91041 15655</span>
+                        </a>
+                      </div>
+                      <div>
+                        <a
+                          href="https://wa.me/916351003457"
+                          target="_blank"
+                          rel="noreferrer"
+                          className="hover:text-emerald-300 transition flex items-center gap-1.5"
+                        >
+                          <span>+91 63510 03457</span>
+                        </a>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -107,19 +171,26 @@ export const ContactPage: React.FC<ContactPageProps> = ({ onNavigate }) => {
           <div className="lg:col-span-7">
             <div className="bg-white p-8 sm:p-10 rounded-3xl border border-slate-200 shadow-2xs">
               {submitted ? (
-                <div className="text-center py-12 space-y-4">
+                <div className="text-center py-12 space-y-5">
                   <div className="w-16 h-16 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto">
                     <CheckCircle2 className="w-10 h-10" />
                   </div>
                   <h3 className="text-2xl font-bold text-slate-900">Message Received!</h3>
                   <p className="text-slate-600 max-w-md mx-auto text-sm leading-relaxed">
-                    Thank you, <strong>{formData.name}</strong>. Our academic team has received your
-                    message and will respond to <strong>{formData.email}</strong> shortly.
+                    Thank you, <strong>{formData.name}</strong>. Your message has been sent to our team at <strong>+91 91041 15655</strong> and <strong>+91 63510 03457</strong>, and we will respond to <strong>{formData.email}</strong> shortly.
                   </p>
-                  <div className="pt-4">
+                  <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => handleLaunchWhatsApp()}
+                      className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs transition shadow-md shadow-emerald-600/20 flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      <MessageSquare className="w-4 h-4" />
+                      <span>Resend on WhatsApp</span>
+                    </button>
                     <Button
                       variant="outline"
-                      size="md"
+                      size="sm"
                       onClick={() => {
                         setSubmitted(false);
                         setFormData({
