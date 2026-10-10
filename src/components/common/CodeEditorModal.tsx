@@ -1557,17 +1557,6 @@ export const CodeEditorModal: React.FC<CodeEditorModalProps> = ({
                 <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
                 <span>{error}</span>
               </div>
-              {(error.includes('Free Credit limit') || error.includes('Book a Call')) && (
-                <div className="pt-1">
-                  <button
-                    type="button"
-                    onClick={() => setIsBookModalOpen(true)}
-                    className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition cursor-pointer shadow-xs"
-                  >
-                    Book a Call to Upgrade to Pro ➔
-                  </button>
-                </div>
-              )}
             </div>
           )}
 
