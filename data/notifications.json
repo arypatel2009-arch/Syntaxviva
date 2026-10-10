@@ -1,5 +1,21 @@
 [
   {
+    "id": "notif_1791675277319_xojzn",
+    "assignmentId": "asg_1791675277296_4ezhc",
+    "title": "New Assignment: Binary Search Viva Lab mv3177iv",
+    "assignmentTitle": "Binary Search Viva Lab mv3177iv",
+    "language": "python",
+    "dueDate": "2026-12-31",
+    "message": "New PYTHON lab assignment published in your classroom.",
+    "targetStudentIds": [
+      "std_a_mv3177iv"
+    ],
+    "notifiedStudentCount": 1,
+    "dismissedBy": [],
+    "readBy": [],
+    "createdAt": "2026-10-10T23:34:37.319Z"
+  },
+  {
     "id": "notif_1791665248215_mc7mx",
     "assignmentId": "asg_1791665241456_cyv0m",
     "title": "Phase 2 Unlocked: hiii",

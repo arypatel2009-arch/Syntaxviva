@@ -304,6 +304,14 @@ export async function handleSignUp(req: Request, res: Response): Promise<void> {
       return;
     }
 
+    if (Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+      res.status(400).json({
+        error: 'An account with this email address already exists. Please sign in instead.',
+        code: 'user_already_exists',
+      });
+      return;
+    }
+
     const sbUser = data.user;
     // Upsert profile in application database linked by Supabase UUID (auth.users.id)
     const profile = await repo.upsertProfile({
@@ -431,9 +439,14 @@ export async function handleLogin(req: Request, res: Response): Promise<void> {
 
     if (error) {
       const msg = error.message.toLowerCase();
-      if (msg.includes('not confirmed') || error.code === 'email_not_confirmed') {
+      if (
+        msg.includes('not confirmed') ||
+        msg.includes('not verified') ||
+        msg.includes('verify your email') ||
+        error.code === 'email_not_confirmed'
+      ) {
         res.status(400).json({
-          error: 'Your email address has not been verified yet. Please check your inbox and click the verification link.',
+          error: 'Please verify your email address before signing in. Check your inbox for the confirmation link.',
           code: 'email_not_confirmed',
         });
         return;

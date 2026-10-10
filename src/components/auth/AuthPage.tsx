@@ -110,6 +110,9 @@ export const AuthPage: React.FC<AuthPageProps> = ({
   }, [resendCooldown]);
 
   const switchMode = (newMode: 'login' | 'signup' | 'forgot-password' | 'verify-otp' | 'reset-password' | 'email-verified') => {
+    if (emailVerificationSent) {
+      setEmail(emailVerificationSent);
+    }
     setMode(newMode);
     setFormError(null);
     setFormSuccess(null);
@@ -141,7 +144,13 @@ export const AuthPage: React.FC<AuthPageProps> = ({
     } catch (err: any) {
       const msg = err.message || 'Invalid email or password.';
       setFormError(msg);
-      if (msg.toLowerCase().includes('not verified') || msg.toLowerCase().includes('not confirmed')) {
+      if (
+        msg.toLowerCase().includes('not verified') ||
+        msg.toLowerCase().includes('not confirmed') ||
+        msg.toLowerCase().includes('verify your email') ||
+        msg.toLowerCase().includes('email_not_confirmed') ||
+        msg.toLowerCase().includes('unconfirmed')
+      ) {
         setUnverifiedLoginEmail(cleanEmail);
       }
     } finally {
@@ -499,7 +508,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
 
               <div className="space-y-2">
                 <h3 className="text-base font-semibold text-slate-900">
-                  Check your email to verify your SyntaXViva account.
+                  Verification email sent! Please check your inbox and verify your email before logging in.
                 </h3>
                 <p className="text-xs text-slate-600 leading-relaxed max-w-sm mx-auto">
                   We have sent a verification link to{' '}

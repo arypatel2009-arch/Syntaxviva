@@ -92,28 +92,29 @@ export function isProfileComplete(
 
 // Helper to construct dynamic redirect URL for email verification & auth callbacks
 export function getAuthRedirectUrl(path: string = '/login'): string {
+  const cleanPath = path.startsWith('/') ? path : `/${path}`;
+  if (typeof window !== 'undefined' && window.location?.origin) {
+    return `${window.location.origin}${cleanPath}`;
+  }
+
   const metaEnv = (typeof import.meta !== 'undefined' && (import.meta as any)?.env) ? (import.meta as any).env : {};
   const procEnv = typeof process !== 'undefined' && process?.env ? process.env : {};
   const envUrl = (metaEnv.VITE_APP_URL || metaEnv.VITE_SITE_URL || procEnv.VITE_APP_URL || procEnv.VITE_SITE_URL || '').trim();
 
   let baseUrl = envUrl;
-  if (!baseUrl && typeof window !== 'undefined') {
-    baseUrl = window.location.origin;
-  }
   if (!baseUrl) {
-    baseUrl = 'http://localhost:3005';
+    baseUrl = 'http://localhost:3000';
   }
 
   const cleanBaseUrl = baseUrl.replace(/\/+$/, '');
-  const cleanPath = path.startsWith('/') ? path : `/${path}`;
-
   return `${cleanBaseUrl}${cleanPath}`;
 }
 
 // Helper to format clean user-facing authentication errors
 export function formatAuthError(err: any): string {
   if (!err) return 'An unexpected authentication error occurred.';
-  const msg = (err.message || String(err)).toLowerCase();
+  const rawMsg = err.message || String(err);
+  const msg = rawMsg.toLowerCase();
   const code = (err.code || '').toLowerCase();
   const status = err.status || err.statusCode;
 
@@ -131,11 +132,20 @@ export function formatAuthError(err: any): string {
   if (code === 'user_already_confirmed' || msg.includes('already confirmed') || msg.includes('already verified')) {
     return 'This account is already verified. You can proceed to sign in.';
   }
+  if (
+    code === 'email_not_confirmed' ||
+    code === 'email_not_verified' ||
+    msg.includes('email not confirmed') ||
+    msg.includes('email_not_confirmed') ||
+    msg.includes('not confirmed') ||
+    msg.includes('not verified') ||
+    msg.includes('unconfirmed') ||
+    msg.includes('verify your email')
+  ) {
+    return 'Please verify your email address before signing in. Check your inbox for the confirmation link.';
+  }
   if (msg.includes('invalid login credentials') || msg.includes('invalid credentials') || msg.includes('invalid email or password')) {
     return 'Invalid email or password. Please double-check your credentials and try again.';
-  }
-  if (code === 'email_not_confirmed' || msg.includes('email not confirmed') || msg.includes('not verified')) {
-    return 'Your email address has not been verified yet. Please check your inbox and click the verification link.';
   }
   if (msg.includes('password should be at least') || msg.includes('password must be at least')) {
     return 'Password must be at least 8 characters long, start with a capital letter, and include a number and symbol.';
@@ -531,6 +541,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       if (data?.user) {
+        // If the user already exists, Supabase returns a user object with empty identities array
+        if (Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+          throw new Error('An account with this email address already exists. Please sign in instead.');
+        }
+
         if (data.session) {
           setSession(data.session);
           setSupabaseUser(data.user);
@@ -554,7 +569,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           };
         }
 
-        // Email confirmation is required by Supabase
+        // Email confirmation is required by Supabase (data.session is null).
+        // Strictly DO NOT attempt auto-login (signInWithPassword), which triggers 400 Bad Request.
         return {
           user: data.user,
           session: null,
@@ -731,7 +747,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       return {
         success: true,
-        message: 'A fresh verification link has been sent to your email address.',
+        message: 'Verification email sent! Please check your inbox and verify your email before logging in.',
       };
     } catch (err: any) {
       const friendly = formatAuthError(err);
