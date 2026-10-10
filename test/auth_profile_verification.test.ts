@@ -25,7 +25,6 @@ async function runAuthProfileVerificationSuite() {
     rollNumber: '', // missing roll number
     classId: 'Batch 2025',
     divisionId: 'Div A',
-    avatarUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
   };
 
   const isIncomplete = isProfileComplete(incompleteStudentUser, null, 'student');
@@ -40,7 +39,7 @@ async function runAuthProfileVerificationSuite() {
 
   const isComplete = isProfileComplete(completeStudentUser, null, 'student');
   if (isComplete !== true) {
-    throw new Error('Test 2 Failed: Student profile with all required fields (including photo) should be reported as complete.');
+    throw new Error('Test 2 Failed: Student profile with all required fields should be reported as complete.');
   }
   console.log('✔ Test 2 Passed: Student profile completeness criteria verified.\n');
 
@@ -48,24 +47,23 @@ async function runAuthProfileVerificationSuite() {
   console.log('Test 3: Testing faculty profile completeness criteria...');
   const incompleteFaculty: any = {
     id: 'test-faculty-1',
-    name: 'Dr. Smith',
+    name: '', // missing name
     email: 'faculty@example.com',
     role: 'faculty',
     institution: 'Tech Institute',
-    avatarUrl: '', // missing avatar photo
   };
 
   if (isProfileComplete(incompleteFaculty, null, 'faculty') !== false) {
-    throw new Error('Test 3 Failed: Faculty profile without avatar photo should be reported as incomplete.');
+    throw new Error('Test 3 Failed: Faculty profile without name should be reported as incomplete.');
   }
 
   const completeFaculty: any = {
     ...incompleteFaculty,
-    avatarUrl: 'data:image/png;base64,avatar123',
+    name: 'Dr. Smith',
   };
 
   if (isProfileComplete(completeFaculty, null, 'faculty') !== true) {
-    throw new Error('Test 3 Failed: Faculty profile with photo and institution should be reported as complete.');
+    throw new Error('Test 3 Failed: Faculty profile with name and institution should be reported as complete.');
   }
   console.log('✔ Test 3 Passed: Faculty profile completeness criteria verified.\n');
 

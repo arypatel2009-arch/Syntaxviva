@@ -72,7 +72,24 @@ async function startServer() {
 
   // Global CORS & Preflight handling for container / iframe environment
   app.use((req, res, next) => {
-    res.setHeader('Access-Control-Allow-Origin', '*');
+    const origin = req.headers.origin;
+    const allowedAppUrl = (process.env.APP_URL || process.env.VITE_APP_URL || '').trim();
+    if (origin) {
+      if (
+        process.env.NODE_ENV !== 'production' ||
+        origin.includes('localhost') ||
+        origin.includes('127.0.0.1') ||
+        (allowedAppUrl && origin.startsWith(allowedAppUrl))
+      ) {
+        res.setHeader('Access-Control-Allow-Origin', origin);
+      } else if (allowedAppUrl) {
+        res.setHeader('Access-Control-Allow-Origin', allowedAppUrl);
+      } else {
+        res.setHeader('Access-Control-Allow-Origin', origin);
+      }
+    } else {
+      res.setHeader('Access-Control-Allow-Origin', '*');
+    }
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept, X-Requested-With');
     res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
@@ -88,9 +105,11 @@ async function startServer() {
   const modelsDir = path.join(process.cwd(), 'public/models');
 
   app.use('/wasm', express.static(wasmDir, {
+    maxAge: '7d',
     setHeaders: (res, filePath) => {
       res.setHeader('Access-Control-Allow-Origin', '*');
       res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+      res.setHeader('Cache-Control', 'public, max-age=604800, immutable');
       if (filePath.endsWith('.wasm')) {
         res.setHeader('Content-Type', 'application/wasm');
       } else if (filePath.endsWith('.js')) {
@@ -100,19 +119,25 @@ async function startServer() {
   }));
 
   app.use('/models', express.static(modelsDir, {
+    maxAge: '30d',
     setHeaders: (res, filePath) => {
       res.setHeader('Access-Control-Allow-Origin', '*');
       res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
       res.setHeader('Content-Type', 'application/octet-stream');
+      res.setHeader('Cache-Control', 'public, max-age=2592000, immutable');
     },
   }));
 
   app.use(express.static(path.join(process.cwd(), 'public'), {
+    maxAge: '1d',
     setHeaders: (res, filePath) => {
       res.setHeader('Access-Control-Allow-Origin', '*');
       res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
       if (filePath.endsWith('.mp4')) {
         res.setHeader('Content-Type', 'video/mp4');
+        res.setHeader('Cache-Control', 'public, max-age=86400');
+      } else if (filePath.endsWith('.jpg') || filePath.endsWith('.webp') || filePath.endsWith('.png')) {
+        res.setHeader('Cache-Control', 'public, max-age=604800, immutable');
       }
     },
   }));

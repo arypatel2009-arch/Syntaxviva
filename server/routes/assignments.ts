@@ -252,13 +252,12 @@ assignmentsRouter.post('/', authenticate, requireRole('faculty', 'admin'), async
         facultyProfile &&
         facultyProfile.full_name?.trim() &&
         facultyProfile.full_name.trim().length >= 2 &&
-        facultyProfile.institution_id?.trim() &&
-        facultyProfile.avatar_url?.trim()
+        facultyProfile.institution_id?.trim()
       );
 
       if (!isFacultyProfileComplete) {
         res.status(403).json({
-          error: 'Profile incomplete! You must complete your faculty profile (Full Name, Institution, and Profile Photo) before creating new lab assignments.',
+          error: 'Profile incomplete! You must complete your faculty profile (Full Name and Institution) before creating new lab assignments.',
           code: 'profile_incomplete',
           isProfileIncomplete: true,
         });

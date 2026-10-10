@@ -16,6 +16,7 @@ import assert from 'assert';
 import http from 'http';
 import express from 'express';
 import { getDatabase, dbGet, dbQuery, dbRun, saveDatabaseToDisk } from '../server/db/database.ts';
+import { getRepository } from '../server/repository/index.ts';
 import { generateToken } from '../server/auth/jwt.ts';
 import { studentRouter } from '../server/routes/student.ts';
 import { assignmentsRouter } from '../server/routes/assignments.ts';
@@ -41,6 +42,7 @@ async function runPart5VerificationSuite() {
   console.log('=== [SyntaXViva] PART 5 AUTOMATED VERIFICATION SUITE ===');
   console.log('Strict Security + Deterministic Bug Verification\n');
 
+  process.env.NODE_ENV = 'test';
   // Step 0: Ensure DB is initialized
   const db = await getDatabase();
   assert(db, 'Database must be ready');
@@ -69,8 +71,18 @@ async function runPart5VerificationSuite() {
   }
 
   try {
-    // Setup student token
+    const repo = getRepository();
     const studentId = 'stu_test_part5_' + Math.random().toString(36).substring(2, 7);
+    await repo.upsertProfile({
+      id: studentId,
+      email: `${studentId}@university.edu`,
+      full_name: 'Test Student 1',
+      role: 'student',
+      institution_id: 'inst_test',
+      roll_number: 'R_P5_1_' + Math.random().toString(36).slice(2, 6),
+      class_id: 'CS101',
+      division_id: 'A',
+    });
     const studentToken = generateToken({
       userId: studentId,
       name: 'Test Student 1',
@@ -93,8 +105,8 @@ async function runPart5VerificationSuite() {
     dbRun(
       `INSERT INTO assignments (
          id, title, description, language, requirements, starter_code, test_cases_json,
-         status, created_by, due_date, created_at, updated_at
-       ) VALUES (?, ?, ?, ?, ?, ?, ?, 'active', 'faculty_demo', NULL, ?, ?)`,
+         status, created_by, due_date, phase2_unlocked, created_at, updated_at
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, 'active', 'faculty_demo', NULL, 1, ?, ?)`,
       [
         assignmentId,
         'Part 5 Find Maximum',
@@ -198,6 +210,16 @@ else:
     // -------------------------------------------------------------
     console.log('Test 3: Submitting incorrect fix with broken logic...');
     const studentIncorrectId = 'stu_test_p5_inc_' + Math.random().toString(36).substring(2, 7);
+    await repo.upsertProfile({
+      id: studentIncorrectId,
+      email: `${studentIncorrectId}@university.edu`,
+      full_name: 'Test Student Inc',
+      role: 'student',
+      institution_id: 'inst_test',
+      roll_number: 'R_P5_2_' + Math.random().toString(36).slice(2, 6),
+      class_id: 'CS101',
+      division_id: 'A',
+    });
     const studentIncorrectToken = generateToken({
       userId: studentIncorrectId,
       name: 'Test Student Inc',
@@ -247,6 +269,16 @@ else:
     // -------------------------------------------------------------
     console.log('Test 4: Submitting correct bug fix with a new student attempt...');
     const student2Id = 'stu_test_p5_success_' + Math.random().toString(36).substring(2, 7);
+    await repo.upsertProfile({
+      id: student2Id,
+      email: `${student2Id}@university.edu`,
+      full_name: 'Test Student 2',
+      role: 'student',
+      institution_id: 'inst_test',
+      roll_number: 'R_P5_3_' + Math.random().toString(36).slice(2, 6),
+      class_id: 'CS101',
+      division_id: 'A',
+    });
     const student2Token = generateToken({
       userId: student2Id,
       name: 'Test Student 2',
@@ -313,6 +345,16 @@ else:
     // -------------------------------------------------------------
     console.log('Test 5: Testing strict security violation enforcement...');
     const student3Id = 'stu_test_p5_sec_' + Math.random().toString(36).substring(2, 7);
+    await repo.upsertProfile({
+      id: student3Id,
+      email: `${student3Id}@university.edu`,
+      full_name: 'Test Student 3',
+      role: 'student',
+      institution_id: 'inst_test',
+      roll_number: 'R_P5_4_' + Math.random().toString(36).slice(2, 6),
+      class_id: 'CS101',
+      division_id: 'A',
+    });
     const student3Token = generateToken({
       userId: student3Id,
       name: 'Test Student 3',

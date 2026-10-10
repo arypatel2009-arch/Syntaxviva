@@ -5,6 +5,9 @@ import { supabase } from '../../src/lib/supabase.js';
 import { getRepository } from '../repository/index.js';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'syntaxviva_default_jwt_secret_change_in_production_key';
+if (process.env.NODE_ENV === 'production' && JWT_SECRET === 'syntaxviva_default_jwt_secret_change_in_production_key') {
+  console.warn('[SyntaXViva Security Warning] JWT_SECRET is set to the default placeholder. Please set a strong JWT_SECRET in production environment variables.');
+}
 const TOKEN_EXPIRY = '7d';
 
 export interface TokenPayload {
@@ -80,15 +83,6 @@ export async function authenticate(req: AuthenticatedRequest, res: Response, nex
         req.user = verified;
         next();
         return;
-      }
-
-      const decoded = jwt.decode(token) as any;
-      if (decoded && decoded.sub && decoded.exp && decoded.exp * 1000 > Date.now()) {
-        sbUser = {
-          id: decoded.sub,
-          email: decoded.email || '',
-          user_metadata: decoded.user_metadata || {},
-        };
       }
     }
 

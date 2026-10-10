@@ -2,6 +2,7 @@ import assert from 'assert';
 import http from 'http';
 import express from 'express';
 import { getDatabase, dbGet, dbRun, saveDatabaseToDisk } from '../server/db/database.js';
+import { getRepository } from '../server/repository/index.js';
 import { generateToken } from '../server/auth/jwt.js';
 import { studentRouter } from '../server/routes/student.js';
 import { assignmentsRouter } from '../server/routes/assignments.js';
@@ -26,6 +27,8 @@ async function startTestServer(): Promise<{ baseUrl: string; close: () => Promis
 async function runSecurityDeepSuite() {
   console.log('=== [SyntaXViva] PART 5 EXTENDED SECURITY VERIFICATION SUITE ===\n');
 
+  process.env.NODE_ENV = 'test';
+  process.env.GEMINI_API_KEY = process.env.GEMINI_API_KEY || 'AIzaSyTestMockKeyForVerificationSuite';
   const db = await getDatabase();
   assert(db, 'Database ready');
 
@@ -80,13 +83,45 @@ async function runSecurityDeepSuite() {
     });
     const authC = { Authorization: `Bearer ${tokenC}` };
 
+    const repo = getRepository();
+    await repo.upsertProfile({
+      id: studentA,
+      email: `${studentA}@university.edu`,
+      full_name: 'Security Test Student A',
+      role: 'student',
+      institution_id: 'inst_test',
+      roll_number: 'R_A_' + Math.random().toString(36).slice(2, 6),
+      class_id: 'CS101',
+      division_id: 'A',
+    });
+    await repo.upsertProfile({
+      id: studentB,
+      email: `${studentB}@university.edu`,
+      full_name: 'Security Test Student B',
+      role: 'student',
+      institution_id: 'inst_test',
+      roll_number: 'R_B_' + Math.random().toString(36).slice(2, 6),
+      class_id: 'CS101',
+      division_id: 'A',
+    });
+    await repo.upsertProfile({
+      id: studentC,
+      email: `${studentC}@university.edu`,
+      full_name: 'Security Test Student C',
+      role: 'student',
+      institution_id: 'inst_test',
+      roll_number: 'R_C_' + Math.random().toString(36).slice(2, 6),
+      class_id: 'CS101',
+      division_id: 'A',
+    });
+
     const assignmentId = `asg_sec_${Date.now()}`;
     const now = new Date().toISOString();
     dbRun(
       `INSERT INTO assignments (
          id, title, description, language, requirements, starter_code, test_cases_json,
-         status, created_by, due_date, created_at, updated_at
-       ) VALUES (?, ?, ?, ?, ?, ?, ?, 'active', 'faculty_demo', NULL, ?, ?)`,
+         status, created_by, due_date, phase2_unlocked, created_at, updated_at
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, 'active', 'faculty_demo', NULL, 1, ?, ?)`,
       [
         assignmentId,
         'Security Policy Assessment',

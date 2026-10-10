@@ -69,11 +69,9 @@ export function isProfileComplete(
 
   const name = profile?.full_name || user?.name || '';
   const institution = profile?.institution_id || user?.institution || '';
-  const avatar = profile?.avatar_url || user?.avatarUrl || user?.avatar_url || '';
 
   if (!name || name.trim().length < 2) return false;
   if (!institution || !institution.trim()) return false;
-  if (!avatar || !avatar.trim()) return false;
 
   if (targetRole === 'student') {
     const rollNumber = profile?.roll_number || user?.rollNumber || user?.roll_number || '';
@@ -183,7 +181,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setToken(accessToken);
       }
 
-      // 1. Try fetching profile directly from Supabase public.profiles if available
+      // 1. Fetch authoritative profile from application backend API (SQLite/Supabase Repository)
+      try {
+        const meRes = await api.getMe();
+        if (meRes?.profile) {
+          applyProfile(meRes.profile);
+          return meRes.profile;
+        }
+      } catch (meErr) {
+        console.warn('[AuthContext] Backend getMe warning:', meErr);
+      }
+
+      // 2. Try fetching profile directly from Supabase public.profiles if backend getMe is unavailable
       if (supabase) {
         try {
           const { data, error: sbErr } = await supabase
@@ -211,11 +220,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             return loadedProf;
           }
         } catch {
-          // Fall through to backend sync
+          // Fall through
         }
       }
 
-      // 2. Fetch or sync profile via backend API
+      // 3. Sync profile via backend API
       try {
         const syncRes = await api.syncProfile({
           full_name:
@@ -236,7 +245,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.warn('Backend profile sync note:', syncErr);
       }
 
-      // 3. Fallback: synthesize local profile defaulting safely to student
+      // 4. Fallback: synthesize local profile defaulting safely to student
       const fallbackProf: UserProfile = {
         id: sbUser.id,
         email: sbUser.email || '',

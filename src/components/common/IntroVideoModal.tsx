@@ -114,6 +114,7 @@ export const IntroVideoModal: React.FC<IntroVideoModalProps> = ({ onClose }) => 
         <div className="absolute inset-0 bg-black/70 backdrop-blur-xs flex flex-col items-center justify-center gap-4 z-20">
           <button
             onClick={handleManualPlay}
+            aria-label="Play intro video"
             className="w-20 h-20 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white flex items-center justify-center shadow-2xl transition-all scale-100 hover:scale-110 cursor-pointer border-2 border-white/20"
           >
             <Play className="w-8 h-8 ml-1" />
@@ -141,6 +142,7 @@ export const IntroVideoModal: React.FC<IntroVideoModalProps> = ({ onClose }) => 
         <div className="flex items-center gap-3">
           <button
             onClick={toggleMute}
+            aria-label={isMuted ? 'Unmute video audio' : 'Mute video audio'}
             className="p-2.5 rounded-full bg-slate-900/90 backdrop-blur-md border border-white/10 text-white hover:bg-slate-800 transition cursor-pointer"
             title={isMuted ? 'Unmute' : 'Mute'}
           >
@@ -149,6 +151,7 @@ export const IntroVideoModal: React.FC<IntroVideoModalProps> = ({ onClose }) => 
 
           <button
             onClick={handleSkip}
+            aria-label="Skip intro video"
             className="group flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-bold text-xs sm:text-sm shadow-xl transition-all cursor-pointer border border-emerald-400/30"
           >
             <span>Skip Intro</span>
