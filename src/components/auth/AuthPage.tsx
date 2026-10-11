@@ -235,7 +235,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
 
     setLoading(true);
     try {
-      const res = await signUp({
+      await signUp({
         fullName: cleanName,
         email: cleanEmail,
         password,
@@ -248,15 +248,9 @@ export const AuthPage: React.FC<AuthPageProps> = ({
         divisionId: cleanDivision,
       });
 
-      if (res?.confirmationRequired) {
-        setEmailVerificationSent(cleanEmail);
-        setResendCooldown(60);
-      } else {
-        setFormSuccess('Account created successfully! Signing in...');
-        setTimeout(() => {
-          if (onSuccess) onSuccess();
-        }, 600);
-      }
+      // Sign-up thaya tarat j seedhi verification screen j batavshe
+      setEmailVerificationSent(cleanEmail);
+      setResendCooldown(60);
     } catch (err: any) {
       setFormError(err.message || 'Registration failed. Please try again.');
     } finally {
@@ -437,7 +431,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
             </p>
           </div>
 
-          {/* Mode Switcher Tabs (Only when not in verification or recovery) */}
+          {/* Mode Switcher Tabs */}
           {!emailVerificationSent && (mode === 'login' || mode === 'signup') && (
             <div className="flex bg-slate-100 p-1 rounded-2xl">
               <button
@@ -497,9 +491,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
             </div>
           )}
 
-          {/* ------------------------------------------------------------- */}
           {/* EMAIL VERIFICATION SCREEN */}
-          {/* ------------------------------------------------------------- */}
           {emailVerificationSent ? (
             <div className="space-y-5 text-center py-2">
               <div className="w-14 h-14 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center mx-auto border border-emerald-100 shadow-sm">
@@ -569,9 +561,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
             </div>
           ) : (
             <>
-              {/* ------------------------------------------------------------- */}
               {/* LOGIN FORM */}
-              {/* ------------------------------------------------------------- */}
               {mode === 'login' && (
                 <form onSubmit={handleLogin} className="space-y-4">
                   <div className="space-y-1">
@@ -648,12 +638,9 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                 </form>
               )}
 
-              {/* ------------------------------------------------------------- */}
               {/* SIGNUP FORM */}
-              {/* ------------------------------------------------------------- */}
               {mode === 'signup' && (
                 <form onSubmit={handleSignUp} className="space-y-3.5">
-                  {/* Student vs Faculty Role Selector */}
                   <div className="space-y-1">
                     <label className="text-xs font-semibold text-slate-700 block">
                       Select Role
@@ -689,7 +676,6 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                     </div>
                   </div>
 
-                  {/* Conditional Secret Key field for Faculty */}
                   {signupRole === 'faculty' && (
                     <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-3.5 transition-all">
                       <label className="text-xs font-semibold uppercase tracking-wider text-amber-900 block">
@@ -714,7 +700,6 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                     </div>
                   )}
 
-                  {/* Full Name */}
                   <div className="space-y-1">
                     <label className="text-xs font-semibold text-slate-700 block">
                       Full Legal Name
@@ -731,7 +716,6 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                     </div>
                   </div>
 
-                  {/* Academic Email */}
                   <div className="space-y-1">
                     <label className="text-xs font-semibold text-slate-700 block">
                       Academic Email
@@ -748,7 +732,6 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                     </div>
                   </div>
 
-                  {/* Institution */}
                   <div className="space-y-1">
                     <label className="text-xs font-semibold text-slate-700 block">
                       Institution / College
@@ -765,7 +748,6 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                     </div>
                   </div>
 
-                  {/* Class and Division */}
                   <div className="grid grid-cols-2 gap-2.5">
                     <div className="space-y-1">
                       <label className="text-xs font-semibold text-slate-700 block">
@@ -793,7 +775,6 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                     </div>
                   </div>
 
-                  {/* Roll Number (for Students) */}
                   {signupRole === 'student' && (
                     <div className="space-y-1">
                       <label className="text-xs font-semibold text-slate-700 block">
@@ -809,7 +790,6 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                     </div>
                   )}
 
-                  {/* Password */}
                   <div className="space-y-1">
                     <label className="text-xs font-semibold text-slate-700 block">
                       Password
@@ -839,7 +819,6 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                     )}
                   </div>
 
-                  {/* Confirm Password */}
                   <div className="space-y-1">
                     <label className="text-xs font-semibold text-slate-700 block">
                       Confirm Password
@@ -889,9 +868,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                 </form>
               )}
 
-              {/* ------------------------------------------------------------- */}
               {/* FORGOT PASSWORD FORM */}
-              {/* ------------------------------------------------------------- */}
               {mode === 'forgot-password' && (
                 <form onSubmit={handleForgotPassword} className="space-y-4">
                   <div className="space-y-1">
@@ -934,9 +911,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                 </form>
               )}
 
-              {/* ------------------------------------------------------------- */}
               {/* VERIFY OTP FORM */}
-              {/* ------------------------------------------------------------- */}
               {mode === 'verify-otp' && (
                 <form onSubmit={handleVerifyOtp} className="space-y-4">
                   <div className="space-y-1">
@@ -1007,9 +982,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                 </form>
               )}
 
-              {/* ------------------------------------------------------------- */}
               {/* EMAIL VERIFIED CONFIRMATION SCREEN */}
-              {/* ------------------------------------------------------------- */}
               {mode === 'email-verified' && (
                 <div className="space-y-5 text-center py-2">
                   <div className="w-16 h-16 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center mx-auto border border-emerald-100 shadow-sm">
@@ -1041,9 +1014,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                 </div>
               )}
 
-              {/* ------------------------------------------------------------- */}
               {/* RESET PASSWORD FORM */}
-              {/* ------------------------------------------------------------- */}
               {mode === 'reset-password' && (
                 <div className="space-y-4">
                   {passwordResetComplete ? (
