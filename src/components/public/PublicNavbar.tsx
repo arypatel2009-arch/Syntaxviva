@@ -102,6 +102,21 @@ export const PublicNavbar: React.FC<PublicNavbarProps> = ({
             </a>
 
             <a
+              href="/reviews"
+              onClick={(e) => {
+                e.preventDefault();
+                onNavigate('/reviews');
+              }}
+              className={`text-sm transition ${
+                currentPath === '/reviews'
+                  ? 'text-emerald-400 font-semibold'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              Reviews & Benchmarks
+            </a>
+
+            <a
               href="#resources"
               onClick={(e) => handleSectionClick(e, 'resources')}
               className="text-sm text-slate-400 hover:text-white transition"
@@ -215,6 +230,21 @@ export const PublicNavbar: React.FC<PublicNavbarProps> = ({
               className="text-sm text-slate-300 hover:text-white transition"
             >
               Pricing
+            </a>
+            <a
+              href="/reviews"
+              onClick={(e) => {
+                e.preventDefault();
+                setMobileMenuOpen(false);
+                onNavigate('/reviews');
+              }}
+              className={`text-sm transition ${
+                currentPath === '/reviews'
+                  ? 'text-emerald-400 font-semibold'
+                  : 'text-slate-300 hover:text-white'
+              }`}
+            >
+              Reviews & Benchmarks
             </a>
             <a
               href="#resources"

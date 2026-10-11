@@ -137,6 +137,25 @@ async function initSchemaAndSeed(db: Database): Promise<void> {
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS reviews (
+      id TEXT PRIMARY KEY,
+      author_name TEXT NOT NULL,
+      author_email TEXT,
+      role TEXT NOT NULL,
+      institution TEXT NOT NULL,
+      lab_subject TEXT NOT NULL,
+      avg_lab_score INTEGER DEFAULT 88,
+      students_evaluated INTEGER DEFAULT 35,
+      rating_fairness INTEGER NOT NULL DEFAULT 5,
+      rating_relevance INTEGER NOT NULL DEFAULT 5,
+      rating_ui INTEGER NOT NULL DEFAULT 5,
+      overall_rating REAL NOT NULL DEFAULT 4.9,
+      comment TEXT NOT NULL,
+      verified INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
   `);
 
   // 2. Ensure academic columns exist on existing SQLite databases BEFORE creating indexes
@@ -524,6 +543,8 @@ async function initSchemaAndSeed(db: Database): Promise<void> {
   } catch (err) {
     console.warn('Migration note for multi-tenant colleges and classrooms:', err);
   }
+
+  // Reviews table initialized clean (zero mock reviews seeded)
 
   // Safe migration for security_events table
   try {
@@ -1127,7 +1148,15 @@ export function getCollegeById(id: string): CollegeRow | null {
 }
 
 export function getCollegeByName(name: string): CollegeRow | null {
-  return dbGet<CollegeRow>('SELECT * FROM colleges WHERE lower(name) = lower(?)', [name.trim()]);
+  const clean = name.trim();
+  const direct = dbGet<CollegeRow>('SELECT * FROM colleges WHERE lower(name) = lower(?)', [clean]);
+  if (direct) return direct;
+
+  const norm = clean.toLowerCase().replace(/[^a-z0-9]/g, '');
+  if (!norm) return null;
+
+  const all = listColleges();
+  return all.find(c => c.name.toLowerCase().replace(/[^a-z0-9]/g, '') === norm) || null;
 }
 
 export function listColleges(): CollegeRow[] {

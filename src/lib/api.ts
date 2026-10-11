@@ -16,6 +16,8 @@ import {
   Classroom,
   ClassroomEnrollment,
   College,
+  Review,
+  ReviewsResponse,
 } from '../types/index.ts';
 
 const TOKEN_KEY = 'syntaxviva_token';
@@ -522,5 +524,20 @@ export const api = {
       students: ClassroomEnrollment[];
       total: number;
     }>(`/api/classrooms/${id}/students`);
+  },
+
+  // -------------------------------------------------------------------------
+  // Public Reviews & Academic Benchmarks
+  // -------------------------------------------------------------------------
+  async getReviews(role?: string): Promise<ReviewsResponse> {
+    const query = role && role !== 'all' ? `?role=${encodeURIComponent(role)}` : '';
+    return apiFetch<ReviewsResponse>(`/api/reviews${query}`);
+  },
+
+  async submitReview(reviewData: Partial<Review>): Promise<{ success: boolean; review: Review; message: string }> {
+    return apiFetch<{ success: boolean; review: Review; message: string }>('/api/reviews', {
+      method: 'POST',
+      body: JSON.stringify(reviewData),
+    });
   },
 };

@@ -12,6 +12,7 @@ import { registryRouter } from './server/routes/registry.js';
 import { healthRouter } from './server/routes/health.js';
 import { inquiriesRouter } from './server/routes/inquiries.js';
 import { classroomsRouter } from './server/routes/classrooms.js';
+import { reviewsRouter } from './server/routes/reviews.js';
 import { initRepository } from './server/repository/index.js';
 import { loginRateLimiter, signupRateLimiter } from './server/middleware/rateLimiter.js';
 
@@ -151,6 +152,14 @@ async function startServer() {
     res.sendFile(videoPath);
   });
 
+  // Explicit route for Methodology MacBook screen demo video
+  app.get(['/videos/syntaxviva-demo.mp4', '/demo.mp4', '/syntaxviva-demo.mp4'], (_req, res) => {
+    const videoPath = path.join(process.cwd(), 'public', 'videos', 'syntaxviva-demo.mp4');
+    res.setHeader('Content-Type', 'video/mp4');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.sendFile(videoPath);
+  });
+
   // Middleware
   app.use(express.json({ limit: '10mb' }));
   app.use(express.urlencoded({ extended: true }));
@@ -164,6 +173,7 @@ async function startServer() {
   app.use('/api/student', studentRouter);
   app.use('/api/mutation-registry', registryRouter);
   app.use('/api/inquiries', inquiriesRouter);
+  app.use('/api/reviews', reviewsRouter);
 
   // Direct Auth Aliases for root endpoints with targeted rate limiting
   app.get('/user', authenticate, handleGetUser);

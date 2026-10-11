@@ -67,28 +67,32 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* 1. ENTERPRISE OVERVIEW HEADER CARD */}
-      <div className="bg-white rounded-xl p-6 border border-slate-200/80 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-5">
-        <div className="space-y-1.5 max-w-2xl">
-          <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-emerald-50 border border-emerald-200/70 text-emerald-700 text-xs font-medium">
+      {/* 1. SOFT GLASS HERO WELCOME SECTION WITH TRANSLUCENT ACCENTS */}
+      <div className="relative overflow-hidden glass-card rounded-2xl p-6 sm:p-8 flex flex-col md:flex-row md:items-center justify-between gap-6 shadow-[0_8px_32px_rgba(71,113,153,0.08)]">
+        {/* Abstract decorative translucent cyan & mint shapes on the right */}
+        <div className="absolute -right-12 -top-12 w-64 h-64 rounded-full bg-gradient-to-br from-cyan-200/35 via-teal-100/25 to-emerald-300/20 blur-2xl pointer-events-none" />
+        <div className="absolute right-24 -bottom-16 w-56 h-56 rounded-full bg-gradient-to-tr from-emerald-200/30 via-teal-100/30 to-blue-200/25 blur-3xl pointer-events-none" />
+
+        <div className="relative z-10 space-y-2.5 max-w-2xl">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[#059669] text-xs font-semibold shadow-2xs">
             <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
-            <span>Active Term 2026 • Computer Science</span>
+            <span>Active Semester • Computer Science Lab</span>
           </div>
-          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
+          <h1 className="text-2xl sm:text-3xl font-bold font-display tracking-tight text-[#172B4D]">
             Welcome back, {studentName}
           </h1>
-          <p className="text-sm text-slate-600 leading-relaxed">
+          <p className="text-sm text-[#64748B] leading-relaxed">
             Keep learning, keep growing. You have{' '}
-            <strong className="text-slate-900 font-semibold">
+            <span className="text-emerald-600 font-bold px-1.5 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/20">
               {pending} pending assignments
-            </strong>{' '}
+            </span>{' '}
             waiting for Phase 1 submission and Phase 2 completion.
           </p>
         </div>
 
-        <div className="shrink-0 flex flex-wrap items-center gap-2.5">
+        <div className="relative z-10 shrink-0 flex flex-wrap items-center gap-3">
           <Button
-            variant="outline"
+            variant="secondary"
             size="md"
             onClick={onJoinClassroom}
             icon={Users}
@@ -134,8 +138,8 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
       {/* 3. 2-COLUMN MAIN CONTENT (Recent Assignments & Your Progress) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* Left Column (8 cols): Recent Assignments Table */}
-        <div className="lg:col-span-8 bg-white rounded-xl border border-slate-200/80 shadow-xs overflow-visible">
-          <div className="p-5 border-b border-slate-200/80 flex items-center justify-between">
+        <div className="lg:col-span-8 glass-card rounded-2xl overflow-visible">
+          <div className="p-5 border-b border-white/70 flex items-center justify-between">
             <div>
               <h2 className="text-base font-semibold text-slate-900 tracking-tight">
                 Recent Assignments
@@ -164,7 +168,7 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs min-w-[660px]">
                 <thead>
-                  <tr className="bg-slate-50/70 border-b border-slate-200/80 text-xs font-medium text-slate-500 uppercase tracking-wider">
+                  <tr className="bg-white/40 border-b border-white/60 text-xs font-semibold text-slate-500 uppercase tracking-wider">
                     <th className="py-3 pl-6 w-auto min-w-[200px]">Assignment</th>
                     <th className="py-3 w-28 whitespace-nowrap">Language</th>
                     <th className="py-3 w-36 whitespace-nowrap">Deadline Date</th>
@@ -338,7 +342,7 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
         </div>
 
         {/* Right Column (4 cols): Your Progress Circular Card */}
-        <div className="lg:col-span-4 bg-white rounded-xl border border-slate-200/80 p-6 shadow-xs space-y-6">
+        <div className="lg:col-span-4 glass-card rounded-2xl p-6 space-y-6">
           <div>
             <h2 className="text-base font-semibold text-slate-900 tracking-tight">Your Progress</h2>
             <p className="text-xs text-slate-500">Overall comprehension verification</p>

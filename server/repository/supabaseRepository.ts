@@ -22,6 +22,7 @@ import {
   ProctoringEventEntity,
   DashboardStatsEntity,
   ContactInquiryEntity,
+  ReviewEntity,
   UserRole,
 } from './types.js';
 import { getResolvedServiceRoleKey } from '../lib/supabaseAdmin.js';
@@ -134,8 +135,15 @@ export class SupabaseApplicationRepository implements IApplicationRepository {
 
   async getCollegeByName(name: string): Promise<CollegeEntity | null> {
     if (!this.client) return null;
-    const { data } = await this.client.from('colleges').select('*').ilike('name', name.trim()).maybeSingle();
-    return data as CollegeEntity | null;
+    const clean = (name || '').trim();
+    const { data } = await this.client.from('colleges').select('*').ilike('name', clean).maybeSingle();
+    if (data) return data as CollegeEntity;
+
+    const norm = clean.toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (!norm) return null;
+
+    const all = await this.listColleges();
+    return all.find(c => (c.name || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '') === norm) || null;
   }
 
   async getOrCreateCollege(name: string, code?: string): Promise<CollegeEntity> {
@@ -1124,5 +1132,104 @@ export class SupabaseApplicationRepository implements IApplicationRepository {
       return rec;
     }
     return null;
+  }
+
+  async getReviews(filter?: { role?: string; verifiedOnly?: boolean }): Promise<ReviewEntity[]> {
+    if (!this.client) return [];
+    try {
+      let query = this.client.from('reviews').select('*');
+      if (filter?.verifiedOnly !== false) {
+        query = query.eq('verified', 1);
+      }
+      if (filter?.role && filter.role !== 'All') {
+        query = query.eq('role', filter.role);
+      }
+      query = query.order('created_at', { ascending: false });
+
+      const { data, error } = await query;
+      if (!error && data && data.length > 0) {
+        return data as ReviewEntity[];
+      }
+    } catch {
+      // Fall through to fallback
+    }
+
+    // Fallback to SQLite local repository
+    try {
+      const { getDatabase } = await import('../db/database.js');
+      const db = await getDatabase();
+      let sql = 'SELECT * FROM reviews';
+      const conditions: string[] = [];
+      const params: any[] = [];
+      if (filter?.verifiedOnly !== false) conditions.push('verified = 1');
+      if (filter?.role && filter.role !== 'All') {
+        conditions.push('role = ?');
+        params.push(filter.role);
+      }
+      if (conditions.length > 0) sql += ' WHERE ' + conditions.join(' AND ');
+      sql += ' ORDER BY created_at DESC';
+
+      const res = db.exec(sql, params);
+      if (res && res[0]) {
+        const cols = res[0].columns;
+        return res[0].values.map((row) => {
+          const obj: any = {};
+          cols.forEach((c, i) => (obj[c] = row[i]));
+          return obj as ReviewEntity;
+        });
+      }
+    } catch (sqliteErr) {
+      console.warn('Fallback sqlite getReviews note:', sqliteErr);
+    }
+    return [];
+  }
+
+  async createReview(review: Omit<ReviewEntity, 'created_at' | 'updated_at'>): Promise<ReviewEntity> {
+    const now = new Date().toISOString();
+    const entity: ReviewEntity = {
+      ...review,
+      created_at: now,
+      updated_at: now,
+    };
+
+    if (this.client) {
+      try {
+        await this.client.from('reviews').insert(entity);
+      } catch {
+        // ignore supabase write error if table unmigrated
+      }
+    }
+
+    try {
+      const { getDatabase, saveDatabaseToDisk } = await import('../db/database.js');
+      const db = await getDatabase();
+      db.run(
+        `INSERT INTO reviews (id, author_name, author_email, role, institution, lab_subject, avg_lab_score, students_evaluated, rating_fairness, rating_relevance, rating_ui, overall_rating, comment, verified, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          entity.id,
+          entity.author_name,
+          entity.author_email || null,
+          entity.role,
+          entity.institution,
+          entity.lab_subject,
+          entity.avg_lab_score,
+          entity.students_evaluated,
+          entity.rating_fairness,
+          entity.rating_relevance,
+          entity.rating_ui,
+          entity.overall_rating,
+          entity.comment,
+          entity.verified,
+          entity.created_at,
+          entity.updated_at,
+        ]
+      );
+      saveDatabaseToDisk();
+    } catch (e) {
+      console.warn('SQLite createReview fallback note:', e);
+    }
+
+    return entity;
   }
 }

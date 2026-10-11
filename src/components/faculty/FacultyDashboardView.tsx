@@ -667,7 +667,7 @@ export const FacultyDashboardView: React.FC<FacultyDashboardViewProps> = ({
       </div>
 
       {/* 2.5 MY CLASSROOMS & ENROLLMENT CODES (Multi-Tenancy) */}
-      <div className="bg-white rounded-xl border border-slate-200/80 p-5 shadow-xs space-y-4">
+      <div className="glass-card rounded-2xl p-6 space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <div className="flex items-center gap-2">

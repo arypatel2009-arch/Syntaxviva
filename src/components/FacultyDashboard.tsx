@@ -114,7 +114,7 @@ export const FacultyDashboard: React.FC<FacultyDashboardProps> = () => {
   );
 
   return (
-    <div className="min-h-screen bg-slate-50 flex">
+    <div className="min-h-screen academic-atmosphere flex text-[#172B4D]">
       {/* 1. Persistent Collapsible Global Sidebar */}
       <FacultySidebar
         currentTab={currentTab}

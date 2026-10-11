@@ -86,6 +86,17 @@ export const PublicFooter: React.FC<PublicFooterProps> = ({ onNavigate }) => {
               >
                 Pricing
               </a>
+
+              <a
+                href="/reviews"
+                onClick={(e) => {
+                  e.preventDefault();
+                  onNavigate('/reviews');
+                }}
+                className="block hover:text-white transition"
+              >
+                Reviews & Benchmarks
+              </a>
             </div>
           </div>
 

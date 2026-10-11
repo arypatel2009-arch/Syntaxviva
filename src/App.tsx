@@ -11,6 +11,7 @@ import { PricingPage } from './components/public/PricingPage.tsx';
 import { AboutPage } from './components/public/AboutPage.tsx';
 import { FAQPage } from './components/public/FAQPage.tsx';
 import { ContactPage } from './components/public/ContactPage.tsx';
+import { PublicReviewsPage } from './pages/PublicReviews.tsx';
 import { AuthPage } from './components/auth/AuthPage.tsx';
 import { FacultyDashboard } from './components/FacultyDashboard.tsx';
 import { StudentDashboard } from './components/StudentDashboard.tsx';
@@ -199,6 +200,10 @@ const AppContent: React.FC = () => {
           <ContactPage onNavigate={navigate} />
         )}
 
+        {currentPath === '/reviews' && (
+          <PublicReviewsPage onNavigate={navigate} onOpenAuth={openAuth} />
+        )}
+
         {/* Fallback to HomePage if unmatched */}
         {![
           '/',
@@ -210,6 +215,7 @@ const AppContent: React.FC = () => {
           '/about',
           '/faq',
           '/contact',
+          '/reviews',
         ].includes(currentPath) && (
           <HomePage onNavigate={navigate} onOpenAuth={openAuth} />
         )}

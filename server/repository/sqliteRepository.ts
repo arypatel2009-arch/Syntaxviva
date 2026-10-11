@@ -20,6 +20,7 @@ import {
   ProctoringEventEntity,
   DashboardStatsEntity,
   ContactInquiryEntity,
+  ReviewEntity,
   UserRole,
 } from './types.js';
 import {
@@ -1238,5 +1239,61 @@ export class SqliteApplicationRepository implements IApplicationRepository {
       return rec;
     }
     return null;
+  }
+
+  async getReviews(filter?: { role?: string; verifiedOnly?: boolean }): Promise<ReviewEntity[]> {
+    let sql = 'SELECT * FROM reviews';
+    const conditions: string[] = [];
+    const params: any[] = [];
+
+    if (filter?.verifiedOnly !== false) {
+      conditions.push('verified = 1');
+    }
+    if (filter?.role && filter.role !== 'All') {
+      conditions.push('role = ?');
+      params.push(filter.role);
+    }
+
+    if (conditions.length > 0) {
+      sql += ' WHERE ' + conditions.join(' AND ');
+    }
+    sql += ' ORDER BY created_at DESC';
+
+    return await dbQuery<ReviewEntity>(sql, params);
+  }
+
+  async createReview(review: Omit<ReviewEntity, 'created_at' | 'updated_at'>): Promise<ReviewEntity> {
+    const now = new Date().toISOString();
+    const entity: ReviewEntity = {
+      ...review,
+      created_at: now,
+      updated_at: now,
+    };
+
+    dbRun(
+      `INSERT INTO reviews (id, author_name, author_email, role, institution, lab_subject, avg_lab_score, students_evaluated, rating_fairness, rating_relevance, rating_ui, overall_rating, comment, verified, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        entity.id,
+        entity.author_name,
+        entity.author_email || null,
+        entity.role,
+        entity.institution,
+        entity.lab_subject,
+        entity.avg_lab_score,
+        entity.students_evaluated,
+        entity.rating_fairness,
+        entity.rating_relevance,
+        entity.rating_ui,
+        entity.overall_rating,
+        entity.comment,
+        entity.verified,
+        entity.created_at,
+        entity.updated_at,
+      ]
+    );
+
+    saveDatabaseToDisk();
+    return entity;
   }
 }

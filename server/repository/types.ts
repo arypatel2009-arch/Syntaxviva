@@ -322,6 +322,10 @@ export interface IApplicationRepository {
   getInquiries(filter?: { status?: string }): Promise<ContactInquiryEntity[]>;
   updateInquiryStatus(id: string, status: 'NEW' | 'CONTACTED' | 'CLOSED'): Promise<ContactInquiryEntity | null>;
   getRecentInquiryByContact(email: string, phone: string, withinMs?: number): Promise<ContactInquiryEntity | null>;
+
+  // Public Reviews & Benchmarks
+  getReviews(filter?: { role?: string; verifiedOnly?: boolean }): Promise<ReviewEntity[]>;
+  createReview(review: Omit<ReviewEntity, 'created_at' | 'updated_at'>): Promise<ReviewEntity>;
 }
 
 export interface ContactInquiryEntity {
@@ -336,6 +340,25 @@ export interface ContactInquiryEntity {
   preferred_time?: string | null;
   message?: string | null;
   status: 'NEW' | 'CONTACTED' | 'CLOSED';
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ReviewEntity {
+  id: string;
+  author_name: string;
+  author_email?: string | null;
+  role: string;
+  institution: string;
+  lab_subject: string;
+  avg_lab_score: number;
+  students_evaluated: number;
+  rating_fairness: number;
+  rating_relevance: number;
+  rating_ui: number;
+  overall_rating: number;
+  comment: string;
+  verified: number;
   created_at: string;
   updated_at: string;
 }

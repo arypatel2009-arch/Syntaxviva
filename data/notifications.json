@@ -1,5 +1,69 @@
 [
   {
+    "id": "notif_1791714353513_0wc1z",
+    "assignmentId": "asg_1791714353497_244dc",
+    "title": "New Assignment: Binary Search Viva Lab mv3ogqyh",
+    "assignmentTitle": "Binary Search Viva Lab mv3ogqyh",
+    "language": "python",
+    "dueDate": "2026-12-31",
+    "message": "New PYTHON lab assignment published in your classroom.",
+    "targetStudentIds": [
+      "std_a_mv3ogqyh"
+    ],
+    "notifiedStudentCount": 1,
+    "dismissedBy": [],
+    "readBy": [],
+    "createdAt": "2026-10-11T10:25:53.513Z"
+  },
+  {
+    "id": "notif_1791714235497_sdt70",
+    "assignmentId": "asg_1791714235473_03had",
+    "title": "New Assignment: Binary Search Viva Lab mv3oe7un",
+    "assignmentTitle": "Binary Search Viva Lab mv3oe7un",
+    "language": "python",
+    "dueDate": "2026-12-31",
+    "message": "New PYTHON lab assignment published in your classroom.",
+    "targetStudentIds": [
+      "std_a_mv3oe7un"
+    ],
+    "notifiedStudentCount": 1,
+    "dismissedBy": [],
+    "readBy": [],
+    "createdAt": "2026-10-11T10:23:55.497Z"
+  },
+  {
+    "id": "notif_1791710663740_40fq4",
+    "assignmentId": "asg_1791710663723_igql8",
+    "title": "New Assignment: Binary Search Viva Lab mv3m9nw4",
+    "assignmentTitle": "Binary Search Viva Lab mv3m9nw4",
+    "language": "python",
+    "dueDate": "2026-12-31",
+    "message": "New PYTHON lab assignment published in your classroom.",
+    "targetStudentIds": [
+      "std_a_mv3m9nw4"
+    ],
+    "notifiedStudentCount": 1,
+    "dismissedBy": [],
+    "readBy": [],
+    "createdAt": "2026-10-11T09:24:23.740Z"
+  },
+  {
+    "id": "notif_1791708316745_xli2f",
+    "assignmentId": "asg_1791708316718_mfhjj",
+    "title": "New Assignment: Binary Search Viva Lab mv3kvby6",
+    "assignmentTitle": "Binary Search Viva Lab mv3kvby6",
+    "language": "python",
+    "dueDate": "2026-12-31",
+    "message": "New PYTHON lab assignment published in your classroom.",
+    "targetStudentIds": [
+      "std_a_mv3kvby6"
+    ],
+    "notifiedStudentCount": 1,
+    "dismissedBy": [],
+    "readBy": [],
+    "createdAt": "2026-10-11T08:45:16.745Z"
+  },
+  {
     "id": "notif_1791675277319_xojzn",
     "assignmentId": "asg_1791675277296_4ezhc",
     "title": "New Assignment: Binary Search Viva Lab mv3177iv",

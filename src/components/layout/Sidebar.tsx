@@ -98,13 +98,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <aside
         className={`fixed top-0 bottom-0 left-0 z-50 ${
           collapsed ? 'w-20' : 'w-64'
-        } border-r border-slate-200 bg-white text-slate-900 flex flex-col justify-between transition-all duration-200 ease-in-out ${
+        } glass-nav border-r border-white/80 text-slate-900 flex flex-col justify-between transition-all duration-200 ease-in-out ${
           isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         }`}
       >
         {/* Top Brand Section */}
         <div>
-          <div className={`h-16 ${collapsed ? 'px-2 justify-center' : 'px-4 justify-between'} flex items-center border-b border-slate-200/80`}>
+          <div className={`h-16 ${collapsed ? 'px-2 justify-center' : 'px-4 justify-between'} flex items-center border-b border-white/60`}>
             {collapsed ? (
               <div className="flex items-center justify-center">
                 <Logo size="md" imageOnly variant="light" />
@@ -178,16 +178,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   title={collapsed ? item.label : undefined}
                   className={`w-full flex items-center ${
                     collapsed ? 'justify-center px-2' : 'justify-between px-3'
-                  } py-2.5 rounded-l-lg text-xs transition-all cursor-pointer ${
+                  } py-2.5 rounded-l-xl text-xs transition-all cursor-pointer ${
                     isActive
-                      ? 'bg-emerald-50 text-emerald-700 font-semibold border-r-2 border-emerald-600'
-                      : 'text-slate-600 font-medium hover:text-slate-900 hover:bg-slate-50'
+                      ? 'bg-[#B9F3E4]/40 text-[#059669] font-semibold border-r-2 border-[#10B981] shadow-2xs'
+                      : 'text-[#64748B] font-medium hover:text-[#172B4D] hover:bg-white/60'
                   }`}
                 >
                   <div className="flex items-center gap-3 min-w-0">
                     <Icon
                       className={`w-4 h-4 shrink-0 ${
-                        isActive ? 'text-emerald-600' : 'text-slate-400'
+                        isActive ? 'text-[#059669]' : 'text-slate-400'
                       }`}
                     />
                     {!collapsed && <span className="truncate">{item.label}</span>}
@@ -196,8 +196,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     <span
                       className={`px-1.5 py-0.5 text-[10px] rounded-md font-semibold tabular-nums ${
                         isActive
-                          ? 'bg-emerald-100 text-emerald-800'
-                          : 'bg-slate-100 text-slate-600'
+                          ? 'bg-[#B9F3E4] text-[#059669]'
+                          : 'bg-white/70 text-slate-600 border border-white/80'
                       }`}
                     >
                       {item.badge}
@@ -210,7 +210,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
 
         {/* Bottom Workspace Footer & Quick Sign-Out */}
-        <div className="p-3 border-t border-slate-200/80 bg-slate-50/50">
+        <div className="p-3 border-t border-white/70 bg-white/40">
           <div
             className={`flex items-center ${
               collapsed ? 'justify-center' : 'justify-between'
@@ -377,14 +377,14 @@ export const GlobalTopHeader: React.FC<GlobalTopHeaderProps> = ({
 
   return (
     <>
-      <header className="sticky top-0 z-30 h-16 bg-white/95 backdrop-blur-md border-b border-slate-200 px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4">
+      <header className="sticky top-0 z-30 h-16 glass-nav border-b border-white/80 px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4">
         {/* Left: Mobile Menu & Search */}
         <div className="flex items-center gap-2.5 grow max-w-md">
           {/* Mobile hamburger menu */}
           <button
             type="button"
             onClick={onToggleSidebar}
-            className="lg:hidden p-2 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition cursor-pointer shrink-0"
+            className="lg:hidden p-2 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-white/60 transition cursor-pointer shrink-0"
             aria-label="Toggle menu"
           >
             <Menu className="w-5 h-5" />
@@ -395,7 +395,7 @@ export const GlobalTopHeader: React.FC<GlobalTopHeaderProps> = ({
             <button
               type="button"
               onClick={onToggleCollapse}
-              className="hidden lg:inline-flex p-2 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition cursor-pointer shrink-0"
+              className="hidden lg:inline-flex p-2 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-white/60 transition cursor-pointer shrink-0"
               title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
               aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
             >
@@ -410,7 +410,7 @@ export const GlobalTopHeader: React.FC<GlobalTopHeaderProps> = ({
               value={searchTerm}
               onChange={(e) => onSearchChange(e.target.value)}
               placeholder={searchPlaceholder}
-              className="w-full pl-9 pr-4 py-1.5 rounded-lg bg-slate-50 border border-slate-200/90 text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 transition"
+              className="w-full pl-9 pr-4 py-1.5 rounded-xl glass-input text-xs sm:text-sm text-[#172B4D] placeholder:text-slate-400 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 transition"
             />
           </div>
         </div>
@@ -418,7 +418,7 @@ export const GlobalTopHeader: React.FC<GlobalTopHeaderProps> = ({
         {/* Right: System Status Pill, Institution Switcher, Notification Bell & Profile Avatar Dropdown */}
         <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
           {/* 1. Live System Status Pill */}
-          <div className="hidden xl:inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-emerald-50/90 border border-emerald-200/80 text-[11px] font-medium text-emerald-800">
+          <div className="hidden xl:inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[11px] font-semibold text-emerald-800 shadow-2xs">
             <span className="relative flex h-2 w-2">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
               <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
@@ -431,7 +431,7 @@ export const GlobalTopHeader: React.FC<GlobalTopHeaderProps> = ({
             <button
               type="button"
               onClick={() => setInstMenuOpen((prev) => !prev)}
-              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-50 hover:bg-slate-100 border border-slate-200/80 text-xs font-medium text-slate-700 transition cursor-pointer"
+              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/70 hover:bg-white border border-white/80 text-xs font-semibold text-slate-700 shadow-2xs transition cursor-pointer"
             >
               <Building2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
               <span className="max-w-[160px] truncate">

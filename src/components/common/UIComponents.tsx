@@ -35,13 +35,13 @@ export const Button: React.FC<ButtonProps> = ({
 
   const variants = {
     primary:
-      'bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs active:bg-emerald-800',
+      'bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white shadow-md shadow-emerald-500/20 active:scale-[0.98] transition-all duration-200',
     secondary:
-      'bg-emerald-50 hover:bg-emerald-100/80 text-emerald-800 border border-emerald-200/80',
+      'bg-white/70 hover:bg-white/95 text-[#172B4D] border border-white/80 shadow-[0_4px_12px_rgba(71,113,153,0.06)] active:scale-[0.98]',
     outline:
-      'bg-white hover:bg-slate-50 text-slate-700 border border-slate-200/80 shadow-xs hover:border-slate-300',
+      'bg-white/60 hover:bg-white text-slate-700 border border-white/80 shadow-2xs hover:border-slate-300',
     ghost:
-      'bg-transparent hover:bg-slate-100 text-slate-600 hover:text-slate-900',
+      'bg-transparent hover:bg-slate-100/60 text-slate-600 hover:text-slate-900',
     danger:
       'bg-rose-600 hover:bg-rose-700 text-white shadow-xs active:bg-rose-800',
     dark:
@@ -143,10 +143,8 @@ export const Card: React.FC<CardProps> = ({
 
   return (
     <div
-      className={`bg-white rounded-xl border border-slate-200/80 shadow-xs ${paddings} ${
-        hoverEffect
-          ? 'transition-all duration-200 hover:shadow-sm hover:border-slate-300'
-          : ''
+      className={`glass-card rounded-2xl ${paddings} ${
+        hoverEffect ? 'glass-card-hover' : ''
       } ${className}`}
       {...props}
     >
@@ -175,25 +173,25 @@ export const StatCard: React.FC<StatCardProps> = ({
   trendPositive = true,
 }) => {
   return (
-    <div className="bg-white p-5 rounded-xl border border-slate-200/80 shadow-xs flex flex-col justify-between">
+    <div className="glass-card glass-card-hover p-5 rounded-2xl flex flex-col justify-between">
       <div className="flex items-center justify-between gap-2">
-        <span className="text-xs font-medium text-slate-500 uppercase tracking-wider">
+        <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
           {label}
         </span>
         {Icon && (
-          <div className="w-9 h-9 rounded-lg border border-emerald-200/60 bg-emerald-50/70 text-emerald-600 flex items-center justify-center shrink-0">
+          <div className="w-9 h-9 rounded-xl border border-emerald-500/20 bg-gradient-to-br from-emerald-500/15 to-teal-500/10 text-emerald-600 flex items-center justify-center shrink-0 shadow-2xs">
             <Icon className="w-4 h-4" />
           </div>
         )}
       </div>
 
       <div className="mt-3 flex items-baseline justify-between">
-        <span className="text-2xl sm:text-3xl font-semibold text-slate-900 tracking-tight tabular-nums">
+        <span className="text-2xl sm:text-3xl font-bold font-display text-[#172B4D] tracking-tight tabular-nums">
           {value}
         </span>
         {trend && (
           <span
-            className={`text-xs font-medium ${
+            className={`text-xs font-semibold ${
               trendPositive ? 'text-emerald-600' : 'text-slate-400'
             }`}
           >
@@ -234,12 +232,18 @@ export const CircularProgress: React.FC<CircularProgressProps> = ({
           className="transform -rotate-90 w-full h-full"
           viewBox={`0 0 ${size} ${size}`}
         >
+          <defs>
+            <linearGradient id="circProgressGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#10B981" />
+              <stop offset="100%" stopColor="#06B6D4" />
+            </linearGradient>
+          </defs>
           {/* Background circle */}
           <circle
             cx={size / 2}
             cy={size / 2}
             r={radius}
-            stroke="#e2e8f0"
+            stroke="rgba(71, 113, 153, 0.12)"
             strokeWidth={strokeWidth}
             fill="transparent"
           />
@@ -248,7 +252,7 @@ export const CircularProgress: React.FC<CircularProgressProps> = ({
             cx={size / 2}
             cy={size / 2}
             r={radius}
-            stroke="#059669"
+            stroke="url(#circProgressGrad)"
             strokeWidth={strokeWidth}
             strokeDasharray={circumference}
             strokeDashoffset={strokeDashoffset}
@@ -260,13 +264,13 @@ export const CircularProgress: React.FC<CircularProgressProps> = ({
 
         {/* Center label */}
         <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-          <span className="text-2xl sm:text-3xl font-semibold text-slate-900 tracking-tight tabular-nums">
+          <span className="text-2xl sm:text-3xl font-bold font-display text-[#172B4D] tracking-tight tabular-nums">
             {label}
           </span>
         </div>
       </div>
       {sublabel && (
-        <span className="text-xs font-medium text-slate-500 mt-2">
+        <span className="text-xs font-semibold text-slate-500 mt-2">
           {sublabel}
         </span>
       )}

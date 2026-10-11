@@ -29,6 +29,8 @@ export interface Classroom {
   id: string;
   college_id: string;
   college_name?: string;
+  collegeName?: string;
+  institution?: string;
   faculty_id: string;
   faculty_name?: string;
   name: string;
@@ -338,3 +340,44 @@ export interface TestRunResponse {
   durationMs: number;
 }
 
+export interface Review {
+  id: string;
+  author_name: string;
+  author_email?: string | null;
+  role: string;
+  institution: string;
+  lab_subject: string;
+  avg_lab_score: number;
+  students_evaluated: number;
+  rating_fairness: number;
+  rating_relevance: number;
+  rating_ui: number;
+  overall_rating: number;
+  comment: string;
+  verified: number;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface ReviewBenchmarks {
+  institutionalTrustRate: number;
+  totalStudentsEvaluated: number;
+  evaluationLatencyReduction: string;
+  averageOralVivaScore: string;
+  ratingFairness: number;
+  ratingRelevance: number;
+  ratingUI: number;
+  overallRating: number;
+  totalReviews: number;
+  distributions: {
+    astMutationSurvivalRate: string;
+    interRaterAgreementScore: string;
+    vivaIntegrityIndex: string;
+  };
+}
+
+export interface ReviewsResponse {
+  success: boolean;
+  reviews: Review[];
+  benchmarks: ReviewBenchmarks;
+}

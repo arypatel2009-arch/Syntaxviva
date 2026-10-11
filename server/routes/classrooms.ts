@@ -103,12 +103,21 @@ classroomsRouter.post(
   }
 );
 
+export const sanitize = (name?: string | null): string => {
+  return (name || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, ''); // Strips spaces, dots, dashes, and casing discrepancies
+};
+
+export const normalizeInstitution = sanitize;
+
 /**
  * POST /api/classrooms/join
  * Student joins a classroom using a 6-character alphanumeric join code.
  * Strict multi-tenant verification:
  * 1. Code exists
- * 2. Student's college matches classroom's college (cross-college rejected with 403 Forbidden)
+ * 2. Student's college matches classroom's college (normalized cross-college comparison)
  * 3. Duplicate enrollment rejected (409 Conflict)
  */
 classroomsRouter.post(
@@ -139,31 +148,54 @@ classroomsRouter.post(
 
       // Check Student College Scope
       const studentProfile = await repo.getProfileById(user.userId);
-      const studentInst = (studentProfile?.institution_id || (studentProfile as any)?.institution || '').trim();
-
-      if (!studentInst) {
-        res.status(400).json({
-          error: 'Profile incomplete: Please ensure your college/institution is set on your profile before enrolling.',
-          code: 'profile_incomplete',
-        });
-        return;
-      }
-
-      const studentCollege = await repo.getOrCreateCollege(studentInst);
       const classroomCollege = await repo.getCollegeById(classroom.college_id);
 
-      // Hierarchical Tenant Isolation Check:
-      // Compare college IDs and names (case-insensitive)
-      const isCollegeMatch =
-        classroom.college_id === studentCollege.id ||
-        (classroomCollege && classroomCollege.name.toLowerCase().trim() === studentInst.toLowerCase());
+      let rawStudentInst = (
+        studentProfile?.institution_id ||
+        (studentProfile as any)?.institution ||
+        (user as any)?.institution ||
+        ''
+      ).trim();
 
-      if (!isCollegeMatch) {
+      // Faculty's profile institution
+      let rawFacultyInst = '';
+      if (classroom.faculty_id) {
+        const facultyProfile = await repo.getProfileById(classroom.faculty_id);
+        rawFacultyInst = (
+          facultyProfile?.institution_id ||
+          (facultyProfile as any)?.institution ||
+          ''
+        ).trim();
+      }
+
+      const rawClassroomInst = (
+        classroom.college_name ||
+        classroomCollege?.name ||
+        rawFacultyInst ||
+        (classroom as any)?.institution ||
+        ''
+      ).trim();
+
+      const studentInst = sanitize(rawStudentInst);
+      const classroomInst = sanitize(rawClassroomInst || rawFacultyInst);
+
+      // Hierarchical Tenant Isolation Check:
+      // Normalize institution strings prior to validation.
+      // If both are defined, reject if normalized strings do not match.
+      if (studentInst && classroomInst && studentInst !== classroomInst) {
         res.status(403).json({
           error: 'Cross-college enrollment forbidden: You cannot join a classroom from a different college/institution.',
           code: 'cross_college_forbidden',
         });
         return;
+      }
+
+      // If student profile lacks institution or college_id, auto-adopt classroom's college
+      if ((!rawStudentInst || !studentProfile?.college_id) && classroom.college_id) {
+        await repo.updateProfile(user.userId, {
+          institution_id: rawStudentInst || rawClassroomInst,
+          college_id: classroom.college_id,
+        });
       }
 
       // Check Duplicate Enrollment
@@ -185,7 +217,9 @@ classroomsRouter.post(
         message: `Successfully enrolled in ${classroom.name}.`,
         classroom: {
           ...classroom,
-          collegeName: classroomCollege?.name || studentCollege.name,
+          collegeName: classroomCollege?.name || rawClassroomInst || rawStudentInst,
+          college_name: classroomCollege?.name || rawClassroomInst || rawStudentInst,
+          institution: rawFacultyInst || classroomCollege?.name || rawClassroomInst || rawStudentInst,
         },
         enrollment,
       });
@@ -226,10 +260,13 @@ classroomsRouter.get('/:id', authenticate, async (req: AuthenticatedRequest, res
       }
     } else if (user.role === 'faculty') {
       const profile = await repo.getProfileById(user.userId);
-      const facultyInst = (profile?.institution_id || '').trim().toLowerCase();
+      const facultyInst = normalizeInstitution(profile?.institution_id || (profile as any)?.institution);
       const classroomCollege = await repo.getCollegeById(classroom.college_id);
+      const classroomInst = normalizeInstitution(classroomCollege?.name || classroom.college_name);
       const isOwnClassroom = classroom.faculty_id === user.userId;
-      const isSameCollege = classroomCollege && classroomCollege.name.toLowerCase() === facultyInst;
+      const isSameCollege =
+        (profile?.college_id && classroom.college_id === profile.college_id) ||
+        (Boolean(facultyInst && classroomInst) && facultyInst === classroomInst);
 
       if (!isOwnClassroom && !isSameCollege) {
         res.status(403).json({
@@ -269,9 +306,12 @@ classroomsRouter.get(
 
       if (user.role === 'faculty' && classroom.faculty_id !== user.userId) {
         const profile = await repo.getProfileById(user.userId);
-        const facultyInst = (profile?.institution_id || '').trim().toLowerCase();
+        const facultyInst = normalizeInstitution(profile?.institution_id || (profile as any)?.institution);
         const classroomCollege = await repo.getCollegeById(classroom.college_id);
-        const isSameCollege = classroomCollege && classroomCollege.name.toLowerCase() === facultyInst;
+        const classroomInst = normalizeInstitution(classroomCollege?.name || classroom.college_name);
+        const isSameCollege =
+          (profile?.college_id && classroom.college_id === profile.college_id) ||
+          (Boolean(facultyInst && classroomInst) && facultyInst === classroomInst);
 
         if (!isSameCollege) {
           res.status(403).json({
