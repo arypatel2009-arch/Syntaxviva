@@ -248,7 +248,6 @@ export const AuthPage: React.FC<AuthPageProps> = ({
         divisionId: cleanDivision,
       });
 
-      // Sign-up thaya tarat j seedhi verification screen j batavshe
       setEmailVerificationSent(cleanEmail);
       setResendCooldown(60);
     } catch (err: any) {
@@ -312,9 +311,8 @@ export const AuthPage: React.FC<AuthPageProps> = ({
 
     setLoading(true);
     try {
-      const res = await resetPassword(cleanEmail);
-      setFormSuccess(res.message || 'OTP security code sent to your email address.');
-      setMode('verify-otp');
+      await resetPassword(cleanEmail);
+      setFormSuccess('Password reset link sent! Please check your email inbox and click the link to set a new password.');
     } catch (err: any) {
       setFormError(err.message || 'Could not send reset instructions. Please try again.');
     } finally {
@@ -895,7 +893,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                     loading={loading}
                     className="w-full shadow-md shadow-emerald-600/20 font-bold"
                   >
-                    Send OTP Verification Code
+                    Send Password Reset Link
                   </Button>
 
                   <div className="text-center pt-1">
@@ -911,7 +909,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                 </form>
               )}
 
-              {/* VERIFY OTP FORM */}
+              {/* VERIFY OTP FORM (Fallback) */}
               {mode === 'verify-otp' && (
                 <form onSubmit={handleVerifyOtp} className="space-y-4">
                   <div className="space-y-1">
