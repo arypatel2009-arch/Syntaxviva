@@ -12,3 +12,5 @@ coverage/
 "public/videos/syntaxviva-demo.mp4" 
 public/videos/*.mp4
 dist/videos/*.mp4
+public/videos/
+*.mp4
