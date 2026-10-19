@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Play, Sparkles, Shield, Code, CheckCircle2 } from 'lucide-react';
 
-export const DEMO_VIDEO_SRC = '/videos/Screen Recording 2026-10-17 173044.mp4';
+export const DEMO_VIDEO_SRC = 'https://wnjgfklesylchvkuwfjr.supabase.co/storage/v1/object/public/Videos/Screen%20Recording%202026-10-17%20173044%20(1).mp4';
 
 interface MethodologyProps {
   onNavigate?: (path: string) => void;
@@ -224,8 +224,7 @@ export const MacBookMockup: React.FC<{ videoSrc?: string }> = ({
                 }}
                 className="w-full h-full object-contain block rounded-lg select-none"
               >
-                <source src="/videos/Screen Recording 2026-10-17 173044.mp4" type="video/mp4" />
-                <source src="/videos/syntaxviva-demo.mp4" type="video/mp4" />
+                <source src={videoSrc} type="video/mp4" />
                 Your browser does not support the video tag.
               </video>
 
