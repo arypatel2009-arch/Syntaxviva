@@ -10,3 +10,5 @@ coverage/
 "Screen Recording 2026-10-17 173044.mp4" 
 "public/videos/Screen Recording 2026-10-17 173044.mp4" 
 "public/videos/syntaxviva-demo.mp4" 
+public/videos/*.mp4
+dist/videos/*.mp4
