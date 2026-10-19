@@ -1,0 +1,1527 @@
+{
+  "timestamp": "2026-09-19T02:59:29.347Z",
+  "description": "Sanitized backup snapshot of Phase 5 test records prior to controlled cleanup",
+  "records": {
+    "phase2_evaluations": [
+      {
+        "id": "eval_1789730783528_pgezph",
+        "challenge_id": "chg_1789730782976_rdmfun",
+        "attempt_id": "att_1789730782669_ceens",
+        "assignment_id": "asg_1789730781893_uuxc7",
+        "student_id": "89612b4c-88b8-4520-a2ea-505d84a32cce",
+        "submitted_code_hash": "a454c02c289c6c20e63301cdd6cd20de8079b666086bf831a56b48a70ba9cbea",
+        "status": "PASSED",
+        "tests_total": 3,
+        "tests_passed": 3,
+        "tests_failed": 0,
+        "failure_reason": null,
+        "execution_metadata_json": {
+          "durationMs": 81
+        },
+        "started_at": "2026-09-18T11:26:23.447+00:00",
+        "completed_at": "2026-09-18T11:26:23.528+00:00",
+        "created_at": "2026-09-18T11:26:23.556734+00:00"
+      },
+      {
+        "id": "eval_1789730818557_w3p1pb",
+        "challenge_id": "chg_1789730818025_6p592n",
+        "attempt_id": "att_1789730817696_d9iu7",
+        "assignment_id": "asg_1789730817126_2nfvl",
+        "student_id": "89612b4c-88b8-4520-a2ea-505d84a32cce",
+        "submitted_code_hash": "a454c02c289c6c20e63301cdd6cd20de8079b666086bf831a56b48a70ba9cbea",
+        "status": "PASSED",
+        "tests_total": 3,
+        "tests_passed": 3,
+        "tests_failed": 0,
+        "failure_reason": null,
+        "execution_metadata_json": {
+          "durationMs": 69
+        },
+        "started_at": "2026-09-18T11:26:58.488+00:00",
+        "completed_at": "2026-09-18T11:26:58.557+00:00",
+        "created_at": "2026-09-18T11:26:58.580588+00:00"
+      },
+      {
+        "id": "eval_1789730865779_92c13a",
+        "challenge_id": "chg_1789730865198_f0zybd",
+        "attempt_id": "att_1789730864868_mqqqo",
+        "assignment_id": "asg_1789730862324_7qlre",
+        "student_id": "89612b4c-88b8-4520-a2ea-505d84a32cce",
+        "submitted_code_hash": "a454c02c289c6c20e63301cdd6cd20de8079b666086bf831a56b48a70ba9cbea",
+        "status": "PASSED",
+        "tests_total": 3,
+        "tests_passed": 3,
+        "tests_failed": 0,
+        "failure_reason": null,
+        "execution_metadata_json": {
+          "durationMs": 88
+        },
+        "started_at": "2026-09-18T11:27:45.691+00:00",
+        "completed_at": "2026-09-18T11:27:45.779+00:00",
+        "created_at": "2026-09-18T11:27:45.812471+00:00"
+      },
+      {
+        "id": "eval_1789730902573_wbfsr7",
+        "challenge_id": "chg_1789730902045_vib4cn",
+        "attempt_id": "att_1789730901740_v2ykd",
+        "assignment_id": "asg_1789730900981_zfkyw",
+        "student_id": "89612b4c-88b8-4520-a2ea-505d84a32cce",
+        "submitted_code_hash": "a454c02c289c6c20e63301cdd6cd20de8079b666086bf831a56b48a70ba9cbea",
+        "status": "PASSED",
+        "tests_total": 3,
+        "tests_passed": 3,
+        "tests_failed": 0,
+        "failure_reason": null,
+        "execution_metadata_json": {
+          "durationMs": 75
+        },
+        "started_at": "2026-09-18T11:28:22.498+00:00",
+        "completed_at": "2026-09-18T11:28:22.573+00:00",
+        "created_at": "2026-09-18T11:28:22.595086+00:00"
+      },
+      {
+        "id": "eval_1789731071445_apo0vs",
+        "challenge_id": "chg_1789731070860_3rjjcp",
+        "attempt_id": "att_1789731070523_uct7e",
+        "assignment_id": "asg_1789731069871_4yzar",
+        "student_id": "89612b4c-88b8-4520-a2ea-505d84a32cce",
+        "submitted_code_hash": "a454c02c289c6c20e63301cdd6cd20de8079b666086bf831a56b48a70ba9cbea",
+        "status": "PASSED",
+        "tests_total": 3,
+        "tests_passed": 3,
+        "tests_failed": 0,
+        "failure_reason": null,
+        "execution_metadata_json": {
+          "durationMs": 70
+        },
+        "started_at": "2026-09-18T11:31:11.375+00:00",
+        "completed_at": "2026-09-18T11:31:11.445+00:00",
+        "created_at": "2026-09-18T11:31:11.470107+00:00"
+      }
+    ],
+    "security_events": [
+      {
+        "id": "sec_1789730760740_w1fi1o",
+        "attempt_id": "att_1789730759993_w5kuq",
+        "challenge_id": "chg_1789730760443_njvelv",
+        "student_id": "89612b4c-88b8-4520-a2ea-505d84a32cce",
+        "assignment_id": "asg_1789730759267_94thc",
+        "event_type": "PROCTORING_INITIALIZED",
+        "severity": "WARNING",
+        "phase": "PHASE2",
+        "metadata_json": {
+          "testMode": true,
+          "cameraReady": true
+        },
+        "client_timestamp": "2026-09-18T11:26:00.74+00:00",
+        "server_timestamp": "2026-09-18T11:26:00.74+00:00",
+        "created_at": "2026-09-18T11:26:00.773981+00:00"
+      },
+      {
+        "id": "sec_1789730783217_rcvk1z",
+        "attempt_id": "att_1789730782669_ceens",
+        "challenge_id": "chg_1789730782976_rdmfun",
+        "student_id": "89612b4c-88b8-4520-a2ea-505d84a32cce",
+        "assignment_id": "asg_1789730781893_uuxc7",
+        "event_type": "PROCTORING_INITIALIZED",
+        "severity": "WARNING",
+        "phase": "PHASE2",
+        "metadata_json": {
+          "testMode": true,
+          "cameraReady": true
+        },
+        "client_timestamp": "2026-09-18T11:26:23.217+00:00",
+        "server_timestamp": "2026-09-18T11:26:23.217+00:00",
+        "created_at": "2026-09-18T11:26:23.247866+00:00"
+      },
+      {
+        "id": "sec_1789730818260_pjsm39",
+        "attempt_id": "att_1789730817696_d9iu7",
+        "challenge_id": "chg_1789730818025_6p592n",
+        "student_id": "89612b4c-88b8-4520-a2ea-505d84a32cce",
+        "assignment_id": "asg_1789730817126_2nfvl",
+        "event_type": "PROCTORING_INITIALIZED",
+        "severity": "WARNING",
+        "phase": "PHASE2",
+        "metadata_json": {
+          "testMode": true,
+          "cameraReady": true
+        },
+        "client_timestamp": "2026-09-18T11:26:58.26+00:00",
+        "server_timestamp": "2026-09-18T11:26:58.26+00:00",
+        "created_at": "2026-09-18T11:26:58.293957+00:00"
+      },
+      {
+        "id": "sec_1789730865448_x0b4ya",
+        "attempt_id": "att_1789730864868_mqqqo",
+        "challenge_id": "chg_1789730865198_f0zybd",
+        "student_id": "89612b4c-88b8-4520-a2ea-505d84a32cce",
+        "assignment_id": "asg_1789730862324_7qlre",
+        "event_type": "PROCTORING_INITIALIZED",
+        "severity": "WARNING",
+        "phase": "PHASE2",
+        "metadata_json": {
+          "testMode": true,
+          "cameraReady": true
+        },
+        "client_timestamp": "2026-09-18T11:27:45.448+00:00",
+        "server_timestamp": "2026-09-18T11:27:45.448+00:00",
+        "created_at": "2026-09-18T11:27:45.479053+00:00"
+      },
+      {
+        "id": "sec_1789730902290_b6fxg3",
+        "attempt_id": "att_1789730901740_v2ykd",
+        "challenge_id": "chg_1789730902045_vib4cn",
+        "student_id": "89612b4c-88b8-4520-a2ea-505d84a32cce",
+        "assignment_id": "asg_1789730900981_zfkyw",
+        "event_type": "PROCTORING_INITIALIZED",
+        "severity": "WARNING",
+        "phase": "PHASE2",
+        "metadata_json": {
+          "testMode": true,
+          "cameraReady": true
+        },
+        "client_timestamp": "2026-09-18T11:28:22.29+00:00",
+        "server_timestamp": "2026-09-18T11:28:22.29+00:00",
+        "created_at": "2026-09-18T11:28:22.314645+00:00"
+      },
+      {
+        "id": "sec_1789731071124_vevc24",
+        "attempt_id": "att_1789731070523_uct7e",
+        "challenge_id": "chg_1789731070860_3rjjcp",
+        "student_id": "89612b4c-88b8-4520-a2ea-505d84a32cce",
+        "assignment_id": "asg_1789731069871_4yzar",
+        "event_type": "PROCTORING_INITIALIZED",
+        "severity": "WARNING",
+        "phase": "PHASE2",
+        "metadata_json": {
+          "testMode": true,
+          "cameraReady": true
+        },
+        "client_timestamp": "2026-09-18T11:31:11.124+00:00",
+        "server_timestamp": "2026-09-18T11:31:11.124+00:00",
+        "created_at": "2026-09-18T11:31:11.169191+00:00"
+      }
+    ],
+    "attempt_mutations": [
+      {
+        "id": "mut_1789730651547_8elt9",
+        "attempt_id": "att_1789730651409_ck05n",
+        "mutation_type": "RETURN_VALUE_MUTATION",
+        "mutation_version": "1.0.0",
+        "mutation_seed": "4eb8ad271bb19953",
+        "original_code_hash": "a454c02c289c6c20e63301cdd6cd20de8079b666086bf831a56b48a70ba9cbea",
+        "mutated_code": "def classify_number(n):\n    if n > 0:\n        return \"Positive\"\n    elif n < 0:\n        return None\n    else:\n        return \"Zero\"\n\nval = int(input())\nprint(classify_number(val))\n",
+        "mutated_code_hash": "501c9723a90c76610cc4f4e9d0f4ad8e5d147783e466dff6478af767863d1cf3",
+        "mutation_metadata_json": {
+          "seed": "4eb8ad271bb19953",
+          "language": "python",
+          "appliedAt": "2026-09-18T11:24:11.506Z",
+          "description": "Altered return value expression to None",
+          "mutationType": "RETURN_VALUE_MUTATION",
+          "sourceLocation": {
+            "line": 5,
+            "column": 15,
+            "endLine": 5,
+            "endColumn": 25
+          },
+          "mutatedCodeHash": "501c9723a90c76610cc4f4e9d0f4ad8e5d147783e466dff6478af767863d1cf3",
+          "mutatedFragment": "None",
+          "originalCodeHash": "a454c02c289c6c20e63301cdd6cd20de8079b666086bf831a56b48a70ba9cbea",
+          "originalFragment": "\"Negative\""
+        },
+        "status": "MUTATION_READY",
+        "error_message": null,
+        "created_at": "2026-09-18T11:24:11.483+00:00"
+      },
+      {
+        "id": "mut_1789730691445_vmmt3",
+        "attempt_id": "att_1789730691318_kqf2y",
+        "mutation_type": "RETURN_VALUE_MUTATION",
+        "mutation_version": "1.0.0",
+        "mutation_seed": "4eb8ad271bb19953",
+        "original_code_hash": "a454c02c289c6c20e63301cdd6cd20de8079b666086bf831a56b48a70ba9cbea",
+        "mutated_code": "def classify_number(n):\n    if n > 0:\n        return \"Positive\"\n    elif n < 0:\n        return None\n    else:\n        return \"Zero\"\n\nval = int(input())\nprint(classify_number(val))\n",
+        "mutated_code_hash": "501c9723a90c76610cc4f4e9d0f4ad8e5d147783e466dff6478af767863d1cf3",
+        "mutation_metadata_json": {
+          "seed": "4eb8ad271bb19953",
+          "language": "python",
+          "appliedAt": "2026-09-18T11:24:51.418Z",
+          "description": "Altered return value expression to None",
+          "mutationType": "RETURN_VALUE_MUTATION",
+          "sourceLocation": {
+            "line": 5,
+            "column": 15,
+            "endLine": 5,
+            "endColumn": 25
+          },
+          "mutatedCodeHash": "501c9723a90c76610cc4f4e9d0f4ad8e5d147783e466dff6478af767863d1cf3",
+          "mutatedFragment": "None",
+          "originalCodeHash": "a454c02c289c6c20e63301cdd6cd20de8079b666086bf831a56b48a70ba9cbea",
+          "originalFragment": "\"Negative\""
+        },
+        "status": "MUTATION_READY",
+        "error_message": null,
+        "created_at": "2026-09-18T11:24:51.413+00:00"
+      },
+      {
+        "id": "mut_1789730722353_1x994",
+        "attempt_id": "att_1789730722220_z7arc",
+        "mutation_type": "RETURN_VALUE_MUTATION",
+        "mutation_version": "1.0.0",
+        "mutation_seed": "4eb8ad271bb19953",
+        "original_code_hash": "a454c02c289c6c20e63301cdd6cd20de8079b666086bf831a56b48a70ba9cbea",
+        "mutated_code": "def classify_number(n):\n    if n > 0:\n        return \"Positive\"\n    elif n < 0:\n        return None\n    else:\n        return \"Zero\"\n\nval = int(input())\nprint(classify_number(val))\n",
+        "mutated_code_hash": "501c9723a90c76610cc4f4e9d0f4ad8e5d147783e466dff6478af767863d1cf3",
+        "mutation_metadata_json": {
+          "seed": "4eb8ad271bb19953",
+          "language": "python",
+          "appliedAt": "2026-09-18T11:25:22.315Z",
+          "description": "Altered return value expression to None",
+          "mutationType": "RETURN_VALUE_MUTATION",
+          "sourceLocation": {
+            "line": 5,
+            "column": 15,
+            "endLine": 5,
+            "endColumn": 25
+          },
+          "mutatedCodeHash": "501c9723a90c76610cc4f4e9d0f4ad8e5d147783e466dff6478af767863d1cf3",
+          "mutatedFragment": "None",
+          "originalCodeHash": "a454c02c289c6c20e63301cdd6cd20de8079b666086bf831a56b48a70ba9cbea",
+          "originalFragment": "\"Negative\""
+        },
+        "status": "MUTATION_READY",
+        "error_message": null,
+        "created_at": "2026-09-18T11:25:22.313+00:00"
+      },
+      {
+        "id": "mut_1789730760127_hnmdv",
+        "attempt_id": "att_1789730759993_w5kuq",
+        "mutation_type": "RETURN_VALUE_MUTATION",
+        "mutation_version": "1.0.0",
+        "mutation_seed": "4eb8ad271bb19953",
+        "original_code_hash": "a454c02c289c6c20e63301cdd6cd20de8079b666086bf831a56b48a70ba9cbea",
+        "mutated_code": "def classify_number(n):\n    if n > 0:\n        return \"Positive\"\n    elif n < 0:\n        return None\n    else:\n        return \"Zero\"\n\nval = int(input())\nprint(classify_number(val))\n",
+        "mutated_code_hash": "501c9723a90c76610cc4f4e9d0f4ad8e5d147783e466dff6478af767863d1cf3",
+        "mutation_metadata_json": {
+          "seed": "4eb8ad271bb19953",
+          "language": "python",
+          "appliedAt": "2026-09-18T11:26:00.091Z",
+          "description": "Altered return value expression to None",
+          "mutationType": "RETURN_VALUE_MUTATION",
+          "sourceLocation": {
+            "line": 5,
+            "column": 15,
+            "endLine": 5,
+            "endColumn": 25
+          },
+          "mutatedCodeHash": "501c9723a90c76610cc4f4e9d0f4ad8e5d147783e466dff6478af767863d1cf3",
+          "mutatedFragment": "None",
+          "originalCodeHash": "a454c02c289c6c20e63301cdd6cd20de8079b666086bf831a56b48a70ba9cbea",
+          "originalFragment": "\"Negative\""
+        },
+        "status": "MUTATION_READY",
+        "error_message": null,
+        "created_at": "2026-09-18T11:26:00.09+00:00"
+      },
+      {
+        "id": "mut_1789730782776_5z9we",
+        "attempt_id": "att_1789730782669_ceens",
+        "mutation_type": "RETURN_VALUE_MUTATION",
+        "mutation_version": "1.0.0",
+        "mutation_seed": "4eb8ad271bb19953",
+        "original_code_hash": "a454c02c289c6c20e63301cdd6cd20de8079b666086bf831a56b48a70ba9cbea",
+        "mutated_code": "def classify_number(n):\n    if n > 0:\n        return \"Positive\"\n    elif n < 0:\n        return None\n    else:\n        return \"Zero\"\n\nval = int(input())\nprint(classify_number(val))\n",
+        "mutated_code_hash": "501c9723a90c76610cc4f4e9d0f4ad8e5d147783e466dff6478af767863d1cf3",
+        "mutation_metadata_json": {
+          "seed": "4eb8ad271bb19953",
+          "language": "python",
+          "appliedAt": "2026-09-18T11:26:22.744Z",
+          "description": "Altered return value expression to None",
+          "mutationType": "RETURN_VALUE_MUTATION",
+          "sourceLocation": {
+            "line": 5,
+            "column": 15,
+            "endLine": 5,
+            "endColumn": 25
+          },
+          "mutatedCodeHash": "501c9723a90c76610cc4f4e9d0f4ad8e5d147783e466dff6478af767863d1cf3",
+          "mutatedFragment": "None",
+          "originalCodeHash": "a454c02c289c6c20e63301cdd6cd20de8079b666086bf831a56b48a70ba9cbea",
+          "originalFragment": "\"Negative\""
+        },
+        "status": "MUTATION_READY",
+        "error_message": null,
+        "created_at": "2026-09-18T11:26:22.742+00:00"
+      },
+      {
+        "id": "mut_1789730817829_lrhzt",
+        "attempt_id": "att_1789730817696_d9iu7",
+        "mutation_type": "RETURN_VALUE_MUTATION",
+        "mutation_version": "1.0.0",
+        "mutation_seed": "4eb8ad271bb19953",
+        "original_code_hash": "a454c02c289c6c20e63301cdd6cd20de8079b666086bf831a56b48a70ba9cbea",
+        "mutated_code": "def classify_number(n):\n    if n > 0:\n        return \"Positive\"\n    elif n < 0:\n        return None\n    else:\n        return \"Zero\"\n\nval = int(input())\nprint(classify_number(val))\n",
+        "mutated_code_hash": "501c9723a90c76610cc4f4e9d0f4ad8e5d147783e466dff6478af767863d1cf3",
+        "mutation_metadata_json": {
+          "seed": "4eb8ad271bb19953",
+          "language": "python",
+          "appliedAt": "2026-09-18T11:26:57.799Z",
+          "description": "Altered return value expression to None",
+          "mutationType": "RETURN_VALUE_MUTATION",
+          "sourceLocation": {
+            "line": 5,
+            "column": 15,
+            "endLine": 5,
+            "endColumn": 25
+          },
+          "mutatedCodeHash": "501c9723a90c76610cc4f4e9d0f4ad8e5d147783e466dff6478af767863d1cf3",
+          "mutatedFragment": "None",
+          "originalCodeHash": "a454c02c289c6c20e63301cdd6cd20de8079b666086bf831a56b48a70ba9cbea",
+          "originalFragment": "\"Negative\""
+        },
+        "status": "MUTATION_READY",
+        "error_message": null,
+        "created_at": "2026-09-18T11:26:57.797+00:00"
+      },
+      {
+        "id": "mut_1789730865017_c4xff",
+        "attempt_id": "att_1789730864868_mqqqo",
+        "mutation_type": "RETURN_VALUE_MUTATION",
+        "mutation_version": "1.0.0",
+        "mutation_seed": "4eb8ad271bb19953",
+        "original_code_hash": "a454c02c289c6c20e63301cdd6cd20de8079b666086bf831a56b48a70ba9cbea",
+        "mutated_code": "def classify_number(n):\n    if n > 0:\n        return \"Positive\"\n    elif n < 0:\n        return None\n    else:\n        return \"Zero\"\n\nval = int(input())\nprint(classify_number(val))\n",
+        "mutated_code_hash": "501c9723a90c76610cc4f4e9d0f4ad8e5d147783e466dff6478af767863d1cf3",
+        "mutation_metadata_json": {
+          "seed": "4eb8ad271bb19953",
+          "language": "python",
+          "appliedAt": "2026-09-18T11:27:44.988Z",
+          "description": "Altered return value expression to None",
+          "mutationType": "RETURN_VALUE_MUTATION",
+          "sourceLocation": {
+            "line": 5,
+            "column": 15,
+            "endLine": 5,
+            "endColumn": 25
+          },
+          "mutatedCodeHash": "501c9723a90c76610cc4f4e9d0f4ad8e5d147783e466dff6478af767863d1cf3",
+          "mutatedFragment": "None",
+          "originalCodeHash": "a454c02c289c6c20e63301cdd6cd20de8079b666086bf831a56b48a70ba9cbea",
+          "originalFragment": "\"Negative\""
+        },
+        "status": "MUTATION_READY",
+        "error_message": null,
+        "created_at": "2026-09-18T11:27:44.987+00:00"
+      },
+      {
+        "id": "mut_1789730901865_9dc76",
+        "attempt_id": "att_1789730901740_v2ykd",
+        "mutation_type": "RETURN_VALUE_MUTATION",
+        "mutation_version": "1.0.0",
+        "mutation_seed": "4eb8ad271bb19953",
+        "original_code_hash": "a454c02c289c6c20e63301cdd6cd20de8079b666086bf831a56b48a70ba9cbea",
+        "mutated_code": "def classify_number(n):\n    if n > 0:\n        return \"Positive\"\n    elif n < 0:\n        return None\n    else:\n        return \"Zero\"\n\nval = int(input())\nprint(classify_number(val))\n",
+        "mutated_code_hash": "501c9723a90c76610cc4f4e9d0f4ad8e5d147783e466dff6478af767863d1cf3",
+        "mutation_metadata_json": {
+          "seed": "4eb8ad271bb19953",
+          "language": "python",
+          "appliedAt": "2026-09-18T11:28:21.833Z",
+          "description": "Altered return value expression to None",
+          "mutationType": "RETURN_VALUE_MUTATION",
+          "sourceLocation": {
+            "line": 5,
+            "column": 15,
+            "endLine": 5,
+            "endColumn": 25
+          },
+          "mutatedCodeHash": "501c9723a90c76610cc4f4e9d0f4ad8e5d147783e466dff6478af767863d1cf3",
+          "mutatedFragment": "None",
+          "originalCodeHash": "a454c02c289c6c20e63301cdd6cd20de8079b666086bf831a56b48a70ba9cbea",
+          "originalFragment": "\"Negative\""
+        },
+        "status": "MUTATION_READY",
+        "error_message": null,
+        "created_at": "2026-09-18T11:28:21.809+00:00"
+      },
+      {
+        "id": "mut_1789731070628_xm80u",
+        "attempt_id": "att_1789731070523_uct7e",
+        "mutation_type": "RETURN_VALUE_MUTATION",
+        "mutation_version": "1.0.0",
+        "mutation_seed": "4eb8ad271bb19953",
+        "original_code_hash": "a454c02c289c6c20e63301cdd6cd20de8079b666086bf831a56b48a70ba9cbea",
+        "mutated_code": "def classify_number(n):\n    if n > 0:\n        return \"Positive\"\n    elif n < 0:\n        return None\n    else:\n        return \"Zero\"\n\nval = int(input())\nprint(classify_number(val))\n",
+        "mutated_code_hash": "501c9723a90c76610cc4f4e9d0f4ad8e5d147783e466dff6478af767863d1cf3",
+        "mutation_metadata_json": {
+          "seed": "4eb8ad271bb19953",
+          "language": "python",
+          "appliedAt": "2026-09-18T11:31:10.597Z",
+          "description": "Altered return value expression to None",
+          "mutationType": "RETURN_VALUE_MUTATION",
+          "sourceLocation": {
+            "line": 5,
+            "column": 15,
+            "endLine": 5,
+            "endColumn": 25
+          },
+          "mutatedCodeHash": "501c9723a90c76610cc4f4e9d0f4ad8e5d147783e466dff6478af767863d1cf3",
+          "mutatedFragment": "None",
+          "originalCodeHash": "a454c02c289c6c20e63301cdd6cd20de8079b666086bf831a56b48a70ba9cbea",
+          "originalFragment": "\"Negative\""
+        },
+        "status": "MUTATION_READY",
+        "error_message": null,
+        "created_at": "2026-09-18T11:31:10.592+00:00"
+      }
+    ],
+    "phase2_challenges": [
+      {
+        "id": "chg_1789730691618_xm0ftx",
+        "assignment_id": "asg_1789730690710_vew7e",
+        "student_id": "89612b4c-88b8-4520-a2ea-505d84a32cce",
+        "attempt_id": "att_1789730691318_kqf2y",
+        "mutation_id": null,
+        "status": "ACTIVE",
+        "started_at": "2026-09-18T11:24:51.618+00:00",
+        "deadline_at": "2026-09-18T11:27:51.618+00:00",
+        "submitted_at": null,
+        "final_code": null,
+        "created_at": "2026-09-18T11:24:51.646807+00:00",
+        "updated_at": "2026-09-18T11:24:51.646807+00:00"
+      },
+      {
+        "id": "chg_1789730722579_rbe4p0",
+        "assignment_id": "asg_1789730721619_m8d9f",
+        "student_id": "89612b4c-88b8-4520-a2ea-505d84a32cce",
+        "attempt_id": "att_1789730722220_z7arc",
+        "mutation_id": null,
+        "status": "ACTIVE",
+        "started_at": "2026-09-18T11:25:22.579+00:00",
+        "deadline_at": "2026-09-18T11:28:22.579+00:00",
+        "submitted_at": null,
+        "final_code": null,
+        "created_at": "2026-09-18T11:25:22.597618+00:00",
+        "updated_at": "2026-09-18T11:25:22.597618+00:00"
+      },
+      {
+        "id": "chg_1789730760443_njvelv",
+        "assignment_id": "asg_1789730759267_94thc",
+        "student_id": "89612b4c-88b8-4520-a2ea-505d84a32cce",
+        "attempt_id": "att_1789730759993_w5kuq",
+        "mutation_id": null,
+        "status": "ACTIVE",
+        "started_at": "2026-09-18T11:26:00.443+00:00",
+        "deadline_at": "2026-09-18T11:29:00.443+00:00",
+        "submitted_at": null,
+        "final_code": null,
+        "created_at": "2026-09-18T11:26:00.469115+00:00",
+        "updated_at": "2026-09-18T11:26:00.469115+00:00"
+      },
+      {
+        "id": "chg_1789730782976_rdmfun",
+        "assignment_id": "asg_1789730781893_uuxc7",
+        "student_id": "89612b4c-88b8-4520-a2ea-505d84a32cce",
+        "attempt_id": "att_1789730782669_ceens",
+        "mutation_id": null,
+        "status": "PASSED",
+        "started_at": "2026-09-18T11:26:22.976+00:00",
+        "deadline_at": "2026-09-18T11:29:22.976+00:00",
+        "submitted_at": "2026-09-18T11:26:23.388+00:00",
+        "final_code": "def classify_number(n):\n    if n > 0:\n        return \"Positive\"\n    elif n < 0:\n        return \"Negative\"\n    else:\n        return \"Zero\"\n\nval = int(input())\nprint(classify_number(val))\n",
+        "created_at": "2026-09-18T11:26:23.016702+00:00",
+        "updated_at": "2026-09-18T11:26:23.571+00:00"
+      },
+      {
+        "id": "chg_1789730818025_6p592n",
+        "assignment_id": "asg_1789730817126_2nfvl",
+        "student_id": "89612b4c-88b8-4520-a2ea-505d84a32cce",
+        "attempt_id": "att_1789730817696_d9iu7",
+        "mutation_id": null,
+        "status": "PASSED",
+        "started_at": "2026-09-18T11:26:58.025+00:00",
+        "deadline_at": "2026-09-18T11:29:58.025+00:00",
+        "submitted_at": "2026-09-18T11:26:58.425+00:00",
+        "final_code": "def classify_number(n):\n    if n > 0:\n        return \"Positive\"\n    elif n < 0:\n        return \"Negative\"\n    else:\n        return \"Zero\"\n\nval = int(input())\nprint(classify_number(val))\n",
+        "created_at": "2026-09-18T11:26:58.056812+00:00",
+        "updated_at": "2026-09-18T11:26:58.589+00:00"
+      },
+      {
+        "id": "chg_1789730865198_f0zybd",
+        "assignment_id": "asg_1789730862324_7qlre",
+        "student_id": "89612b4c-88b8-4520-a2ea-505d84a32cce",
+        "attempt_id": "att_1789730864868_mqqqo",
+        "mutation_id": null,
+        "status": "PASSED",
+        "started_at": "2026-09-18T11:27:45.198+00:00",
+        "deadline_at": "2026-09-18T11:30:45.198+00:00",
+        "submitted_at": "2026-09-18T11:27:45.629+00:00",
+        "final_code": "def classify_number(n):\n    if n > 0:\n        return \"Positive\"\n    elif n < 0:\n        return \"Negative\"\n    else:\n        return \"Zero\"\n\nval = int(input())\nprint(classify_number(val))\n",
+        "created_at": "2026-09-18T11:27:45.234831+00:00",
+        "updated_at": "2026-09-18T11:27:45.823+00:00"
+      },
+      {
+        "id": "chg_1789730902045_vib4cn",
+        "assignment_id": "asg_1789730900981_zfkyw",
+        "student_id": "89612b4c-88b8-4520-a2ea-505d84a32cce",
+        "attempt_id": "att_1789730901740_v2ykd",
+        "mutation_id": null,
+        "status": "PASSED",
+        "started_at": "2026-09-18T11:28:22.045+00:00",
+        "deadline_at": "2026-09-18T11:31:22.045+00:00",
+        "submitted_at": "2026-09-18T11:28:22.441+00:00",
+        "final_code": "def classify_number(n):\n    if n > 0:\n        return \"Positive\"\n    elif n < 0:\n        return \"Negative\"\n    else:\n        return \"Zero\"\n\nval = int(input())\nprint(classify_number(val))\n",
+        "created_at": "2026-09-18T11:28:22.095368+00:00",
+        "updated_at": "2026-09-18T11:28:22.605+00:00"
+      },
+      {
+        "id": "chg_1789731070860_3rjjcp",
+        "assignment_id": "asg_1789731069871_4yzar",
+        "student_id": "89612b4c-88b8-4520-a2ea-505d84a32cce",
+        "attempt_id": "att_1789731070523_uct7e",
+        "mutation_id": null,
+        "status": "PASSED",
+        "started_at": "2026-09-18T11:31:10.86+00:00",
+        "deadline_at": "2026-09-18T11:34:10.86+00:00",
+        "submitted_at": "2026-09-18T11:31:11.309+00:00",
+        "final_code": "def classify_number(n):\n    if n > 0:\n        return \"Positive\"\n    elif n < 0:\n        return \"Negative\"\n    else:\n        return \"Zero\"\n\nval = int(input())\nprint(classify_number(val))\n",
+        "created_at": "2026-09-18T11:31:10.884604+00:00",
+        "updated_at": "2026-09-18T11:31:11.482+00:00"
+      }
+    ],
+    "student_attempts": [
+      {
+        "id": "att_1789730651409_ck05n",
+        "assignment_id": "asg_1789730650748_rnbui",
+        "student_id": "89612b4c-88b8-4520-a2ea-505d84a32cce",
+        "state": "MUTATION_READY",
+        "language": "python",
+        "original_code": "def classify_number(n):\n    if n > 0:\n        return \"Positive\"\n    elif n < 0:\n        return \"Negative\"\n    else:\n        return \"Zero\"\n\nval = int(input())\nprint(classify_number(val))\n",
+        "mutated_code": "def classify_number(n):\n    if n > 0:\n        return \"Positive\"\n    elif n < 0:\n        return None\n    else:\n        return \"Zero\"\n\nval = int(input())\nprint(classify_number(val))\n",
+        "mutation_type": "RETURN_VALUE_MUTATION",
+        "mutation_metadata_json": {
+          "seed": "4eb8ad271bb19953",
+          "language": "python",
+          "appliedAt": "2026-09-18T11:24:11.506Z",
+          "description": "Altered return value expression to None",
+          "mutationType": "RETURN_VALUE_MUTATION",
+          "sourceLocation": {
+            "line": 5,
+            "column": 15,
+            "endLine": 5,
+            "endColumn": 25
+          },
+          "mutatedCodeHash": "501c9723a90c76610cc4f4e9d0f4ad8e5d147783e466dff6478af767863d1cf3",
+          "mutatedFragment": "None",
+          "originalCodeHash": "a454c02c289c6c20e63301cdd6cd20de8079b666086bf831a56b48a70ba9cbea",
+          "originalFragment": "\"Negative\""
+        },
+        "repaired_code": null,
+        "phase2_start_time": null,
+        "phase2_deadline": null,
+        "evaluation_result_json": null,
+        "failure_reason": null,
+        "original_code_hash": "a454c02c289c6c20e63301cdd6cd20de8079b666086bf831a56b48a70ba9cbea",
+        "mutated_code_hash": "501c9723a90c76610cc4f4e9d0f4ad8e5d147783e466dff6478af767863d1cf3",
+        "mutation_seed": "4eb8ad271bb19953",
+        "mutation_status": "MUTATION_READY",
+        "submitted_at": "2026-09-18T11:24:11.409+00:00",
+        "created_at": "2026-09-18T11:24:11.432348+00:00",
+        "updated_at": "2026-09-18T11:24:11.507+00:00"
+      },
+      {
+        "id": "att_1789730691318_kqf2y",
+        "assignment_id": "asg_1789730690710_vew7e",
+        "student_id": "89612b4c-88b8-4520-a2ea-505d84a32cce",
+        "state": "PHASE2_ACTIVE",
+        "language": "python",
+        "original_code": "def classify_number(n):\n    if n > 0:\n        return \"Positive\"\n    elif n < 0:\n        return \"Negative\"\n    else:\n        return \"Zero\"\n\nval = int(input())\nprint(classify_number(val))\n",
+        "mutated_code": "def classify_number(n):\n    if n > 0:\n        return \"Positive\"\n    elif n < 0:\n        return None\n    else:\n        return \"Zero\"\n\nval = int(input())\nprint(classify_number(val))\n",
+        "mutation_type": "RETURN_VALUE_MUTATION",
+        "mutation_metadata_json": {
+          "seed": "4eb8ad271bb19953",
+          "language": "python",
+          "appliedAt": "2026-09-18T11:24:51.418Z",
+          "description": "Altered return value expression to None",
+          "mutationType": "RETURN_VALUE_MUTATION",
+          "sourceLocation": {
+            "line": 5,
+            "column": 15,
+            "endLine": 5,
+            "endColumn": 25
+          },
+          "mutatedCodeHash": "501c9723a90c76610cc4f4e9d0f4ad8e5d147783e466dff6478af767863d1cf3",
+          "mutatedFragment": "None",
+          "originalCodeHash": "a454c02c289c6c20e63301cdd6cd20de8079b666086bf831a56b48a70ba9cbea",
+          "originalFragment": "\"Negative\""
+        },
+        "repaired_code": null,
+        "phase2_start_time": "2026-09-18T11:24:51.618+00:00",
+        "phase2_deadline": "2026-09-18T11:27:51.618+00:00",
+        "evaluation_result_json": null,
+        "failure_reason": null,
+        "original_code_hash": "a454c02c289c6c20e63301cdd6cd20de8079b666086bf831a56b48a70ba9cbea",
+        "mutated_code_hash": "501c9723a90c76610cc4f4e9d0f4ad8e5d147783e466dff6478af767863d1cf3",
+        "mutation_seed": "4eb8ad271bb19953",
+        "mutation_status": "MUTATION_READY",
+        "submitted_at": "2026-09-18T11:24:51.318+00:00",
+        "created_at": "2026-09-18T11:24:51.371815+00:00",
+        "updated_at": "2026-09-18T11:24:51.657+00:00"
+      },
+      {
+        "id": "att_1789730722220_z7arc",
+        "assignment_id": "asg_1789730721619_m8d9f",
+        "student_id": "89612b4c-88b8-4520-a2ea-505d84a32cce",
+        "state": "PHASE2_ACTIVE",
+        "language": "python",
+        "original_code": "def classify_number(n):\n    if n > 0:\n        return \"Positive\"\n    elif n < 0:\n        return \"Negative\"\n    else:\n        return \"Zero\"\n\nval = int(input())\nprint(classify_number(val))\n",
+        "mutated_code": "def classify_number(n):\n    if n > 0:\n        return \"Positive\"\n    elif n < 0:\n        return None\n    else:\n        return \"Zero\"\n\nval = int(input())\nprint(classify_number(val))\n",
+        "mutation_type": "RETURN_VALUE_MUTATION",
+        "mutation_metadata_json": {
+          "seed": "4eb8ad271bb19953",
+          "language": "python",
+          "appliedAt": "2026-09-18T11:25:22.315Z",
+          "description": "Altered return value expression to None",
+          "mutationType": "RETURN_VALUE_MUTATION",
+          "sourceLocation": {
+            "line": 5,
+            "column": 15,
+            "endLine": 5,
+            "endColumn": 25
+          },
+          "mutatedCodeHash": "501c9723a90c76610cc4f4e9d0f4ad8e5d147783e466dff6478af767863d1cf3",
+          "mutatedFragment": "None",
+          "originalCodeHash": "a454c02c289c6c20e63301cdd6cd20de8079b666086bf831a56b48a70ba9cbea",
+          "originalFragment": "\"Negative\""
+        },
+        "repaired_code": null,
+        "phase2_start_time": "2026-09-18T11:25:22.579+00:00",
+        "phase2_deadline": "2026-09-18T11:28:22.579+00:00",
+        "evaluation_result_json": null,
+        "failure_reason": null,
+        "original_code_hash": "a454c02c289c6c20e63301cdd6cd20de8079b666086bf831a56b48a70ba9cbea",
+        "mutated_code_hash": "501c9723a90c76610cc4f4e9d0f4ad8e5d147783e466dff6478af767863d1cf3",
+        "mutation_seed": "4eb8ad271bb19953",
+        "mutation_status": "MUTATION_READY",
+        "submitted_at": "2026-09-18T11:25:22.22+00:00",
+        "created_at": "2026-09-18T11:25:22.274493+00:00",
+        "updated_at": "2026-09-18T11:25:22.606+00:00"
+      },
+      {
+        "id": "att_1789730759993_w5kuq",
+        "assignment_id": "asg_1789730759267_94thc",
+        "student_id": "89612b4c-88b8-4520-a2ea-505d84a32cce",
+        "state": "PHASE2_ACTIVE",
+        "language": "python",
+        "original_code": "def classify_number(n):\n    if n > 0:\n        return \"Positive\"\n    elif n < 0:\n        return \"Negative\"\n    else:\n        return \"Zero\"\n\nval = int(input())\nprint(classify_number(val))\n",
+        "mutated_code": "def classify_number(n):\n    if n > 0:\n        return \"Positive\"\n    elif n < 0:\n        return None\n    else:\n        return \"Zero\"\n\nval = int(input())\nprint(classify_number(val))\n",
+        "mutation_type": "RETURN_VALUE_MUTATION",
+        "mutation_metadata_json": {
+          "seed": "4eb8ad271bb19953",
+          "language": "python",
+          "appliedAt": "2026-09-18T11:26:00.091Z",
+          "description": "Altered return value expression to None",
+          "mutationType": "RETURN_VALUE_MUTATION",
+          "sourceLocation": {
+            "line": 5,
+            "column": 15,
+            "endLine": 5,
+            "endColumn": 25
+          },
+          "mutatedCodeHash": "501c9723a90c76610cc4f4e9d0f4ad8e5d147783e466dff6478af767863d1cf3",
+          "mutatedFragment": "None",
+          "originalCodeHash": "a454c02c289c6c20e63301cdd6cd20de8079b666086bf831a56b48a70ba9cbea",
+          "originalFragment": "\"Negative\""
+        },
+        "repaired_code": null,
+        "phase2_start_time": "2026-09-18T11:26:00.443+00:00",
+        "phase2_deadline": "2026-09-18T11:29:00.443+00:00",
+        "evaluation_result_json": null,
+        "failure_reason": null,
+        "original_code_hash": "a454c02c289c6c20e63301cdd6cd20de8079b666086bf831a56b48a70ba9cbea",
+        "mutated_code_hash": "501c9723a90c76610cc4f4e9d0f4ad8e5d147783e466dff6478af767863d1cf3",
+        "mutation_seed": "4eb8ad271bb19953",
+        "mutation_status": "MUTATION_READY",
+        "submitted_at": "2026-09-18T11:25:59.993+00:00",
+        "created_at": "2026-09-18T11:26:00.041592+00:00",
+        "updated_at": "2026-09-18T11:26:00.482+00:00"
+      },
+      {
+        "id": "att_1789730782669_ceens",
+        "assignment_id": "asg_1789730781893_uuxc7",
+        "student_id": "89612b4c-88b8-4520-a2ea-505d84a32cce",
+        "state": "PHASE2_PASSED",
+        "language": "python",
+        "original_code": "def classify_number(n):\n    if n > 0:\n        return \"Positive\"\n    elif n < 0:\n        return \"Negative\"\n    else:\n        return \"Zero\"\n\nval = int(input())\nprint(classify_number(val))\n",
+        "mutated_code": "def classify_number(n):\n    if n > 0:\n        return \"Positive\"\n    elif n < 0:\n        return None\n    else:\n        return \"Zero\"\n\nval = int(input())\nprint(classify_number(val))\n",
+        "mutation_type": "RETURN_VALUE_MUTATION",
+        "mutation_metadata_json": {
+          "seed": "4eb8ad271bb19953",
+          "language": "python",
+          "appliedAt": "2026-09-18T11:26:22.744Z",
+          "description": "Altered return value expression to None",
+          "mutationType": "RETURN_VALUE_MUTATION",
+          "sourceLocation": {
+            "line": 5,
+            "column": 15,
+            "endLine": 5,
+            "endColumn": 25
+          },
+          "mutatedCodeHash": "501c9723a90c76610cc4f4e9d0f4ad8e5d147783e466dff6478af767863d1cf3",
+          "mutatedFragment": "None",
+          "originalCodeHash": "a454c02c289c6c20e63301cdd6cd20de8079b666086bf831a56b48a70ba9cbea",
+          "originalFragment": "\"Negative\""
+        },
+        "repaired_code": "def classify_number(n):\n    if n > 0:\n        return \"Positive\"\n    elif n < 0:\n        return \"Negative\"\n    else:\n        return \"Zero\"\n\nval = int(input())\nprint(classify_number(val))\n",
+        "phase2_start_time": "2026-09-18T11:26:22.976+00:00",
+        "phase2_deadline": "2026-09-18T11:29:22.976+00:00",
+        "evaluation_result_json": {
+          "status": "PASSED",
+          "results": [
+            {
+              "input": "5",
+              "actual": "Positive",
+              "passed": true,
+              "expected": "Positive",
+              "isHidden": false,
+              "testIndex": 1,
+              "durationMs": 25,
+              "description": "Test positive"
+            },
+            {
+              "input": "-3",
+              "actual": "Negative",
+              "passed": true,
+              "expected": "Negative",
+              "isHidden": false,
+              "testIndex": 2,
+              "durationMs": 28,
+              "description": "Test negative"
+            },
+            {
+              "input": "0",
+              "actual": "Zero",
+              "passed": true,
+              "expected": "Zero",
+              "isHidden": false,
+              "testIndex": 3,
+              "durationMs": 24,
+              "description": "Test zero"
+            }
+          ],
+          "startedAt": "2026-09-18T11:26:23.447Z",
+          "durationMs": 81,
+          "testsTotal": 3,
+          "completedAt": "2026-09-18T11:26:23.528Z",
+          "testsFailed": 0,
+          "testsPassed": 3,
+          "failureReason": null
+        },
+        "failure_reason": null,
+        "original_code_hash": "a454c02c289c6c20e63301cdd6cd20de8079b666086bf831a56b48a70ba9cbea",
+        "mutated_code_hash": "501c9723a90c76610cc4f4e9d0f4ad8e5d147783e466dff6478af767863d1cf3",
+        "mutation_seed": "4eb8ad271bb19953",
+        "mutation_status": "MUTATION_READY",
+        "submitted_at": "2026-09-18T11:26:22.668+00:00",
+        "created_at": "2026-09-18T11:26:22.699017+00:00",
+        "updated_at": "2026-09-18T11:26:23.599+00:00"
+      },
+      {
+        "id": "att_1789730817696_d9iu7",
+        "assignment_id": "asg_1789730817126_2nfvl",
+        "student_id": "89612b4c-88b8-4520-a2ea-505d84a32cce",
+        "state": "PHASE2_PASSED",
+        "language": "python",
+        "original_code": "def classify_number(n):\n    if n > 0:\n        return \"Positive\"\n    elif n < 0:\n        return \"Negative\"\n    else:\n        return \"Zero\"\n\nval = int(input())\nprint(classify_number(val))\n",
+        "mutated_code": "def classify_number(n):\n    if n > 0:\n        return \"Positive\"\n    elif n < 0:\n        return None\n    else:\n        return \"Zero\"\n\nval = int(input())\nprint(classify_number(val))\n",
+        "mutation_type": "RETURN_VALUE_MUTATION",
+        "mutation_metadata_json": {
+          "seed": "4eb8ad271bb19953",
+          "language": "python",
+          "appliedAt": "2026-09-18T11:26:57.799Z",
+          "description": "Altered return value expression to None",
+          "mutationType": "RETURN_VALUE_MUTATION",
+          "sourceLocation": {
+            "line": 5,
+            "column": 15,
+            "endLine": 5,
+            "endColumn": 25
+          },
+          "mutatedCodeHash": "501c9723a90c76610cc4f4e9d0f4ad8e5d147783e466dff6478af767863d1cf3",
+          "mutatedFragment": "None",
+          "originalCodeHash": "a454c02c289c6c20e63301cdd6cd20de8079b666086bf831a56b48a70ba9cbea",
+          "originalFragment": "\"Negative\""
+        },
+        "repaired_code": "def classify_number(n):\n    if n > 0:\n        return \"Positive\"\n    elif n < 0:\n        return \"Negative\"\n    else:\n        return \"Zero\"\n\nval = int(input())\nprint(classify_number(val))\n",
+        "phase2_start_time": "2026-09-18T11:26:58.025+00:00",
+        "phase2_deadline": "2026-09-18T11:29:58.025+00:00",
+        "evaluation_result_json": {
+          "status": "PASSED",
+          "results": [
+            {
+              "input": "5",
+              "actual": "Positive",
+              "passed": true,
+              "expected": "Positive",
+              "isHidden": false,
+              "testIndex": 1,
+              "durationMs": 23,
+              "description": "Test positive"
+            },
+            {
+              "input": "-3",
+              "actual": "Negative",
+              "passed": true,
+              "expected": "Negative",
+              "isHidden": false,
+              "testIndex": 2,
+              "durationMs": 21,
+              "description": "Test negative"
+            },
+            {
+              "input": "0",
+              "actual": "Zero",
+              "passed": true,
+              "expected": "Zero",
+              "isHidden": false,
+              "testIndex": 3,
+              "durationMs": 23,
+              "description": "Test zero"
+            }
+          ],
+          "startedAt": "2026-09-18T11:26:58.488Z",
+          "durationMs": 69,
+          "testsTotal": 3,
+          "completedAt": "2026-09-18T11:26:58.557Z",
+          "testsFailed": 0,
+          "testsPassed": 3,
+          "failureReason": null
+        },
+        "failure_reason": null,
+        "original_code_hash": "a454c02c289c6c20e63301cdd6cd20de8079b666086bf831a56b48a70ba9cbea",
+        "mutated_code_hash": "501c9723a90c76610cc4f4e9d0f4ad8e5d147783e466dff6478af767863d1cf3",
+        "mutation_seed": "4eb8ad271bb19953",
+        "mutation_status": "MUTATION_READY",
+        "submitted_at": "2026-09-18T11:26:57.696+00:00",
+        "created_at": "2026-09-18T11:26:57.723689+00:00",
+        "updated_at": "2026-09-18T11:26:58.627+00:00"
+      },
+      {
+        "id": "att_1789730864868_mqqqo",
+        "assignment_id": "asg_1789730862324_7qlre",
+        "student_id": "89612b4c-88b8-4520-a2ea-505d84a32cce",
+        "state": "PHASE2_PASSED",
+        "language": "python",
+        "original_code": "def classify_number(n):\n    if n > 0:\n        return \"Positive\"\n    elif n < 0:\n        return \"Negative\"\n    else:\n        return \"Zero\"\n\nval = int(input())\nprint(classify_number(val))\n",
+        "mutated_code": "def classify_number(n):\n    if n > 0:\n        return \"Positive\"\n    elif n < 0:\n        return None\n    else:\n        return \"Zero\"\n\nval = int(input())\nprint(classify_number(val))\n",
+        "mutation_type": "RETURN_VALUE_MUTATION",
+        "mutation_metadata_json": {
+          "seed": "4eb8ad271bb19953",
+          "language": "python",
+          "appliedAt": "2026-09-18T11:27:44.988Z",
+          "description": "Altered return value expression to None",
+          "mutationType": "RETURN_VALUE_MUTATION",
+          "sourceLocation": {
+            "line": 5,
+            "column": 15,
+            "endLine": 5,
+            "endColumn": 25
+          },
+          "mutatedCodeHash": "501c9723a90c76610cc4f4e9d0f4ad8e5d147783e466dff6478af767863d1cf3",
+          "mutatedFragment": "None",
+          "originalCodeHash": "a454c02c289c6c20e63301cdd6cd20de8079b666086bf831a56b48a70ba9cbea",
+          "originalFragment": "\"Negative\""
+        },
+        "repaired_code": "def classify_number(n):\n    if n > 0:\n        return \"Positive\"\n    elif n < 0:\n        return \"Negative\"\n    else:\n        return \"Zero\"\n\nval = int(input())\nprint(classify_number(val))\n",
+        "phase2_start_time": "2026-09-18T11:27:45.198+00:00",
+        "phase2_deadline": "2026-09-18T11:30:45.198+00:00",
+        "evaluation_result_json": {
+          "status": "PASSED",
+          "results": [
+            {
+              "input": "5",
+              "actual": "Positive",
+              "passed": true,
+              "expected": "Positive",
+              "isHidden": false,
+              "testIndex": 1,
+              "durationMs": 24,
+              "description": "Test positive"
+            },
+            {
+              "input": "-3",
+              "actual": "Negative",
+              "passed": true,
+              "expected": "Negative",
+              "isHidden": false,
+              "testIndex": 2,
+              "durationMs": 25,
+              "description": "Test negative"
+            },
+            {
+              "input": "0",
+              "actual": "Zero",
+              "passed": true,
+              "expected": "Zero",
+              "isHidden": false,
+              "testIndex": 3,
+              "durationMs": 37,
+              "description": "Test zero"
+            }
+          ],
+          "startedAt": "2026-09-18T11:27:45.691Z",
+          "durationMs": 88,
+          "testsTotal": 3,
+          "completedAt": "2026-09-18T11:27:45.779Z",
+          "testsFailed": 0,
+          "testsPassed": 3,
+          "failureReason": null
+        },
+        "failure_reason": null,
+        "original_code_hash": "a454c02c289c6c20e63301cdd6cd20de8079b666086bf831a56b48a70ba9cbea",
+        "mutated_code_hash": "501c9723a90c76610cc4f4e9d0f4ad8e5d147783e466dff6478af767863d1cf3",
+        "mutation_seed": "4eb8ad271bb19953",
+        "mutation_status": "MUTATION_READY",
+        "submitted_at": "2026-09-18T11:27:44.868+00:00",
+        "created_at": "2026-09-18T11:27:44.92909+00:00",
+        "updated_at": "2026-09-18T11:27:45.863+00:00"
+      },
+      {
+        "id": "att_1789730901740_v2ykd",
+        "assignment_id": "asg_1789730900981_zfkyw",
+        "student_id": "89612b4c-88b8-4520-a2ea-505d84a32cce",
+        "state": "PHASE2_PASSED",
+        "language": "python",
+        "original_code": "def classify_number(n):\n    if n > 0:\n        return \"Positive\"\n    elif n < 0:\n        return \"Negative\"\n    else:\n        return \"Zero\"\n\nval = int(input())\nprint(classify_number(val))\n",
+        "mutated_code": "def classify_number(n):\n    if n > 0:\n        return \"Positive\"\n    elif n < 0:\n        return None\n    else:\n        return \"Zero\"\n\nval = int(input())\nprint(classify_number(val))\n",
+        "mutation_type": "RETURN_VALUE_MUTATION",
+        "mutation_metadata_json": {
+          "seed": "4eb8ad271bb19953",
+          "language": "python",
+          "appliedAt": "2026-09-18T11:28:21.833Z",
+          "description": "Altered return value expression to None",
+          "mutationType": "RETURN_VALUE_MUTATION",
+          "sourceLocation": {
+            "line": 5,
+            "column": 15,
+            "endLine": 5,
+            "endColumn": 25
+          },
+          "mutatedCodeHash": "501c9723a90c76610cc4f4e9d0f4ad8e5d147783e466dff6478af767863d1cf3",
+          "mutatedFragment": "None",
+          "originalCodeHash": "a454c02c289c6c20e63301cdd6cd20de8079b666086bf831a56b48a70ba9cbea",
+          "originalFragment": "\"Negative\""
+        },
+        "repaired_code": "def classify_number(n):\n    if n > 0:\n        return \"Positive\"\n    elif n < 0:\n        return \"Negative\"\n    else:\n        return \"Zero\"\n\nval = int(input())\nprint(classify_number(val))\n",
+        "phase2_start_time": "2026-09-18T11:28:22.045+00:00",
+        "phase2_deadline": "2026-09-18T11:31:22.045+00:00",
+        "evaluation_result_json": {
+          "status": "PASSED",
+          "results": [
+            {
+              "input": "5",
+              "actual": "Positive",
+              "passed": true,
+              "expected": "Positive",
+              "isHidden": false,
+              "testIndex": 1,
+              "durationMs": 24,
+              "description": "Test positive"
+            },
+            {
+              "input": "-3",
+              "actual": "Negative",
+              "passed": true,
+              "expected": "Negative",
+              "isHidden": false,
+              "testIndex": 2,
+              "durationMs": 24,
+              "description": "Test negative"
+            },
+            {
+              "input": "0",
+              "actual": "Zero",
+              "passed": true,
+              "expected": "Zero",
+              "isHidden": false,
+              "testIndex": 3,
+              "durationMs": 24,
+              "description": "Test zero"
+            }
+          ],
+          "startedAt": "2026-09-18T11:28:22.498Z",
+          "durationMs": 75,
+          "testsTotal": 3,
+          "completedAt": "2026-09-18T11:28:22.573Z",
+          "testsFailed": 0,
+          "testsPassed": 3,
+          "failureReason": null
+        },
+        "failure_reason": null,
+        "original_code_hash": "a454c02c289c6c20e63301cdd6cd20de8079b666086bf831a56b48a70ba9cbea",
+        "mutated_code_hash": "501c9723a90c76610cc4f4e9d0f4ad8e5d147783e466dff6478af767863d1cf3",
+        "mutation_seed": "4eb8ad271bb19953",
+        "mutation_status": "MUTATION_READY",
+        "submitted_at": "2026-09-18T11:28:21.74+00:00",
+        "created_at": "2026-09-18T11:28:21.769076+00:00",
+        "updated_at": "2026-09-18T11:28:22.631+00:00"
+      },
+      {
+        "id": "att_1789731070523_uct7e",
+        "assignment_id": "asg_1789731069871_4yzar",
+        "student_id": "89612b4c-88b8-4520-a2ea-505d84a32cce",
+        "state": "PHASE2_PASSED",
+        "language": "python",
+        "original_code": "def classify_number(n):\n    if n > 0:\n        return \"Positive\"\n    elif n < 0:\n        return \"Negative\"\n    else:\n        return \"Zero\"\n\nval = int(input())\nprint(classify_number(val))\n",
+        "mutated_code": "def classify_number(n):\n    if n > 0:\n        return \"Positive\"\n    elif n < 0:\n        return None\n    else:\n        return \"Zero\"\n\nval = int(input())\nprint(classify_number(val))\n",
+        "mutation_type": "RETURN_VALUE_MUTATION",
+        "mutation_metadata_json": {
+          "seed": "4eb8ad271bb19953",
+          "language": "python",
+          "appliedAt": "2026-09-18T11:31:10.597Z",
+          "description": "Altered return value expression to None",
+          "mutationType": "RETURN_VALUE_MUTATION",
+          "sourceLocation": {
+            "line": 5,
+            "column": 15,
+            "endLine": 5,
+            "endColumn": 25
+          },
+          "mutatedCodeHash": "501c9723a90c76610cc4f4e9d0f4ad8e5d147783e466dff6478af767863d1cf3",
+          "mutatedFragment": "None",
+          "originalCodeHash": "a454c02c289c6c20e63301cdd6cd20de8079b666086bf831a56b48a70ba9cbea",
+          "originalFragment": "\"Negative\""
+        },
+        "repaired_code": "def classify_number(n):\n    if n > 0:\n        return \"Positive\"\n    elif n < 0:\n        return \"Negative\"\n    else:\n        return \"Zero\"\n\nval = int(input())\nprint(classify_number(val))\n",
+        "phase2_start_time": "2026-09-18T11:31:10.86+00:00",
+        "phase2_deadline": "2026-09-18T11:34:10.86+00:00",
+        "evaluation_result_json": {
+          "status": "PASSED",
+          "results": [
+            {
+              "input": "5",
+              "actual": "Positive",
+              "passed": true,
+              "expected": "Positive",
+              "isHidden": false,
+              "testIndex": 1,
+              "durationMs": 23,
+              "description": "Test positive"
+            },
+            {
+              "input": "-3",
+              "actual": "Negative",
+              "passed": true,
+              "expected": "Negative",
+              "isHidden": false,
+              "testIndex": 2,
+              "durationMs": 23,
+              "description": "Test negative"
+            },
+            {
+              "input": "0",
+              "actual": "Zero",
+              "passed": true,
+              "expected": "Zero",
+              "isHidden": false,
+              "testIndex": 3,
+              "durationMs": 23,
+              "description": "Test zero"
+            }
+          ],
+          "startedAt": "2026-09-18T11:31:11.375Z",
+          "durationMs": 70,
+          "testsTotal": 3,
+          "completedAt": "2026-09-18T11:31:11.445Z",
+          "testsFailed": 0,
+          "testsPassed": 3,
+          "failureReason": null
+        },
+        "failure_reason": null,
+        "original_code_hash": "a454c02c289c6c20e63301cdd6cd20de8079b666086bf831a56b48a70ba9cbea",
+        "mutated_code_hash": "501c9723a90c76610cc4f4e9d0f4ad8e5d147783e466dff6478af767863d1cf3",
+        "mutation_seed": "4eb8ad271bb19953",
+        "mutation_status": "MUTATION_READY",
+        "submitted_at": "2026-09-18T11:31:10.523+00:00",
+        "created_at": "2026-09-18T11:31:10.550511+00:00",
+        "updated_at": "2026-09-18T11:31:11.518+00:00"
+      }
+    ],
+    "assignments": [
+      {
+        "id": "asg_1789730650748_rnbui",
+        "title": "E2E Flow Test 1789730650643",
+        "description": "Find if a number is positive, negative, or zero",
+        "language": "python",
+        "requirements": "Handle zero, positive, and negative numbers.",
+        "starter_code": "def classify_number(n):\n    # Return \"Positive\", \"Negative\", or \"Zero\"\n    pass\n",
+        "test_cases_json": [
+          {
+            "input": "5",
+            "expected": "Positive",
+            "is_hidden": false,
+            "description": "Test positive"
+          },
+          {
+            "input": "-3",
+            "expected": "Negative",
+            "is_hidden": false,
+            "description": "Test negative"
+          },
+          {
+            "input": "0",
+            "expected": "Zero",
+            "is_hidden": false,
+            "description": "Test zero"
+          }
+        ],
+        "status": "active",
+        "created_by": "be28a72c-6623-4273-b3d9-5708a67a2e81",
+        "due_date": "2026-12-31T00:00:00+00:00",
+        "created_at": "2026-09-18T11:24:10.778121+00:00",
+        "updated_at": "2026-09-18T11:24:10.778121+00:00"
+      },
+      {
+        "id": "asg_1789730690710_vew7e",
+        "title": "E2E Flow Test 1789730690579",
+        "description": "Find if a number is positive, negative, or zero",
+        "language": "python",
+        "requirements": "Handle zero, positive, and negative numbers.",
+        "starter_code": "def classify_number(n):\n    # Return \"Positive\", \"Negative\", or \"Zero\"\n    pass\n",
+        "test_cases_json": [
+          {
+            "input": "5",
+            "expected": "Positive",
+            "is_hidden": false,
+            "description": "Test positive"
+          },
+          {
+            "input": "-3",
+            "expected": "Negative",
+            "is_hidden": false,
+            "description": "Test negative"
+          },
+          {
+            "input": "0",
+            "expected": "Zero",
+            "is_hidden": false,
+            "description": "Test zero"
+          }
+        ],
+        "status": "active",
+        "created_by": "be28a72c-6623-4273-b3d9-5708a67a2e81",
+        "due_date": "2026-12-31T00:00:00+00:00",
+        "created_at": "2026-09-18T11:24:50.733709+00:00",
+        "updated_at": "2026-09-18T11:24:50.733709+00:00"
+      },
+      {
+        "id": "asg_1789730721619_m8d9f",
+        "title": "E2E Flow Test 1789730721477",
+        "description": "Find if a number is positive, negative, or zero",
+        "language": "python",
+        "requirements": "Handle zero, positive, and negative numbers.",
+        "starter_code": "def classify_number(n):\n    # Return \"Positive\", \"Negative\", or \"Zero\"\n    pass\n",
+        "test_cases_json": [
+          {
+            "input": "5",
+            "expected": "Positive",
+            "is_hidden": false,
+            "description": "Test positive"
+          },
+          {
+            "input": "-3",
+            "expected": "Negative",
+            "is_hidden": false,
+            "description": "Test negative"
+          },
+          {
+            "input": "0",
+            "expected": "Zero",
+            "is_hidden": false,
+            "description": "Test zero"
+          }
+        ],
+        "status": "active",
+        "created_by": "be28a72c-6623-4273-b3d9-5708a67a2e81",
+        "due_date": "2026-12-31T00:00:00+00:00",
+        "created_at": "2026-09-18T11:25:21.640394+00:00",
+        "updated_at": "2026-09-18T11:25:21.640394+00:00"
+      },
+      {
+        "id": "asg_1789730759267_94thc",
+        "title": "E2E Flow Test 1789730759135",
+        "description": "Find if a number is positive, negative, or zero",
+        "language": "python",
+        "requirements": "Handle zero, positive, and negative numbers.",
+        "starter_code": "def classify_number(n):\n    # Return \"Positive\", \"Negative\", or \"Zero\"\n    pass\n",
+        "test_cases_json": [
+          {
+            "input": "5",
+            "expected": "Positive",
+            "is_hidden": false,
+            "description": "Test positive"
+          },
+          {
+            "input": "-3",
+            "expected": "Negative",
+            "is_hidden": false,
+            "description": "Test negative"
+          },
+          {
+            "input": "0",
+            "expected": "Zero",
+            "is_hidden": false,
+            "description": "Test zero"
+          }
+        ],
+        "status": "active",
+        "created_by": "be28a72c-6623-4273-b3d9-5708a67a2e81",
+        "due_date": "2026-12-31T00:00:00+00:00",
+        "created_at": "2026-09-18T11:25:59.288421+00:00",
+        "updated_at": "2026-09-18T11:25:59.288421+00:00"
+      },
+      {
+        "id": "asg_1789730781893_uuxc7",
+        "title": "E2E Flow Test 1789730781712",
+        "description": "Find if a number is positive, negative, or zero",
+        "language": "python",
+        "requirements": "Handle zero, positive, and negative numbers.",
+        "starter_code": "def classify_number(n):\n    # Return \"Positive\", \"Negative\", or \"Zero\"\n    pass\n",
+        "test_cases_json": [
+          {
+            "input": "5",
+            "expected": "Positive",
+            "is_hidden": false,
+            "description": "Test positive"
+          },
+          {
+            "input": "-3",
+            "expected": "Negative",
+            "is_hidden": false,
+            "description": "Test negative"
+          },
+          {
+            "input": "0",
+            "expected": "Zero",
+            "is_hidden": false,
+            "description": "Test zero"
+          }
+        ],
+        "status": "active",
+        "created_by": "be28a72c-6623-4273-b3d9-5708a67a2e81",
+        "due_date": "2026-12-31T00:00:00+00:00",
+        "created_at": "2026-09-18T11:26:21.941538+00:00",
+        "updated_at": "2026-09-18T11:26:21.941538+00:00"
+      },
+      {
+        "id": "asg_1789730817126_2nfvl",
+        "title": "E2E Flow Test 1789730817012",
+        "description": "Find if a number is positive, negative, or zero",
+        "language": "python",
+        "requirements": "Handle zero, positive, and negative numbers.",
+        "starter_code": "def classify_number(n):\n    # Return \"Positive\", \"Negative\", or \"Zero\"\n    pass\n",
+        "test_cases_json": [
+          {
+            "input": "5",
+            "expected": "Positive",
+            "is_hidden": false,
+            "description": "Test positive"
+          },
+          {
+            "input": "-3",
+            "expected": "Negative",
+            "is_hidden": false,
+            "description": "Test negative"
+          },
+          {
+            "input": "0",
+            "expected": "Zero",
+            "is_hidden": false,
+            "description": "Test zero"
+          }
+        ],
+        "status": "active",
+        "created_by": "be28a72c-6623-4273-b3d9-5708a67a2e81",
+        "due_date": "2026-12-31T00:00:00+00:00",
+        "created_at": "2026-09-18T11:26:57.155829+00:00",
+        "updated_at": "2026-09-18T11:26:57.155829+00:00"
+      },
+      {
+        "id": "asg_1789730862324_7qlre",
+        "title": "E2E Flow Test 1789730862216",
+        "description": "Find if a number is positive, negative, or zero",
+        "language": "python",
+        "requirements": "Handle zero, positive, and negative numbers.",
+        "starter_code": "def classify_number(n):\n    # Return \"Positive\", \"Negative\", or \"Zero\"\n    pass\n",
+        "test_cases_json": [
+          {
+            "input": "5",
+            "expected": "Positive",
+            "is_hidden": false,
+            "description": "Test positive"
+          },
+          {
+            "input": "-3",
+            "expected": "Negative",
+            "is_hidden": false,
+            "description": "Test negative"
+          },
+          {
+            "input": "0",
+            "expected": "Zero",
+            "is_hidden": false,
+            "description": "Test zero"
+          }
+        ],
+        "status": "active",
+        "created_by": "be28a72c-6623-4273-b3d9-5708a67a2e81",
+        "due_date": "2026-12-31T00:00:00+00:00",
+        "created_at": "2026-09-18T11:27:42.346319+00:00",
+        "updated_at": "2026-09-18T11:27:42.346319+00:00"
+      },
+      {
+        "id": "asg_1789730900981_zfkyw",
+        "title": "E2E Flow Test 1789730900585",
+        "description": "Find if a number is positive, negative, or zero",
+        "language": "python",
+        "requirements": "Handle zero, positive, and negative numbers.",
+        "starter_code": "def classify_number(n):\n    # Return \"Positive\", \"Negative\", or \"Zero\"\n    pass\n",
+        "test_cases_json": [
+          {
+            "input": "5",
+            "expected": "Positive",
+            "is_hidden": false,
+            "description": "Test positive"
+          },
+          {
+            "input": "-3",
+            "expected": "Negative",
+            "is_hidden": false,
+            "description": "Test negative"
+          },
+          {
+            "input": "0",
+            "expected": "Zero",
+            "is_hidden": false,
+            "description": "Test zero"
+          }
+        ],
+        "status": "active",
+        "created_by": "be28a72c-6623-4273-b3d9-5708a67a2e81",
+        "due_date": "2026-12-31T00:00:00+00:00",
+        "created_at": "2026-09-18T11:28:21.02256+00:00",
+        "updated_at": "2026-09-18T11:28:21.02256+00:00"
+      },
+      {
+        "id": "asg_1789731069871_4yzar",
+        "title": "E2E Flow Test 1789731069755",
+        "description": "Find if a number is positive, negative, or zero",
+        "language": "python",
+        "requirements": "Handle zero, positive, and negative numbers.",
+        "starter_code": "def classify_number(n):\n    # Return \"Positive\", \"Negative\", or \"Zero\"\n    pass\n",
+        "test_cases_json": [
+          {
+            "input": "5",
+            "expected": "Positive",
+            "is_hidden": false,
+            "description": "Test positive"
+          },
+          {
+            "input": "-3",
+            "expected": "Negative",
+            "is_hidden": false,
+            "description": "Test negative"
+          },
+          {
+            "input": "0",
+            "expected": "Zero",
+            "is_hidden": false,
+            "description": "Test zero"
+          }
+        ],
+        "status": "active",
+        "created_by": "be28a72c-6623-4273-b3d9-5708a67a2e81",
+        "due_date": "2026-12-31T00:00:00+00:00",
+        "created_at": "2026-09-18T11:31:09.892884+00:00",
+        "updated_at": "2026-09-18T11:31:09.892884+00:00"
+      }
+    ],
+    "test_profiles": [
+      {
+        "id": "9cff5525-edac-41a8-8331-5752b04f90d2",
+        "email": "faculty_test_1789728945054@gmail.com",
+        "full_name": "Test Faculty User",
+        "role": "faculty",
+        "institution_id": "SyntaxViva University",
+        "roll_number": null,
+        "class_id": null,
+        "division_id": null,
+        "status": "active",
+        "created_at": "2026-09-18T10:55:45.349506+00:00",
+        "updated_at": "2026-09-18T10:55:45.349506+00:00"
+      },
+      {
+        "id": "be28a72c-6623-4273-b3d9-5708a67a2e81",
+        "email": "faculty@college.edu",
+        "full_name": "Dr. Faculty",
+        "role": "faculty",
+        "institution_id": "INST001",
+        "roll_number": null,
+        "class_id": "CS101",
+        "division_id": "DIV_A",
+        "status": "active",
+        "created_at": "2026-09-18T11:23:53.117+00:00",
+        "updated_at": "2026-09-18T11:23:53.118+00:00"
+      },
+      {
+        "id": "89612b4c-88b8-4520-a2ea-505d84a32cce",
+        "email": "student@college.edu",
+        "full_name": "Student Alpha",
+        "role": "student",
+        "institution_id": "INST001",
+        "roll_number": "2026CS001",
+        "class_id": "CS101",
+        "division_id": "DIV_A",
+        "status": "active",
+        "created_at": "2026-09-18T11:23:53.377+00:00",
+        "updated_at": "2026-09-18T11:23:53.377+00:00"
+      }
+    ],
+    "test_auth_users": [
+      {
+        "id": "89612b4c-88b8-4520-a2ea-505d84a32cce",
+        "email": "student@college.edu",
+        "created_at": "2026-09-18T11:23:53.359369Z",
+        "role": "student"
+      },
+      {
+        "id": "be28a72c-6623-4273-b3d9-5708a67a2e81",
+        "email": "faculty@college.edu",
+        "created_at": "2026-09-18T11:23:47.043478Z",
+        "role": "faculty"
+      },
+      {
+        "id": "9cff5525-edac-41a8-8331-5752b04f90d2",
+        "email": "faculty_test_1789728945054@gmail.com",
+        "created_at": "2026-09-18T10:55:45.349837Z",
+        "role": "faculty"
+      },
+      {
+        "id": "3620d0de-07a6-4eeb-8a4e-ff692678498f",
+        "email": "test_student_1789559363049@gmail.com",
+        "created_at": "2026-09-16T11:49:23.194551Z"
+      },
+      {
+        "id": "4944c8bd-6f14-4c17-ae44-f62397bb829a",
+        "email": "syntax_test_1789353088638@gmail.com",
+        "created_at": "2026-09-14T02:31:29.018878Z"
+      },
+      {
+        "id": "a24843f7-374d-4a77-990e-2ff6d4ff8b0f",
+        "email": "syntaxviva.test.79728@gmail.com",
+        "created_at": "2026-09-13T15:53:35.511647Z",
+        "role": "student"
+      }
+    ]
+  }
+}
