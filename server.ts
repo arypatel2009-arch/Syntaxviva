@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import express from 'express';
 import path from 'path';
+import fs from 'fs';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import { createServer as createViteServer } from 'vite';
@@ -59,7 +60,7 @@ async function startServer() {
             "data:",
           ],
           imgSrc: ["'self'", "data:", "blob:", "https:"],
-          mediaSrc: ["'self'", "blob:", "data:"],
+          mediaSrc: ["'self'", "blob:", "data:", "https://*.supabase.co", "https:"],
           workerSrc: ["'self'", "blob:"],
           styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
           fontSrc: ["'self'", "data:", "https://fonts.gstatic.com"],
@@ -144,12 +145,41 @@ async function startServer() {
     },
   }));
 
-  // Explicit route for intro video to bypass Vite SPA fallback and serve video/mp4 with range streaming
-  app.get('/SyntaXViva_intro.mp4', (_req, res) => {
+  // Explicit route for intro video - serves local if exists or proxy-streams from Supabase with Range headers
+  app.get('/SyntaXViva_intro.mp4', async (req, res) => {
     const videoPath = path.join(process.cwd(), 'public', 'SyntaXViva_intro.mp4');
-    res.setHeader('Content-Type', 'video/mp4');
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.sendFile(videoPath);
+    if (fs.existsSync(videoPath)) {
+      res.setHeader('Content-Type', 'video/mp4');
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      return res.sendFile(videoPath);
+    }
+
+    const supabaseVideoUrl = 'https://wnjgfklesylchvkuwfjr.supabase.co/storage/v1/object/public/Videos/SyntaXViva_intro.mp4';
+    try {
+      const headers: Record<string, string> = {};
+      if (req.headers.range) {
+        headers['Range'] = req.headers.range;
+      }
+      const upstreamRes = await fetch(supabaseVideoUrl, { headers });
+      res.status(upstreamRes.status);
+      upstreamRes.headers.forEach((val, key) => {
+        const lowerKey = key.toLowerCase();
+        if (['content-type', 'content-length', 'content-range', 'accept-ranges'].includes(lowerKey)) {
+          res.setHeader(key, val);
+        }
+      });
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+
+      if (upstreamRes.body) {
+        const { Readable } = await import('stream');
+        Readable.fromWeb(upstreamRes.body as any).pipe(res);
+      } else {
+        res.redirect(302, supabaseVideoUrl);
+      }
+    } catch {
+      res.redirect(302, supabaseVideoUrl);
+    }
   });
 
   // Explicit route for Methodology MacBook screen demo video

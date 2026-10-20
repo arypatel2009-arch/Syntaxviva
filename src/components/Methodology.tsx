@@ -256,29 +256,17 @@ export const MacBookMockup: React.FC<{ videoSrc?: string }> = ({
           <div className="w-16 sm:w-24 h-1.5 sm:h-2 bg-[#cbd5e1] rounded-full border-t border-slate-400/60 shadow-inner" />
         </div>
 
-        {/* Outer Control & Status Indicator Bar (Unobstructed, outside video screen) */}
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 px-2">
-          <div className="flex items-center gap-2 text-xs font-mono text-emerald-400">
-            <span className={`w-2 h-2 rounded-full ${isPlaying ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
-            <span className="font-semibold tracking-wider">
-              {isPlaying ? 'ACTIVE WALKTHROUGH' : 'PAUSED • CLICK TO PLAY'}
-            </span>
-            <span className="text-[10px] text-slate-400 border-l border-white/20 pl-2">
-              1080P HD • LOSSLESS QUALITY
-            </span>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={handleReplayClick}
-              className="inline-flex items-center gap-1.5 rounded-full bg-white/[.06] hover:bg-white/[.12] border border-white/10 px-3 py-1 text-xs text-slate-300 transition-all hover:text-white cursor-pointer"
-              title="Replay 360-degree 3D round entrance animation"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Replay 3D Spin</span>
-            </button>
-          </div>
+        {/* Outer Control Bar (Replay 3D Spin) */}
+        <div className="mt-4 flex items-center justify-center px-2">
+          <button
+            type="button"
+            onClick={handleReplayClick}
+            className="inline-flex items-center gap-1.5 rounded-full bg-white/[.06] hover:bg-white/[.12] border border-white/10 px-3.5 py-1.5 text-xs text-slate-300 transition-all hover:text-white cursor-pointer shadow-sm hover:scale-105 active:scale-95"
+            title="Replay 360-degree 3D round entrance animation"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Replay 3D Spin</span>
+          </button>
         </div>
       </div>
     </div>

@@ -69,8 +69,23 @@ export const IntroVideoModal: React.FC<IntroVideoModalProps> = ({ onClose }) => 
     }
   };
 
-  const handleVideoError = () => {
-    console.error('Video failed to load or play.');
+  const handleVideoError = (e?: React.SyntheticEvent<HTMLVideoElement, Event>) => {
+    console.warn('Direct video load attempt failed, trying same-origin proxy stream...', e);
+    const video = videoRef.current;
+    if (video) {
+      const currentSrc = video.currentSrc || video.src;
+      if (!currentSrc.includes('/SyntaXViva_intro.mp4')) {
+        video.src = '/SyntaXViva_intro.mp4';
+        video.load();
+        video.play().then(() => {
+          setIsPlaying(true);
+          setLoadError(false);
+        }).catch(() => {
+          setNeedsUserInteraction(true);
+        });
+        return;
+      }
+    }
     setLoadError(true);
   };
 
@@ -84,6 +99,7 @@ export const IntroVideoModal: React.FC<IntroVideoModalProps> = ({ onClose }) => 
       {!loadError ? (
         <video
           ref={videoRef}
+          src="https://wnjgfklesylchvkuwfjr.supabase.co/storage/v1/object/public/Videos/SyntaXViva_intro.mp4"
           autoPlay
           muted
           playsInline
@@ -92,8 +108,11 @@ export const IntroVideoModal: React.FC<IntroVideoModalProps> = ({ onClose }) => 
           onError={handleVideoError}
           className="w-full h-full object-contain max-h-screen max-w-full"
         >
+          <source
+            src="https://wnjgfklesylchvkuwfjr.supabase.co/storage/v1/object/public/Videos/SyntaXViva_intro.mp4"
+            type="video/mp4"
+          />
           <source src="/SyntaXViva_intro.mp4" type="video/mp4" />
-          <source src="./SyntaXViva_intro.mp4" type="video/mp4" />
           Your browser does not support HTML5 video.
         </video>
       ) : (

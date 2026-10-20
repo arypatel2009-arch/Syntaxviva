@@ -78,6 +78,28 @@
   .font-display {
     font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
   }
+
+  /* Form input text contrast safeguard for light containers and modals */
+  .bg-white input,
+  .bg-white select,
+  .bg-white textarea,
+  input.bg-white,
+  select.bg-white,
+  textarea.bg-white,
+  .text-slate-900 input,
+  .text-slate-900 select,
+  .text-slate-900 textarea {
+    color: #0f172a !important;
+  }
+
+  .bg-white input::placeholder,
+  .bg-white textarea::placeholder,
+  input.bg-white::placeholder,
+  textarea.bg-white::placeholder,
+  .text-slate-900 input::placeholder,
+  .text-slate-900 textarea::placeholder {
+    color: #94a3b8 !important;
+  }
 }
 
 .syntaxviva-landing {

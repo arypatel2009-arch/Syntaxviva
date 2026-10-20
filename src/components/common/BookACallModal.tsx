@@ -138,7 +138,7 @@ Please let me know the next steps.`;
         </div>
 
         {/* Form Body or Success Confirmation */}
-        <div className="overflow-y-auto p-6 space-y-4 font-sans">
+        <div className="overflow-y-auto p-6 space-y-4 font-sans text-slate-900">
           {submittedId ? (
             /* Success Handoff Screen */
             <div className="text-center py-6 space-y-5">
@@ -204,7 +204,7 @@ Please let me know the next steps.`;
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   placeholder="Prof. Rajesh Patel"
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 font-sans"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 font-sans"
                 />
               </div>
 
@@ -219,7 +219,7 @@ Please let me know the next steps.`;
                   value={institution}
                   onChange={(e) => setInstitution(e.target.value)}
                   placeholder="Gujarat Technological University (GTU)"
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 font-sans"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 font-sans"
                 />
               </div>
 
@@ -235,7 +235,7 @@ Please let me know the next steps.`;
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="r.patel@gtu.edu.in"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 font-sans"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 font-sans"
                   />
                 </div>
 
@@ -249,7 +249,7 @@ Please let me know the next steps.`;
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                     placeholder="+91 98765 43210"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 font-sans"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 font-sans"
                   />
                 </div>
               </div>
@@ -263,12 +263,12 @@ Please let me know the next steps.`;
                   <select
                     value={role}
                     onChange={(e) => setRole(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 font-sans bg-white"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 bg-white text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 font-sans"
                   >
-                    <option value="Faculty">Faculty Instructor</option>
-                    <option value="HOD">Head of Department (HOD)</option>
-                    <option value="Institution Administrator">Institution Administrator</option>
-                    <option value="Other">Other Role</option>
+                    <option value="Faculty" className="text-slate-900 bg-white">Faculty Instructor</option>
+                    <option value="HOD" className="text-slate-900 bg-white">Head of Department (HOD)</option>
+                    <option value="Institution Administrator" className="text-slate-900 bg-white">Institution Administrator</option>
+                    <option value="Other" className="text-slate-900 bg-white">Other Role</option>
                   </select>
                 </div>
 
@@ -279,12 +279,12 @@ Please let me know the next steps.`;
                   <select
                     value={inquiryType}
                     onChange={(e) => setInquiryType(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 font-sans bg-white"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 bg-white text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 font-sans"
                   >
-                    <option value="Pro plan pricing">Pro Plan Pricing</option>
-                    <option value="Institutional pricing">Institutional / Campus License</option>
-                    <option value="Product demo">Live Product Demo</option>
-                    <option value="Other">Other Inquiry</option>
+                    <option value="Pro plan pricing" className="text-slate-900 bg-white">Pro Plan Pricing</option>
+                    <option value="Institutional pricing" className="text-slate-900 bg-white">Institutional / Campus License</option>
+                    <option value="Product demo" className="text-slate-900 bg-white">Live Product Demo</option>
+                    <option value="Other" className="text-slate-900 bg-white">Other Inquiry</option>
                   </select>
                 </div>
               </div>
@@ -297,11 +297,11 @@ Please let me know the next steps.`;
                 <select
                   value={expectedUsage}
                   onChange={(e) => setExpectedUsage(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 font-sans bg-white"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 bg-white text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 font-sans"
                 >
-                  <option value="Individual faculty">Individual Faculty (Single Course)</option>
-                  <option value="Small department">Small Department (Multiple Courses)</option>
-                  <option value="Entire institution">Entire College / University System</option>
+                  <option value="Individual faculty" className="text-slate-900 bg-white">Individual Faculty (Single Course)</option>
+                  <option value="Small department" className="text-slate-900 bg-white">Small Department (Multiple Courses)</option>
+                  <option value="Entire institution" className="text-slate-900 bg-white">Entire College / University System</option>
                 </select>
               </div>
 
@@ -315,7 +315,7 @@ Please let me know the next steps.`;
                   value={preferredTime}
                   onChange={(e) => setPreferredTime(e.target.value)}
                   placeholder="e.g. Weekdays 2 PM - 5 PM IST"
-                  className="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500 font-sans"
+                  className="w-full px-3.5 py-2 rounded-xl border border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500 font-sans"
                 />
               </div>
 
@@ -328,7 +328,7 @@ Please let me know the next steps.`;
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
                   placeholder="Tell us about student volume, LMS integration needs, or semester start dates..."
-                  className="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500 font-sans resize-none"
+                  className="w-full px-3.5 py-2 rounded-xl border border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500 font-sans resize-none"
                 />
               </div>
 

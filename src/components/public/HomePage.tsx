@@ -31,12 +31,6 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate, onOpenAuth }) =>
           <div className="grid lg:grid-cols-[.9fr_1.1fr] gap-14 lg:gap-16 items-center">
             {/* LEFT */}
             <div>
-              <div className="inline-flex items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-400/[.06] px-3.5 py-2 mb-7">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                <span className="text-[11px] font-semibold tracking-wide uppercase text-emerald-300">
-                  Next-Gen Computer Science Assessment Platform
-                </span>
-              </div>
 
               <h1 className="font-display font-bold tracking-[-.045em] text-[46px] sm:text-[58px] lg:text-[67px] leading-[1.02] text-gradient">
                 Build Real Coding Skills Through Smart Assessments.
