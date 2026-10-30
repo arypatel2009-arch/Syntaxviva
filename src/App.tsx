@@ -119,13 +119,15 @@ const AppContent: React.FC = () => {
     currentPath === '/login' ||
     currentPath === '/signup' ||
     currentPath === '/forgot-password' ||
+    currentPath === '/verify-otp' ||
     currentPath === '/reset-password' ||
     currentPath === '/email-verified' ||
     isHashSignup ||
     isHashRecovery
   ) {
-    let mode: 'login' | 'signup' | 'forgot-password' | 'reset-password' | 'email-verified' = 'login';
+    let mode: 'login' | 'signup' | 'forgot-password' | 'verify-otp' | 'reset-password' | 'email-verified' = 'login';
     if (currentPath === '/signup') mode = 'signup';
+    else if (currentPath === '/verify-otp') mode = 'verify-otp';
     else if (currentPath === '/forgot-password') mode = 'forgot-password';
     else if (currentPath === '/reset-password' || isHashRecovery) mode = 'reset-password';
     else if (currentPath === '/email-verified' || isHashSignup) mode = 'email-verified';

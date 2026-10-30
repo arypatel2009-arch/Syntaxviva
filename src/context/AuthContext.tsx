@@ -340,7 +340,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Login method: Standalone backend authority
   const login = async (email: string, password: string): Promise<{ requiresOtp?: boolean; email?: string } | void> => {
-    setIsLoading(true);
     setError(null);
 
     const cleanEmail = email.trim().toLowerCase();
@@ -399,8 +398,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setError(friendlyMsg);
       err.friendlyMessage = friendlyMsg;
       throw err;
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -417,7 +414,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     classId?: string;
     divisionId?: string;
   }) => {
-    setIsLoading(true);
     setError(null);
 
     const cleanEmail = params.email.trim().toLowerCase();
@@ -486,8 +482,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const friendlyMsg = formatAuthError(err);
       setError(friendlyMsg);
       throw new Error(friendlyMsg);
-    } finally {
-      setIsLoading(false);
     }
   };
 

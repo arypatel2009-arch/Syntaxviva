@@ -80,6 +80,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
   // Password reset completed state
   const [passwordResetComplete, setPasswordResetComplete] = useState(false);
 
+  const prevInitialModeRef = useRef(initialMode);
   // Synchronize when initialMode changes or URL hash dictates recovery
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -98,8 +99,9 @@ export const AuthPage: React.FC<AuthPageProps> = ({
         setMode('reset-password');
       } else if (hash.includes('type=signup') || hash.includes('type=email_verification')) {
         setMode('email-verified');
-      } else {
-        setMode(initialMode);
+      } else if (prevInitialModeRef.current !== initialMode) {
+        prevInitialModeRef.current = initialMode;
+        setMode((curr) => (curr === 'verify-otp' ? 'verify-otp' : initialMode));
       }
     }
   }, [initialMode]);
@@ -167,6 +169,13 @@ export const AuthPage: React.FC<AuthPageProps> = ({
   };
 
   const switchMode = (newMode: 'login' | 'signup' | 'forgot-password' | 'verify-otp' | 'reset-password' | 'email-verified') => {
+    if (typeof window !== 'undefined') {
+      try {
+        window.history.replaceState({}, '', `/${newMode}`);
+      } catch {
+        // ignore
+      }
+    }
     if (emailVerificationSent) {
       setEmail(emailVerificationSent);
     }
@@ -183,11 +192,20 @@ export const AuthPage: React.FC<AuthPageProps> = ({
   };
 
   const triggerOtpTransition = (targetEmail: string) => {
+    if (typeof window !== 'undefined') {
+      try {
+        window.history.replaceState({}, '', '/verify-otp');
+      } catch {
+        // ignore
+      }
+    }
     setEmailVerificationSent(null);
     setUnverifiedLoginEmail(null);
     clearError();
     setFormError(null);
-    setEmail(targetEmail);
+    if (targetEmail) {
+      setEmail(targetEmail);
+    }
     setOtpCode('');
     setOtpDigits(['', '', '', '', '', '']);
     setResendCooldown(60);
