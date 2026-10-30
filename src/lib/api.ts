@@ -22,11 +22,7 @@ import {
 
 const TOKEN_KEY = 'syntaxviva_token';
 
-// Render live backend base URL or relative path for local development
-const isLocalhost = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
-const BACKEND_BASE_URL = isLocalhost
-  ? ''
-  : ((import.meta as any).env?.VITE_API_URL || 'https://syntaxviva.onrender.com').replace(/\/+$/, '');
+const BACKEND_BASE_URL = ((import.meta as any).env?.VITE_API_URL || 'https://syntaxviva.onrender.com').replace(/\/+$/, '');
 
 export function getStoredToken(): string | null {
   const directToken = localStorage.getItem(TOKEN_KEY);
@@ -167,6 +163,7 @@ export const api = {
       }
 
       // Check if unverified user needing OTP transition (HTTP 403 or requiresOtp flag)
+      // Never throw error for unverified users; return clean object directly
       if (
         response.status === 403 ||
         data?.requiresOtp ||
@@ -175,10 +172,11 @@ export const api = {
         (data?.message && String(data.message).toLowerCase().includes('verify'))
       ) {
         return {
+          success: false,
           requiresOtp: true,
           email: data?.email || cleanEmail,
-          message: data?.message || data?.error || 'We have sent a 6-digit verification code to your email. Please enter it below to activate your account.',
-        };
+          message: data?.message || data?.error || 'Please verify your email.',
+        } as any;
       }
 
       if (!response.ok) {
@@ -197,6 +195,7 @@ export const api = {
       }
       return data;
     } catch (err: any) {
+      // Safe fallback: If error still contains OTP/Verify flag, return it cleanly without crashing
       if (
         err?.requiresOtp ||
         err?.response?.requiresOtp ||
@@ -210,10 +209,11 @@ export const api = {
         ))
       ) {
         return {
+          success: false,
           requiresOtp: true,
-          email: err.email || err?.response?.email || cleanEmail,
-          message: err.message || 'We have sent a 6-digit verification code to your email. Please enter it below to activate your account.',
-        };
+          email: err?.email || err?.response?.email || cleanEmail,
+          message: err?.message || 'Please verify your email.',
+        } as any;
       }
       throw err;
     }

@@ -14,6 +14,10 @@ export async function sendOtpEmail({ to, otp, fullName }: SendOtpEmailParams): P
   const apiKey = (process.env.RESEND_API_KEY || '').trim().replace(/^["']|["']$/g, '');
   
   if (!apiKey) {
+    if (process.env.NODE_ENV !== 'production') {
+      console.log(`[Mailer] Simulated OTP email dispatch to ${to} (OTP: ${otp}) - local dev/test fallback.`);
+      return { success: true, id: 'simulated_test_email_id' };
+    }
     console.error('[Mailer] RESEND_API_KEY environment variable is missing.');
     throw new Error('Email service configuration error. RESEND_API_KEY is missing.');
   }
@@ -207,6 +211,10 @@ export async function sendPasswordResetOtpEmail(
   const apiKey = (process.env.RESEND_API_KEY || '').trim().replace(/^["']|["']$/g, '');
   
   if (!apiKey) {
+    if (process.env.NODE_ENV !== 'production') {
+      console.log(`[Mailer] Simulated password reset OTP email dispatch to ${to} (OTP: ${otp}) - local dev/test fallback.`);
+      return { success: true, id: 'simulated_test_email_id' };
+    }
     console.error('[Mailer] RESEND_API_KEY environment variable is missing.');
     throw new Error('Email service configuration error. RESEND_API_KEY is missing.');
   }

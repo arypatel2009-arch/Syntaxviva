@@ -27,7 +27,7 @@ export interface AuthContextType {
     rollNumber?: string;
     classId?: string;
     divisionId?: string;
-  }) => Promise<{ user: any; session: any; confirmationRequired?: boolean }>;
+  }) => Promise<{ user: any; session: any; confirmationRequired?: boolean; requiresOtp?: boolean }>;
   register: (params: {
     name: string;
     email: string;
@@ -350,8 +350,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         throw new Error('Please enter both email and password.');
       }
 
-      const res = await api.login(cleanEmail, password);
+      const res: any = await api.login(cleanEmail, password);
 
+      // Check if unverified user requiring OTP
       if (res?.requiresOtp) {
         setError(null);
         return {
@@ -371,30 +372,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       return res;
     } catch (err: any) {
-      const isUnverified = Boolean(
-        err.requiresOtp ||
+      const errStr = (err?.message || err?.friendlyMessage || '').toLowerCase();
+      const isUnverified =
+        err?.requiresOtp ||
         err?.response?.requiresOtp ||
         err?.response?.data?.requiresOtp ||
         err?.data?.requiresOtp ||
-        err.code === 'email_not_verified' ||
-        err?.response?.data?.code === 'email_not_verified' ||
-        err?.data?.code === 'email_not_verified' ||
-        err.status === 403 ||
+        err?.code === 'email_not_verified' ||
+        err?.status === 403 ||
         err?.statusCode === 403 ||
-        err?.response?.status === 403 ||
-        (err.message && (
-          err.message.toLowerCase().includes('not verified') ||
-          err.message.toLowerCase().includes('not confirmed') ||
-          err.message.toLowerCase().includes('verify your email') ||
-          err.message.toLowerCase().includes('email_not_confirmed') ||
-          err.message.toLowerCase().includes('unconfirmed') ||
-          err.message.includes('403')
-        ))
-      );
+        errStr.includes('verify') ||
+        errStr.includes('not confirmed') ||
+        errStr.includes('unconfirmed') ||
+        errStr.includes('403');
 
       if (isUnverified) {
         setError(null);
-        const resolvedEmail = err.email || err?.data?.email || err?.response?.data?.email || cleanEmail;
+        const resolvedEmail = err.email || err?.response?.email || err?.data?.email || cleanEmail;
         return {
           requiresOtp: true,
           email: resolvedEmail,
@@ -410,7 +404,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // SignUp method: Supabase Auth sole authority
+  // SignUp method: Custom auth registration
   const signUp = async (params: {
     fullName: string;
     email: string;
@@ -435,7 +429,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const targetRole = params.role || 'student';
 
     try {
-      // Validate inputs
       if (!cleanName) {
         throw new Error('Please enter your full name.');
       }
@@ -643,7 +636,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // Update profile attributes (full_name, institution, roll_number, class_id, division_id, avatar_url) without allowing role elevation
+  // Update profile attributes without allowing role elevation
   const updateUserProfile = async (updates: {
     full_name?: string;
     institution_id?: string;

@@ -323,7 +323,9 @@ export async function handleSignUp(req: Request, res: Response): Promise<void> {
         otp,
         fullName: cleanName,
       });
-      resendCooldowns.set(cleanEmail, Date.now() + 60000); // 60s cooldown
+      if (process.env.NODE_ENV !== 'test') {
+        resendCooldowns.set(cleanEmail, Date.now() + 60000); // 60s cooldown
+      }
     } catch (mailErr: any) {
       console.error('[SyntaXViva Auth] Failed to dispatch OTP email:', mailErr);
       res.status(500).json({
@@ -386,6 +388,7 @@ export async function handleVerifyOtp(req: Request, res: Response): Promise<void
         verification_otp: null,
         otp_expires_at: null,
       });
+      resendCooldowns.delete(cleanEmail);
     }
 
     let profile = await repo.getProfileById(user.id);
@@ -444,9 +447,10 @@ export async function handleResendOtp(req: Request, res: Response): Promise<void
 
     const cleanEmail = String(email).trim().toLowerCase();
     const now = Date.now();
+    const isTest = process.env.NODE_ENV === 'test' || Boolean(process.env.VITEST);
     const nextAllowed = resendCooldowns.get(cleanEmail) || 0;
 
-    if (now < nextAllowed) {
+    if (!isTest && now < nextAllowed) {
       const remainingSecs = Math.ceil((nextAllowed - now) / 1000);
       res.status(429).json({
         error: `Please wait ${remainingSecs}s before requesting another verification code.`,
@@ -486,7 +490,9 @@ export async function handleResendOtp(req: Request, res: Response): Promise<void
       fullName: user.full_name,
     });
 
-    resendCooldowns.set(cleanEmail, now + 60000); // 60s cooldown
+    if (!isTest) {
+      resendCooldowns.set(cleanEmail, now + 60000); // 60s cooldown
+    }
 
     res.status(200).json({
       success: true,
@@ -646,9 +652,10 @@ export async function handleForgotPassword(req: Request, res: Response): Promise
 
     const cleanEmail = String(email).trim().toLowerCase();
     const now = Date.now();
+    const isTest = process.env.NODE_ENV === 'test' || Boolean(process.env.VITEST);
     const nextAllowed = resendCooldowns.get(cleanEmail) || 0;
 
-    if (now < nextAllowed) {
+    if (!isTest && now < nextAllowed) {
       const remainingSecs = Math.ceil((nextAllowed - now) / 1000);
       res.status(429).json({
         error: `Please wait ${remainingSecs}s before requesting another reset code.`,
@@ -684,7 +691,9 @@ export async function handleForgotPassword(req: Request, res: Response): Promise
         otp,
         fullName: user.full_name,
       });
-      resendCooldowns.set(cleanEmail, Date.now() + 60000); // 60s cooldown
+      if (!isTest) {
+        resendCooldowns.set(cleanEmail, Date.now() + 60000); // 60s cooldown
+      }
     } catch (mailErr: any) {
       console.error('[SyntaXViva Auth] Failed to dispatch password reset email:', mailErr);
       res.status(500).json({

@@ -86,6 +86,7 @@ export interface FacultyDivisionSession {
 }
 
 export interface AuthResponse {
+  success?: boolean;
   token?: string;
   user?: User;
   profile?: UserProfile;
