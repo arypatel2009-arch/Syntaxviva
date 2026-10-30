@@ -110,14 +110,34 @@ export async function apiFetch<T>(endpoint: string, options: RequestInit = {}): 
   }
 
   if (!response.ok) {
-    const message = data?.error || `Request failed with status ${response.status}`;
+    const message = data?.error || data?.message || `Request failed with status ${response.status}`;
     const err: any = new Error(message);
+    err.status = response.status;
+    err.statusCode = response.status;
+    err.response = {
+      status: response.status,
+      data,
+    };
+    err.data = data;
     if (data && typeof data === 'object') {
-      err.data = data;
       err.code = data.code;
-      err.requiresOtp = data.requiresOtp;
+      err.requiresOtp = Boolean(data.requiresOtp);
       err.email = data.email;
       err.retryAfter = data.retryAfter;
+    }
+    if (response.status === 403) {
+      if (
+        data?.requiresOtp ||
+        data?.code === 'email_not_verified' ||
+        (data?.error && String(data.error).toLowerCase().includes('verify')) ||
+        (message && message.toLowerCase().includes('verify'))
+      ) {
+        err.requiresOtp = true;
+        err.code = data?.code || 'email_not_verified';
+        if (err.response) {
+          err.response.requiresOtp = true;
+        }
+      }
     }
     throw err;
   }
@@ -132,12 +152,58 @@ export async function apiFetch<T>(endpoint: string, options: RequestInit = {}): 
 export const api = {
   // Auth
   async login(email: string, password: string): Promise<AuthResponse> {
-    const data = await apiFetch<AuthResponse>('/api/auth/login', {
-      method: 'POST',
-      body: JSON.stringify({ email, password }),
-    });
-    setStoredToken(data.token);
-    return data;
+    const cleanEmail = email.trim().toLowerCase();
+    try {
+      const data = await apiFetch<AuthResponse>('/api/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ email: cleanEmail, password }),
+      });
+      if (data?.token) {
+        setStoredToken(data.token);
+      }
+      return data;
+    } catch (err: any) {
+      const isUnverified403 = Boolean(
+        err.requiresOtp ||
+        err.status === 403 ||
+        err.statusCode === 403 ||
+        err?.response?.status === 403 ||
+        err?.data?.requiresOtp ||
+        err?.response?.data?.requiresOtp ||
+        err?.code === 'email_not_verified' ||
+        err?.data?.code === 'email_not_verified' ||
+        err?.response?.data?.code === 'email_not_verified' ||
+        (err.message && (
+          err.message.toLowerCase().includes('not verified') ||
+          err.message.toLowerCase().includes('not confirmed') ||
+          err.message.toLowerCase().includes('verify your email') ||
+          err.message.toLowerCase().includes('email_not_confirmed') ||
+          err.message.toLowerCase().includes('unconfirmed')
+        ))
+      );
+
+      if (isUnverified403) {
+        const resolvedEmail = err.email || err?.data?.email || err?.response?.data?.email || cleanEmail;
+        err.requiresOtp = true;
+        err.email = resolvedEmail;
+        err.code = 'email_not_verified';
+        if (!err.response) {
+          err.response = { status: 403, data: { requiresOtp: true, email: resolvedEmail, code: 'email_not_verified' }, requiresOtp: true };
+        } else {
+          err.response.requiresOtp = true;
+          if (err.response.data && typeof err.response.data === 'object') {
+            err.response.data.requiresOtp = true;
+            err.response.data.email = resolvedEmail;
+          }
+        }
+        return {
+          requiresOtp: true,
+          email: resolvedEmail,
+          message: err.message || 'Please verify your email address before signing in.',
+        };
+      }
+      throw err;
+    }
   },
 
   async verifyFacultySecret(facultySecretCode: string): Promise<{ valid: boolean }> {

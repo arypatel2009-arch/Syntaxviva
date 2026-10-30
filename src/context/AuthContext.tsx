@@ -15,7 +15,7 @@ export interface AuthContextType {
   isAuthenticated: boolean;
   error: string | null;
   isSupabaseConnected: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<{ requiresOtp?: boolean; email?: string } | void>;
   signUp: (params: {
     fullName: string;
     email: string;
@@ -339,7 +339,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [applyProfile]);
 
   // Login method: Standalone backend authority
-  const login = async (email: string, password: string) => {
+  const login = async (email: string, password: string): Promise<{ requiresOtp?: boolean; email?: string } | void> => {
     setIsLoading(true);
     setError(null);
 
@@ -352,31 +352,57 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       const res = await api.login(cleanEmail, password);
 
-      if (res.token) {
+      if (res?.requiresOtp) {
+        setError(null);
+        return {
+          requiresOtp: true,
+          email: res.email || cleanEmail,
+        };
+      }
+
+      if (res?.token) {
         setToken(res.token);
         setStoredToken(res.token);
       }
-      if (res.profile) {
+      if (res?.profile) {
         applyProfile(res.profile);
-      } else if (res.user) {
+      } else if (res?.user) {
         setUser(res.user);
       }
+      return res;
     } catch (err: any) {
-      const friendlyMsg = formatAuthError(err);
       const isUnverified = Boolean(
         err.requiresOtp ||
+        err?.response?.requiresOtp ||
+        err?.response?.data?.requiresOtp ||
+        err?.data?.requiresOtp ||
         err.code === 'email_not_verified' ||
-        err.data?.requiresOtp ||
-        err.data?.code === 'email_not_verified' ||
+        err?.response?.data?.code === 'email_not_verified' ||
+        err?.data?.code === 'email_not_verified' ||
+        err.status === 403 ||
+        err?.statusCode === 403 ||
+        err?.response?.status === 403 ||
         (err.message && (
           err.message.toLowerCase().includes('not verified') ||
           err.message.toLowerCase().includes('not confirmed') ||
-          err.message.toLowerCase().includes('verify your email')
+          err.message.toLowerCase().includes('verify your email') ||
+          err.message.toLowerCase().includes('email_not_confirmed') ||
+          err.message.toLowerCase().includes('unconfirmed') ||
+          err.message.includes('403')
         ))
       );
-      if (!isUnverified) {
-        setError(friendlyMsg);
+
+      if (isUnverified) {
+        setError(null);
+        const resolvedEmail = err.email || err?.data?.email || err?.response?.data?.email || cleanEmail;
+        return {
+          requiresOtp: true,
+          email: resolvedEmail,
+        };
       }
+
+      const friendlyMsg = formatAuthError(err);
+      setError(friendlyMsg);
       err.friendlyMessage = friendlyMsg;
       throw err;
     } finally {

@@ -196,37 +196,52 @@ export const AuthPage: React.FC<AuthPageProps> = ({
       return;
     }
 
+    const triggerOtpTransition = (targetEmail: string) => {
+      clearError();
+      setFormError(null);
+      setEmail(targetEmail);
+      setOtpCode('');
+      setOtpDigits(['', '', '', '', '', '']);
+      setResendCooldown(60);
+      setFormSuccess('We have sent a 6-digit verification code to your email. Please enter it below to activate your account.');
+      setMode('verify-otp');
+      setTimeout(() => {
+        otpInputsRef.current[0]?.focus();
+      }, 100);
+    };
+
     setLoading(true);
     try {
-      await login(cleanEmail, password);
+      const res = await login(cleanEmail, password);
+      if (res && (res.requiresOtp || (res as any).code === 'email_not_verified')) {
+        triggerOtpTransition(res.email || cleanEmail);
+        return;
+      }
       if (onSuccess) onSuccess();
     } catch (err: any) {
       const isUnverified = Boolean(
         err.requiresOtp ||
+        err?.response?.requiresOtp ||
+        err?.response?.data?.requiresOtp ||
         err.code === 'email_not_verified' ||
-        err.data?.requiresOtp ||
-        err.data?.code === 'email_not_verified' ||
+        err?.data?.requiresOtp ||
+        err?.data?.code === 'email_not_verified' ||
+        err.status === 403 ||
+        err?.statusCode === 403 ||
+        err?.response?.status === 403 ||
         (err.message && (
           err.message.toLowerCase().includes('not verified') ||
           err.message.toLowerCase().includes('not confirmed') ||
           err.message.toLowerCase().includes('verify your email') ||
           err.message.toLowerCase().includes('email_not_confirmed') ||
-          err.message.toLowerCase().includes('unconfirmed')
+          err.message.toLowerCase().includes('unconfirmed') ||
+          err.message.includes('403')
         ))
       );
 
       if (isUnverified) {
-        clearError();
-        setFormError(null);
-        setEmail(cleanEmail);
-        setOtpCode('');
-        setOtpDigits(['', '', '', '', '', '']);
-        setResendCooldown(60);
-        setFormSuccess('We have sent a 6-digit verification code to your email. Please enter the code below to activate your account and continue.');
-        setMode('verify-otp');
-        setTimeout(() => {
-          otpInputsRef.current[0]?.focus();
-        }, 100);
+        const targetEmail = err.email || err?.data?.email || err?.response?.data?.email || cleanEmail;
+        triggerOtpTransition(targetEmail);
         return;
       }
 
@@ -1082,7 +1097,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                   <div className="p-3.5 bg-emerald-50 text-emerald-800 border border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800 rounded-2xl flex items-start gap-2.5 text-xs shadow-xs">
                     <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
                     <div className="flex-1 font-medium leading-relaxed">
-                      We have sent a 6-digit verification code to your email. Please enter the code below to activate your account and continue.
+                      {formSuccess || 'We have sent a 6-digit verification code to your email. Please enter it below to activate your account.'}
                     </div>
                   </div>
 
