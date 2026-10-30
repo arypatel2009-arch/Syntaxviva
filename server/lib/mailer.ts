@@ -179,6 +179,211 @@ export async function sendOtpEmail({ to, otp, fullName }: SendOtpEmailParams): P
   }
 }
 
+export interface SendPasswordResetOtpEmailParams {
+  to: string;
+  otp: string;
+  fullName?: string;
+}
+
+export async function sendPasswordResetOtpEmail(
+  toOrParams: string | SendPasswordResetOtpEmailParams,
+  maybeOtp?: string,
+  maybeFullName?: string
+): Promise<{ success: boolean; id?: string; error?: string }> {
+  let to: string;
+  let otp: string;
+  let fullName: string | undefined;
+
+  if (typeof toOrParams === 'object') {
+    to = toOrParams.to;
+    otp = toOrParams.otp;
+    fullName = toOrParams.fullName;
+  } else {
+    to = toOrParams;
+    otp = maybeOtp!;
+    fullName = maybeFullName;
+  }
+
+  const apiKey = (process.env.RESEND_API_KEY || '').trim().replace(/^["']|["']$/g, '');
+  
+  if (!apiKey) {
+    console.error('[Mailer] RESEND_API_KEY environment variable is missing.');
+    throw new Error('Email service configuration error. RESEND_API_KEY is missing.');
+  }
+
+  const senderEmail = (process.env.MAIL_FROM || 'SyntaxViva <support@syntaxviva.online>').trim();
+  const subject = 'SyntaxViva - Password Reset Code';
+
+  const htmlContent = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Password Reset Code</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      background-color: #0f172a;
+      margin: 0;
+      padding: 32px 16px;
+      color: #f8fafc;
+    }
+    .card {
+      max-width: 480px;
+      margin: 0 auto;
+      background-color: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 20px;
+      padding: 36px 28px;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+    }
+    .logo {
+      font-size: 24px;
+      font-weight: 800;
+      color: #10b981;
+      letter-spacing: -0.5px;
+      text-align: center;
+      margin-bottom: 24px;
+    }
+    .title {
+      font-size: 18px;
+      font-weight: 700;
+      color: #ffffff;
+      margin-bottom: 12px;
+      text-align: center;
+    }
+    .greeting {
+      font-size: 14px;
+      color: #cbd5e1;
+      margin-bottom: 20px;
+      line-height: 1.6;
+    }
+    .otp-box {
+      background: linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(6, 95, 70, 0.25) 100%);
+      border: 1.5px dashed #10b981;
+      border-radius: 14px;
+      padding: 22px;
+      text-align: center;
+      margin: 24px 0;
+    }
+    .otp-code {
+      font-size: 38px;
+      font-weight: 800;
+      letter-spacing: 8px;
+      color: #34d399;
+      font-family: 'SF Mono', Consolas, Monaco, monospace;
+    }
+    .expiry {
+      font-size: 12px;
+      color: #6ee7b7;
+      margin-top: 8px;
+      font-weight: 600;
+    }
+    .instructions {
+      font-size: 13px;
+      color: #94a3b8;
+      line-height: 1.6;
+      margin-bottom: 24px;
+    }
+    .security-note {
+      background-color: rgba(239, 68, 68, 0.1);
+      border-left: 3px solid #ef4444;
+      padding: 12px 14px;
+      border-radius: 6px;
+      font-size: 12px;
+      color: #fca5a5;
+      margin-bottom: 20px;
+      line-height: 1.5;
+    }
+    .footer {
+      border-top: 1px solid #334155;
+      padding-top: 20px;
+      font-size: 11px;
+      color: #64748b;
+      text-align: center;
+      line-height: 1.5;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">SyntaXViva</div>
+    <div class="title">Reset Your Password</div>
+    <div class="greeting">
+      Hello <strong>${escapeHtml(fullName || 'User')}</strong>,<br>
+      We received a request to reset the password for your SyntaXViva academic account. Use the 6-digit verification code below to proceed:
+    </div>
+    
+    <div class="otp-box">
+      <div class="otp-code">${otp}</div>
+      <div class="expiry">Expires in 10 minutes</div>
+    </div>
+
+    <div class="instructions">
+      Enter this 6-digit code on the password reset screen along with your new password.
+    </div>
+
+    <div class="security-note">
+      <strong>Security notice:</strong> If you did not request a password reset, please ignore this email. Your account credentials remain safe and secure.
+    </div>
+
+    <div class="footer">
+      &copy; ${new Date().getFullYear()} SyntaXViva Platform. Automated security dispatch.<br>
+      For assistance, contact <a href="mailto:support@syntaxviva.online" style="color: #10b981; text-decoration: none;">support@syntaxviva.online</a>.
+    </div>
+  </div>
+</body>
+</html>
+  `;
+
+  // Try using Resend SDK if installed, or fallback cleanly to direct HTTP fetch
+  try {
+    const { Resend } = await import('resend');
+    const resend = new Resend(apiKey);
+    const { data, error } = await resend.emails.send({
+      from: senderEmail,
+      to,
+      subject,
+      html: htmlContent,
+    });
+
+    if (error) {
+      console.error('[Mailer] Resend SDK returned error on password reset:', error);
+      throw error;
+    }
+
+    console.log(`[Mailer] Password reset email dispatched via Resend SDK to ${to} (ID: ${data?.id})`);
+    return { success: true, id: data?.id };
+  } catch (sdkErr: any) {
+    console.warn('[Mailer] Falling back to direct Resend REST API for password reset:', sdkErr?.message || sdkErr);
+    
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: senderEmail,
+        to,
+        subject,
+        html: htmlContent,
+      }),
+    });
+
+    if (!res.ok) {
+      const errText = await res.text().catch(() => '');
+      console.error(`[Mailer] Direct Resend API failed on password reset (${res.status}):`, errText);
+      throw new Error(`Failed to deliver password reset email: ${errText || res.statusText}`);
+    }
+
+    const json = (await res.json().catch(() => ({}))) as any;
+    console.log(`[Mailer] Password reset email dispatched via direct HTTP to ${to} (ID: ${json?.id})`);
+    return { success: true, id: json?.id };
+  }
+}
+
 function escapeHtml(str: string): string {
   return str
     .replace(/&/g, '&amp;')

@@ -187,6 +187,20 @@ export const api = {
     });
   },
 
+  async forgotPassword(email: string): Promise<{ success: boolean; message: string }> {
+    return apiFetch<{ success: boolean; message: string }>('/api/auth/forgot-password', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    });
+  },
+
+  async resetPassword(email: string, otp: string, newPassword: string): Promise<{ success: boolean; message: string }> {
+    return apiFetch<{ success: boolean; message: string }>('/api/auth/reset-password', {
+      method: 'POST',
+      body: JSON.stringify({ email, otp, newPassword }),
+    });
+  },
+
   async getMe(): Promise<{ user: User; profile?: UserProfile }> {
     return apiFetch<{ user: User; profile?: UserProfile }>('/api/auth/me');
   },

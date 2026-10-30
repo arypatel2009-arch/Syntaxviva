@@ -34,6 +34,8 @@ export const AuthPage: React.FC<AuthPageProps> = ({
     login,
     signUp,
     resetPassword,
+    forgotPassword,
+    confirmPasswordReset,
     updatePassword,
     resendVerificationEmail,
     verifyOtp,
@@ -318,12 +320,43 @@ export const AuthPage: React.FC<AuthPageProps> = ({
 
     setLoading(true);
     try {
-      await resetPassword(cleanEmail);
-      setFormSuccess('Password reset link sent! Please check your email inbox and click the link to set a new password.');
+      const res = await forgotPassword(cleanEmail);
+      setEmail(cleanEmail);
+      setOtpCode('');
+      setPassword('');
+      setConfirmPassword('');
+      setResendCooldown(60);
+      setFormSuccess(res.message || 'Reset code sent! Please check your email.');
+      setMode('reset-password');
     } catch (err: any) {
       setFormError(err.message || 'Could not send reset instructions. Please try again.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleResendResetOtp = async () => {
+    const cleanEmail = email.trim().toLowerCase();
+    if (!cleanEmail || isResending || resendCooldown > 0) return;
+
+    setIsResending(true);
+    setResendFeedback(null);
+    clearError();
+
+    try {
+      const res = await forgotPassword(cleanEmail);
+      setResendFeedback({
+        type: 'success',
+        message: res.message || 'A fresh reset code has been sent to your email.',
+      });
+      setResendCooldown(60);
+    } catch (err: any) {
+      setResendFeedback({
+        type: 'error',
+        message: err.message || 'Failed to resend reset code.',
+      });
+    } finally {
+      setIsResending(false);
     }
   };
 
@@ -369,6 +402,18 @@ export const AuthPage: React.FC<AuthPageProps> = ({
     setFormSuccess(null);
     clearError();
 
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanOtp = otpCode.trim();
+
+    if (!cleanEmail || !cleanEmail.includes('@')) {
+      setFormError('Please enter your registered email address.');
+      return;
+    }
+    if (!cleanOtp || cleanOtp.length < 6) {
+      setFormError('Please enter the 6-digit reset code sent to your email.');
+      return;
+    }
+
     const passwordValidationError = getPasswordValidationError(password);
     if (passwordValidationError) {
       setFormError(passwordValidationError);
@@ -381,11 +426,14 @@ export const AuthPage: React.FC<AuthPageProps> = ({
 
     setLoading(true);
     try {
-      await updatePassword(password);
-      setPasswordResetComplete(true);
-      setFormSuccess('Password updated successfully.');
+      const res = await confirmPasswordReset(cleanEmail, cleanOtp, password);
+      switchMode('login');
+      setEmail(cleanEmail);
+      setPassword('');
+      setConfirmPassword('');
+      setFormSuccess(res.message || 'Password has been reset successfully. Please sign in with your new password.');
     } catch (err: any) {
-      setFormError(err.message || 'Failed to update password.');
+      setFormError(err.message || 'Failed to reset password. Please check your reset code.');
     } finally {
       setLoading(false);
     }
@@ -420,8 +468,8 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                 : mode === 'login'
                 ? 'Welcome Back'
                 : mode === 'forgot-password'
-                ? 'Reset Password'
-                : 'Set New Password'}
+                ? 'Forgot Password'
+                : 'Reset Password'}
             </h1>
             <p className="text-xs text-slate-500">
               {emailVerificationSent
@@ -435,8 +483,8 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                 : mode === 'login'
                 ? 'Sign in to access your dashboard and assignments.'
                 : mode === 'forgot-password'
-                ? 'Enter your registered email to receive password reset instructions.'
-                : 'Enter and confirm your new secure password.'}
+                ? 'Enter your registered email to receive a 6-digit verification code.'
+                : 'Enter the 6-digit verification code and your new secure password.'}
             </p>
           </div>
 
@@ -917,7 +965,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                     loading={loading}
                     className="w-full shadow-md shadow-emerald-600/20 font-bold"
                   >
-                    Send Password Reset Link
+                    Send Reset Code
                   </Button>
 
                   <div className="text-center pt-1">
@@ -1068,105 +1116,155 @@ export const AuthPage: React.FC<AuthPageProps> = ({
               {/* RESET PASSWORD FORM */}
               {mode === 'reset-password' && (
                 <div className="space-y-4">
-                  {passwordResetComplete ? (
-                    <div className="space-y-4 text-center py-2">
-                      <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center mx-auto border border-emerald-100">
-                        <CheckCircle2 className="w-6 h-6" />
-                      </div>
-                      <div className="space-y-1">
-                        <h3 className="text-sm font-semibold text-slate-900">
-                          Password Updated Successfully
-                        </h3>
-                        <p className="text-xs text-slate-500">
-                          Your password has been updated. You can now sign in with your new credentials.
-                        </p>
-                      </div>
-                      <Button
-                        variant="primary"
-                        size="md"
-                        onClick={() => switchMode('login')}
-                        className="w-full font-semibold"
+                  <form onSubmit={handleResetPassword} className="space-y-4">
+                    {/* Resend Status Feedback */}
+                    {resendFeedback && (
+                      <div
+                        className={`p-3 rounded-xl border text-xs text-left flex items-start gap-2.5 ${
+                          resendFeedback.type === 'success'
+                            ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                            : resendFeedback.type === 'info'
+                            ? 'bg-blue-50 border-blue-200 text-blue-800'
+                            : 'bg-rose-50 border-rose-200 text-rose-800'
+                        }`}
                       >
-                        Continue to Sign In
-                      </Button>
-                    </div>
-                  ) : (
-                    <form onSubmit={handleResetPassword} className="space-y-4">
-                      <div className="space-y-1">
-                        <label className="text-xs font-semibold text-slate-700 block">
-                          New Password
-                        </label>
-                        <div className="relative">
-                          <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-3.5 pointer-events-none" />
-                          <input
-                            type={showPassword ? 'text' : 'password'}
-                            required
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            placeholder="••••••••"
-                            className="w-full pl-9 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => setShowPassword(!showPassword)}
-                            className="absolute right-3 top-3 text-slate-400 hover:text-slate-600 cursor-pointer"
-                          >
-                            {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                          </button>
-                        </div>
-                        {password.length > 0 && getPasswordValidationError(password) && (
-                          <p className="text-[11px] text-rose-600 font-medium pt-0.5">
-                            {getPasswordValidationError(password)}
-                          </p>
+                        {resendFeedback.type === 'success' ? (
+                          <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                        ) : (
+                          <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
                         )}
+                        <div className="flex-1 font-medium">{resendFeedback.message}</div>
                       </div>
+                    )}
 
-                      <div className="space-y-1">
-                        <label className="text-xs font-semibold text-slate-700 block">
-                          Confirm New Password
-                        </label>
-                        <div className="relative">
-                          <KeyRound className="w-4 h-4 text-slate-400 absolute left-3 top-3.5 pointer-events-none" />
-                          <input
-                            type={showConfirmPassword ? 'text' : 'password'}
-                            required
-                            value={confirmPassword}
-                            onChange={(e) => setConfirmPassword(e.target.value)}
-                            placeholder="••••••••"
-                            className="w-full pl-9 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                            className="absolute right-3 top-3 text-slate-400 hover:text-slate-600 cursor-pointer"
-                          >
-                            {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                          </button>
-                        </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-semibold text-slate-700 block">
+                        Registered Email Address
+                      </label>
+                      <div className="relative">
+                        <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-3.5 pointer-events-none" />
+                        <input
+                          type="email"
+                          required
+                          value={email}
+                          onChange={(e) => setEmail(e.target.value)}
+                          placeholder="you@example.com"
+                          className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition"
+                        />
                       </div>
+                    </div>
 
-                      <Button
-                        type="submit"
-                        variant="primary"
-                        size="lg"
-                        loading={loading}
-                        className="w-full shadow-md shadow-emerald-600/20 font-bold"
-                      >
-                        Update Password
-                      </Button>
+                    <div className="space-y-1">
+                      <label className="text-xs font-semibold text-slate-700 block">
+                        6-Digit Reset Code
+                      </label>
+                      <div className="relative">
+                        <KeyRound className="w-4 h-4 text-slate-400 absolute left-3 top-3.5 pointer-events-none" />
+                        <input
+                          type="text"
+                          required
+                          maxLength={6}
+                          value={otpCode}
+                          onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
+                          placeholder="123456"
+                          className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 font-mono tracking-widest placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition"
+                        />
+                      </div>
+                      <p className="text-[11px] text-slate-500 pt-0.5">
+                        Enter the 6-digit verification code sent to your email.
+                      </p>
+                    </div>
 
-                      <div className="text-center pt-1">
+                    <div className="space-y-1">
+                      <label className="text-xs font-semibold text-slate-700 block">
+                        New Password
+                      </label>
+                      <div className="relative">
+                        <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-3.5 pointer-events-none" />
+                        <input
+                          type={showPassword ? 'text' : 'password'}
+                          required
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          placeholder="••••••••"
+                          className="w-full pl-9 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition"
+                        />
                         <button
                           type="button"
-                          onClick={() => switchMode('login')}
-                          className="inline-flex items-center gap-1.5 text-xs text-slate-600 hover:text-slate-900 font-medium cursor-pointer"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-3 top-3 text-slate-400 hover:text-slate-600 cursor-pointer"
                         >
-                          <ArrowLeft className="w-3.5 h-3.5" />
-                          Back to Sign In
+                          {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                         </button>
                       </div>
-                    </form>
-                  )}
+                      {password.length > 0 && getPasswordValidationError(password) && (
+                        <p className="text-[11px] text-rose-600 font-medium pt-0.5">
+                          {getPasswordValidationError(password)}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-xs font-semibold text-slate-700 block">
+                        Confirm New Password
+                      </label>
+                      <div className="relative">
+                        <KeyRound className="w-4 h-4 text-slate-400 absolute left-3 top-3.5 pointer-events-none" />
+                        <input
+                          type={showConfirmPassword ? 'text' : 'password'}
+                          required
+                          value={confirmPassword}
+                          onChange={(e) => setConfirmPassword(e.target.value)}
+                          placeholder="••••••••"
+                          className="w-full pl-9 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                          className="absolute right-3 top-3 text-slate-400 hover:text-slate-600 cursor-pointer"
+                        >
+                          {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                    </div>
+
+                    <Button
+                      type="submit"
+                      variant="primary"
+                      size="lg"
+                      loading={loading}
+                      className="w-full shadow-md shadow-emerald-600/20 font-bold"
+                    >
+                      Reset Password
+                    </Button>
+
+                    <div className="flex items-center justify-between pt-1">
+                      <button
+                        type="button"
+                        disabled={isResending || resendCooldown > 0}
+                        onClick={handleResendResetOtp}
+                        className={`inline-flex items-center gap-1.5 text-xs font-semibold cursor-pointer ${
+                          isResending || resendCooldown > 0
+                            ? 'text-slate-400 cursor-not-allowed'
+                            : 'text-emerald-600 hover:text-emerald-700'
+                        }`}
+                      >
+                        <RefreshCw className={`w-3.5 h-3.5 ${isResending ? 'animate-spin' : ''}`} />
+                        {isResending
+                          ? 'Resending...'
+                          : resendCooldown > 0
+                          ? `Resend in ${resendCooldown}s`
+                          : 'Resend Code'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => switchMode('login')}
+                        className="text-xs text-slate-500 hover:text-slate-700 font-medium cursor-pointer"
+                      >
+                        Back to Sign In
+                      </button>
+                    </div>
+                  </form>
                 </div>
               )}
             </>

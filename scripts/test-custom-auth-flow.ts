@@ -71,7 +71,47 @@ async function runAuthTest() {
   }
   console.log('Decoded JWT payload:', decoded);
 
-  console.log('--- ALL AUTH VERIFICATION TESTS PASSED SUCCESSFULLY! ---');
+  console.log('6. Testing Forgot Password OTP generation...');
+  const resetOtp = '592814';
+  const resetExpiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+  await repo.updateUser(updated.id, {
+    verification_otp: resetOtp,
+    otp_expires_at: resetExpiresAt,
+  });
+
+  const userWithReset = await repo.getUserByEmail(testEmail);
+  if (!userWithReset || userWithReset.verification_otp !== resetOtp) {
+    throw new Error('Reset OTP not saved correctly in repository!');
+  }
+  console.log('Reset OTP stored:', { otp: userWithReset.verification_otp, expiresAt: userWithReset.otp_expires_at });
+
+  console.log('7. Testing Reset Password validation & hash update...');
+  const newPlainPassword = 'NewSecret2026!#';
+  const newPasswordHash = await bcrypt.hash(newPlainPassword, 10);
+
+  // Update password and clear OTP
+  const afterReset = await repo.updateUser(updated.id, {
+    password_hash: newPasswordHash,
+    verification_otp: null,
+    otp_expires_at: null,
+  });
+
+  if (!afterReset || afterReset.verification_otp !== null) {
+    throw new Error('Password reset failed to clear verification OTP!');
+  }
+
+  const oldMatches = await bcrypt.compare(plainPassword, afterReset.password_hash);
+  if (oldMatches) {
+    throw new Error('Old password should NO LONGER match after reset!');
+  }
+
+  const newMatches = await bcrypt.compare(newPlainPassword, afterReset.password_hash);
+  if (!newMatches) {
+    throw new Error('New password failed to match updated password_hash!');
+  }
+  console.log('Password successfully reset and verified with bcrypt.');
+
+  console.log('--- ALL AUTH & PASSWORD RESET VERIFICATION TESTS PASSED SUCCESSFULLY! ---');
 }
 
 runAuthTest()

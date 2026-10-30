@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import { getRepository } from '../repository/index.js';
 import { authenticate, AuthenticatedRequest, generateToken } from '../auth/jwt.js';
-import { sendOtpEmail } from '../lib/mailer.js';
+import { sendOtpEmail, sendPasswordResetOtpEmail } from '../lib/mailer.js';
 import { UserRole } from '../../src/types/index.js';
 import { loginRateLimiter, signupRateLimiter } from '../middleware/rateLimiter.js';
 
@@ -634,6 +634,149 @@ export function handleLogout(req: Request, res: Response): void {
 }
 
 // ----------------------------------------------------------------------------
+// POST /forgot-password: Generate 6-digit OTP and send via Resend
+// ----------------------------------------------------------------------------
+export async function handleForgotPassword(req: Request, res: Response): Promise<void> {
+  try {
+    const { email } = req.body || {};
+    if (!email || !String(email).trim().includes('@')) {
+      res.status(400).json({ error: 'Please enter a valid email address.' });
+      return;
+    }
+
+    const cleanEmail = String(email).trim().toLowerCase();
+    const now = Date.now();
+    const nextAllowed = resendCooldowns.get(cleanEmail) || 0;
+
+    if (now < nextAllowed) {
+      const remainingSecs = Math.ceil((nextAllowed - now) / 1000);
+      res.status(429).json({
+        error: `Please wait ${remainingSecs}s before requesting another reset code.`,
+        retryAfter: remainingSecs,
+      });
+      return;
+    }
+
+    const repo = getRepository();
+    const user = await repo.getUserByEmail(cleanEmail);
+
+    if (!user) {
+      // Prevent user enumeration: return generic success
+      res.status(200).json({
+        success: true,
+        message: 'If an account exists with this email address, a password reset code has been sent.',
+      });
+      return;
+    }
+
+    // Generate secure 6-digit numeric OTP and 10-minute expiry
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otpExpiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+
+    await repo.updateUser(user.id, {
+      verification_otp: otp,
+      otp_expires_at: otpExpiresAt,
+    });
+
+    try {
+      await sendPasswordResetOtpEmail({
+        to: cleanEmail,
+        otp,
+        fullName: user.full_name,
+      });
+      resendCooldowns.set(cleanEmail, Date.now() + 60000); // 60s cooldown
+    } catch (mailErr: any) {
+      console.error('[SyntaXViva Auth] Failed to dispatch password reset email:', mailErr);
+      res.status(500).json({
+        error: 'Failed to send password reset email. Please try again.',
+        details: mailErr.message,
+      });
+      return;
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Reset code sent to your email.',
+    });
+  } catch (err: any) {
+    console.error('[SyntaXViva Auth] Forgot password error:', err);
+    res.status(500).json({ error: 'Internal server error while processing password reset request.' });
+  }
+}
+
+// ----------------------------------------------------------------------------
+// POST /reset-password: Verify 6-digit OTP and set new bcrypt password
+// ----------------------------------------------------------------------------
+export async function handleResetPassword(req: Request, res: Response): Promise<void> {
+  try {
+    const { email, otp, newPassword, password } = req.body || {};
+    const targetPassword = newPassword || password;
+
+    if (!email || !otp || !targetPassword) {
+      res.status(400).json({ error: 'Email, 6-digit OTP code, and new password are required.' });
+      return;
+    }
+
+    const cleanEmail = String(email).trim().toLowerCase();
+    const cleanOtp = String(otp).trim();
+
+    // Password criteria validation
+    if (targetPassword.length < 8) {
+      res.status(400).json({ error: 'Password must be at least 8 characters long.' });
+      return;
+    }
+    if (!/^[A-Z]/.test(targetPassword)) {
+      res.status(400).json({ error: 'Password must start with a capital letter (A-Z).' });
+      return;
+    }
+    if (!/[0-9]/.test(targetPassword)) {
+      res.status(400).json({ error: 'Password must include at least one number (0-9).' });
+      return;
+    }
+    if (!/[^A-Za-z0-9]/.test(targetPassword)) {
+      res.status(400).json({ error: 'Password must include at least one typographical or special symbol (e.g., @, #, $, %, &, *).' });
+      return;
+    }
+
+    const repo = getRepository();
+    const user = await repo.getUserByEmail(cleanEmail);
+
+    if (!user) {
+      res.status(400).json({ error: 'Account not found. Please double-check your email address.' });
+      return;
+    }
+
+    if (!user.verification_otp || user.verification_otp !== cleanOtp) {
+      res.status(400).json({ error: 'Invalid reset code. Please check your code and try again.' });
+      return;
+    }
+
+    if (user.otp_expires_at && new Date(user.otp_expires_at).getTime() < Date.now()) {
+      res.status(400).json({ error: 'Password reset code has expired. Please request a new code.' });
+      return;
+    }
+
+    const passwordHash = await bcrypt.hash(targetPassword, 10);
+    await repo.updateUser(user.id, {
+      password_hash: passwordHash,
+      is_verified: true,
+      verification_otp: null,
+      otp_expires_at: null,
+    });
+
+    resendCooldowns.delete(cleanEmail);
+
+    res.status(200).json({
+      success: true,
+      message: 'Password has been reset successfully. Please log in.',
+    });
+  } catch (err: any) {
+    console.error('[SyntaXViva Auth] Reset password error:', err);
+    res.status(500).json({ error: 'Internal server error while resetting password.' });
+  }
+}
+
+// ----------------------------------------------------------------------------
 // POST /sync-profile: Sync profile for authenticated user
 // ----------------------------------------------------------------------------
 export async function handleSyncProfile(req: AuthenticatedRequest, res: Response): Promise<void> {
@@ -871,6 +1014,8 @@ authRouter.post('/verify-otp', handleVerifyOtp);
 authRouter.post('/resend-otp', handleResendOtp);
 authRouter.post('/login', loginRateLimiter, handleLogin);
 authRouter.post('/logout', handleLogout);
+authRouter.post('/forgot-password', handleForgotPassword);
+authRouter.post('/reset-password', handleResetPassword);
 authRouter.post('/sync-profile', authenticate, handleSyncProfile);
 authRouter.put('/profile', authenticate, handleUpdateProfile);
 

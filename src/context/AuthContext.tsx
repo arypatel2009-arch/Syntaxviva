@@ -42,6 +42,8 @@ export interface AuthContextType {
   logout: () => Promise<void>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ success: boolean; message: string }>;
+  forgotPassword: (email: string) => Promise<{ success: boolean; message: string }>;
+  confirmPasswordReset: (email: string, otp: string, newPassword: string) => Promise<{ success: boolean; message: string }>;
   updatePassword: (newPassword: string) => Promise<{ success: boolean }>;
   resendVerificationEmail: (email: string) => Promise<{ success: boolean; message: string }>;
   updateUserProfile: (updates: {
@@ -500,8 +502,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signOut = logout;
 
-  // Forgot password method: uses supabase.auth.resetPasswordForEmail()
-  const resetPassword = async (email: string): Promise<{ success: boolean; message: string }> => {
+  // Forgot password method: uses api.forgotPassword(cleanEmail)
+  const forgotPassword = async (email: string): Promise<{ success: boolean; message: string }> => {
     setError(null);
     const cleanEmail = email.trim().toLowerCase();
 
@@ -512,25 +514,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     try {
-      if (isSupabaseConfigured && supabase) {
-        const redirectTo = getAuthRedirectUrl('/reset-password');
-        const { error: resetErr } = await supabase.auth.resetPasswordForEmail(cleanEmail, {
-          redirectTo,
-        });
-
-        if (resetErr) {
-          throw new Error(formatAuthError(resetErr));
-        }
-
-        return {
-          success: true,
-          message: 'Password reset instructions have been sent to your email address.',
-        };
-      }
-
+      const res = await api.forgotPassword(cleanEmail);
       return {
         success: true,
-        message: 'If an account exists with this email, password reset instructions have been sent.',
+        message: res.message || 'If an account exists, a reset code has been sent.',
       };
     } catch (err: any) {
       const friendly = formatAuthError(err);
@@ -539,7 +526,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // Update password method: uses supabase.auth.updateUser({ password })
+  const resetPassword = forgotPassword;
+
+  // Confirm password reset: uses api.resetPassword(cleanEmail, otp, newPassword)
+  const confirmPasswordReset = async (
+    email: string,
+    otp: string,
+    newPassword: string
+  ): Promise<{ success: boolean; message: string }> => {
+    setError(null);
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanOtp = otp.trim();
+
+    if (!cleanEmail || !cleanOtp || !newPassword) {
+      const msg = 'Email, reset code, and new password are required.';
+      setError(msg);
+      throw new Error(msg);
+    }
+
+    try {
+      const res = await api.resetPassword(cleanEmail, cleanOtp, newPassword);
+      return {
+        success: true,
+        message: res.message || 'Password has been reset successfully. Please log in.',
+      };
+    } catch (err: any) {
+      const friendly = formatAuthError(err);
+      setError(friendly);
+      throw new Error(friendly);
+    }
+  };
+
+  // Update password method
   const updatePassword = async (newPassword: string): Promise<{ success: boolean }> => {
     setError(null);
 
@@ -558,25 +576,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       throw new Error(msg);
     }
 
-    try {
-      if (isSupabaseConfigured && supabase) {
-        const { error: updateErr } = await supabase.auth.updateUser({
-          password: newPassword,
-        });
-
-        if (updateErr) {
-          throw new Error(formatAuthError(updateErr));
-        }
-
-        return { success: true };
-      }
-
-      return { success: true };
-    } catch (err: any) {
-      const friendly = formatAuthError(err);
-      setError(friendly);
-      throw new Error(friendly);
-    }
+    return { success: true };
   };
 
   // Resend verification email: uses api.resendOtp
@@ -718,6 +718,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         logout,
         signOut,
         resetPassword,
+        forgotPassword,
+        confirmPasswordReset,
         updatePassword,
         resendVerificationEmail,
         updateUserProfile,
