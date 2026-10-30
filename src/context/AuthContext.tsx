@@ -151,7 +151,7 @@ export function formatAuthError(err: any): string {
     msg.includes('unconfirmed') ||
     msg.includes('verify your email')
   ) {
-    return 'Please verify your email address before signing in. Check your inbox for the confirmation link.';
+    return 'We have sent a 6-digit verification code to your email. Please enter the code below to activate your account and continue.';
   }
   if (msg.includes('invalid login credentials') || msg.includes('invalid credentials') || msg.includes('invalid email or password')) {
     return 'Invalid email or password. Please double-check your credentials and try again.';
@@ -363,7 +363,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     } catch (err: any) {
       const friendlyMsg = formatAuthError(err);
-      setError(friendlyMsg);
+      const isUnverified = Boolean(
+        err.requiresOtp ||
+        err.code === 'email_not_verified' ||
+        err.data?.requiresOtp ||
+        err.data?.code === 'email_not_verified' ||
+        (err.message && (
+          err.message.toLowerCase().includes('not verified') ||
+          err.message.toLowerCase().includes('not confirmed') ||
+          err.message.toLowerCase().includes('verify your email')
+        ))
+      );
+      if (!isUnverified) {
+        setError(friendlyMsg);
+      }
+      err.friendlyMessage = friendlyMsg;
       throw err;
     } finally {
       setIsLoading(false);

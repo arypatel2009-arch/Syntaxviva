@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Lock,
   Mail,
@@ -49,6 +49,8 @@ export const AuthPage: React.FC<AuthPageProps> = ({
   // Form fields
   const [email, setEmail] = useState('');
   const [otpCode, setOtpCode] = useState('');
+  const [otpDigits, setOtpDigits] = useState<string[]>(['', '', '', '', '', '']);
+  const otpInputsRef = useRef<(HTMLInputElement | null)[]>([]);
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [name, setName] = useState('');
@@ -111,6 +113,59 @@ export const AuthPage: React.FC<AuthPageProps> = ({
     return () => clearInterval(timer);
   }, [resendCooldown]);
 
+  const handleOtpDigitChange = (index: number, val: string) => {
+    const clean = val.replace(/\D/g, '');
+    if (!clean) {
+      const next = [...otpDigits];
+      next[index] = '';
+      setOtpDigits(next);
+      setOtpCode(next.join(''));
+      return;
+    }
+
+    if (clean.length > 1) {
+      const pasted = clean.slice(0, 6).split('');
+      const next = [...otpDigits];
+      for (let i = 0; i < 6; i++) {
+        next[i] = pasted[i] || '';
+      }
+      setOtpDigits(next);
+      setOtpCode(next.join(''));
+      const focusIndex = Math.min(pasted.length, 5);
+      otpInputsRef.current[focusIndex]?.focus();
+      return;
+    }
+
+    const next = [...otpDigits];
+    next[index] = clean[clean.length - 1];
+    setOtpDigits(next);
+    setOtpCode(next.join(''));
+
+    if (index < 5) {
+      otpInputsRef.current[index + 1]?.focus();
+    }
+  };
+
+  const handleOtpKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Backspace' && !otpDigits[index] && index > 0) {
+      otpInputsRef.current[index - 1]?.focus();
+    }
+  };
+
+  const handleOtpPaste = (e: React.ClipboardEvent) => {
+    e.preventDefault();
+    const paste = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
+    if (!paste) return;
+    const next = ['', '', '', '', '', ''];
+    for (let i = 0; i < paste.length; i++) {
+      next[i] = paste[i];
+    }
+    setOtpDigits(next);
+    setOtpCode(next.join(''));
+    const focusIndex = Math.min(paste.length, 5);
+    otpInputsRef.current[focusIndex]?.focus();
+  };
+
   const switchMode = (newMode: 'login' | 'signup' | 'forgot-password' | 'verify-otp' | 'reset-password' | 'email-verified') => {
     if (emailVerificationSent) {
       setEmail(emailVerificationSent);
@@ -122,6 +177,8 @@ export const AuthPage: React.FC<AuthPageProps> = ({
     setUnverifiedLoginEmail(null);
     setResendFeedback(null);
     setPasswordResetComplete(false);
+    setOtpCode('');
+    setOtpDigits(['', '', '', '', '', '']);
     clearError();
   };
 
@@ -144,17 +201,37 @@ export const AuthPage: React.FC<AuthPageProps> = ({
       await login(cleanEmail, password);
       if (onSuccess) onSuccess();
     } catch (err: any) {
-      const msg = err.message || 'Invalid email or password.';
-      setFormError(msg);
-      if (
-        msg.toLowerCase().includes('not verified') ||
-        msg.toLowerCase().includes('not confirmed') ||
-        msg.toLowerCase().includes('verify your email') ||
-        msg.toLowerCase().includes('email_not_confirmed') ||
-        msg.toLowerCase().includes('unconfirmed')
-      ) {
-        setUnverifiedLoginEmail(cleanEmail);
+      const isUnverified = Boolean(
+        err.requiresOtp ||
+        err.code === 'email_not_verified' ||
+        err.data?.requiresOtp ||
+        err.data?.code === 'email_not_verified' ||
+        (err.message && (
+          err.message.toLowerCase().includes('not verified') ||
+          err.message.toLowerCase().includes('not confirmed') ||
+          err.message.toLowerCase().includes('verify your email') ||
+          err.message.toLowerCase().includes('email_not_confirmed') ||
+          err.message.toLowerCase().includes('unconfirmed')
+        ))
+      );
+
+      if (isUnverified) {
+        clearError();
+        setFormError(null);
+        setEmail(cleanEmail);
+        setOtpCode('');
+        setOtpDigits(['', '', '', '', '', '']);
+        setResendCooldown(60);
+        setFormSuccess('We have sent a 6-digit verification code to your email. Please enter the code below to activate your account and continue.');
+        setMode('verify-otp');
+        setTimeout(() => {
+          otpInputsRef.current[0]?.focus();
+        }, 100);
+        return;
       }
+
+      const msg = err.friendlyMessage || err.message || 'Invalid email or password.';
+      setFormError(msg);
     } finally {
       setLoading(false);
     }
@@ -253,9 +330,13 @@ export const AuthPage: React.FC<AuthPageProps> = ({
       if (result?.confirmationRequired || result?.requiresOtp) {
         setEmail(cleanEmail);
         setOtpCode('');
+        setOtpDigits(['', '', '', '', '', '']);
         setMode('verify-otp');
         setResendCooldown(60);
-        setFormSuccess('Registration successful! A 6-digit verification code has been sent to your email.');
+        setFormSuccess('We have sent a 6-digit verification code to your email. Please enter the code below to activate your account and continue.');
+        setTimeout(() => {
+          otpInputsRef.current[0]?.focus();
+        }, 100);
       } else {
         if (onSuccess) onSuccess();
       }
@@ -368,28 +449,28 @@ export const AuthPage: React.FC<AuthPageProps> = ({
     clearError();
 
     const cleanEmail = email.trim().toLowerCase();
-    const cleanOtp = otpCode.trim();
+    const cleanOtp = (otpDigits.join('') || otpCode).trim();
 
     if (!cleanEmail) {
       setFormError('Please enter your registered email address.');
       return;
     }
     if (!cleanOtp || cleanOtp.length < 6) {
-      setFormError('Please enter the 6-digit OTP security code sent to your email.');
+      setFormError('Please enter the 6-digit verification code sent to your email.');
       return;
     }
 
     setLoading(true);
     try {
       const res = await verifyOtp(cleanEmail, cleanOtp);
-      setFormSuccess(res.message || 'OTP code verified successfully!');
+      setFormSuccess(res.message || 'Account verified successfully!');
       if (onSuccess) {
         onSuccess();
       } else {
         setMode('email-verified');
       }
     } catch (err: any) {
-      setFormError(err.message || 'Invalid or expired OTP security code.');
+      setFormError(err.message || 'Invalid or expired verification code.');
     } finally {
       setLoading(false);
     }
@@ -517,7 +598,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
           )}
 
           {/* Feedback messages */}
-          {(formError || error) && !emailVerificationSent && (
+          {(formError || error) && !emailVerificationSent && mode !== 'verify-otp' && (
             <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-xl flex items-start gap-2.5 text-xs text-rose-800">
               <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
               <div className="flex-1 space-y-1.5">
@@ -554,7 +635,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
             </div>
           )}
 
-          {formSuccess && !emailVerificationSent && !passwordResetComplete && (
+          {formSuccess && !emailVerificationSent && !passwordResetComplete && mode !== 'verify-otp' && (
             <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl flex items-start gap-2.5 text-xs text-emerald-800">
               <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
               <div className="flex-1 font-medium">{formSuccess}</div>
@@ -570,12 +651,12 @@ export const AuthPage: React.FC<AuthPageProps> = ({
 
               <div className="space-y-2">
                 <h3 className="text-base font-semibold text-slate-900">
-                  Verification email sent! Please check your inbox and verify your email before logging in.
+                  Verification email sent!
                 </h3>
                 <p className="text-xs text-slate-600 leading-relaxed max-w-sm mx-auto">
-                  We have sent a verification link to{' '}
+                  We have sent a 6-digit verification code to{' '}
                   <span className="font-semibold text-slate-900">{emailVerificationSent}</span>.
-                  Please check your inbox (and spam folder) and click the link to confirm and activate your account.
+                  Please check your inbox (and spam folder) and enter the code to confirm and activate your account.
                 </p>
               </div>
 
@@ -599,8 +680,22 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                 </div>
               )}
 
-              {/* Resend button with cooldown */}
+              {/* Action buttons */}
               <div className="space-y-3 pt-2">
+                <Button
+                  variant="primary"
+                  size="md"
+                  onClick={() => {
+                    if (emailVerificationSent) setEmail(emailVerificationSent);
+                    setEmailVerificationSent(null);
+                    setMode('verify-otp');
+                    setTimeout(() => otpInputsRef.current[0]?.focus(), 100);
+                  }}
+                  className="w-full font-semibold shadow-md shadow-emerald-600/20"
+                >
+                  Enter 6-Digit Code &rarr;
+                </Button>
+
                 <button
                   type="button"
                   onClick={handleResendVerification}
@@ -613,20 +708,19 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                 >
                   <RefreshCw className={`w-3.5 h-3.5 ${isResending ? 'animate-spin' : ''}`} />
                   {isResending
-                    ? 'Sending verification email...'
+                    ? 'Resending code...'
                     : resendCooldown > 0
                     ? `Resend available in ${resendCooldown}s`
-                    : 'Resend verification email'}
+                    : 'Resend verification code'}
                 </button>
 
-                <Button
-                  variant="primary"
-                  size="md"
+                <button
+                  type="button"
                   onClick={() => switchMode('login')}
-                  className="w-full font-semibold"
+                  className="text-xs text-slate-500 hover:text-slate-700 font-medium cursor-pointer"
                 >
                   Back to Sign In
-                </Button>
+                </button>
               </div>
             </div>
           ) : (
@@ -984,6 +1078,22 @@ export const AuthPage: React.FC<AuthPageProps> = ({
               {/* VERIFY OTP FORM */}
               {mode === 'verify-otp' && (
                 <form onSubmit={handleVerifyOtp} className="space-y-4">
+                  {/* Professional Success/Info Banner (Green Theme) */}
+                  <div className="p-3.5 bg-emerald-50 text-emerald-800 border border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800 rounded-2xl flex items-start gap-2.5 text-xs shadow-xs">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+                    <div className="flex-1 font-medium leading-relaxed">
+                      We have sent a 6-digit verification code to your email. Please enter the code below to activate your account and continue.
+                    </div>
+                  </div>
+
+                  {/* Form Error (e.g. invalid OTP entered) */}
+                  {formError && (
+                    <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl flex items-start gap-2.5 text-xs text-rose-800">
+                      <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                      <div className="flex-1 font-medium">{formError}</div>
+                    </div>
+                  )}
+
                   {/* Resend Status Feedback */}
                   {resendFeedback && (
                     <div
@@ -1005,9 +1115,18 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                   )}
 
                   <div className="space-y-1">
-                    <label className="text-xs font-semibold text-slate-700 block">
-                      Email Address
-                    </label>
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-semibold text-slate-700 block">
+                        Email Address
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => switchMode('login')}
+                        className="text-[11px] text-emerald-600 hover:text-emerald-700 font-medium cursor-pointer"
+                      >
+                        Change
+                      </button>
+                    </div>
                     <div className="relative">
                       <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-3.5 pointer-events-none" />
                       <input
@@ -1021,24 +1140,32 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                     </div>
                   </div>
 
-                  <div className="space-y-1">
-                    <label className="text-xs font-semibold text-slate-700 block">
-                      6-Digit Security OTP Code
+                  <div className="space-y-2">
+                    <label className="text-xs font-semibold text-slate-700 block text-center">
+                      6-Digit Security Code
                     </label>
-                    <div className="relative">
-                      <KeyRound className="w-4 h-4 text-slate-400 absolute left-3 top-3.5 pointer-events-none" />
-                      <input
-                        type="text"
-                        required
-                        maxLength={6}
-                        value={otpCode}
-                        onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
-                        placeholder="123456"
-                        className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 font-mono tracking-widest placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition"
-                      />
+                    <div className="flex justify-between items-center gap-2 max-w-xs mx-auto py-1" onPaste={handleOtpPaste}>
+                      {otpDigits.map((digit, index) => (
+                        <input
+                          key={index}
+                          ref={(el) => (otpInputsRef.current[index] = el)}
+                          type="text"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          maxLength={1}
+                          value={digit}
+                          onChange={(e) => handleOtpDigitChange(index, e.target.value)}
+                          onKeyDown={(e) => handleOtpKeyDown(index, e)}
+                          className={`w-11 h-12 text-center text-xl font-bold font-mono rounded-xl border transition-all outline-none ${
+                            digit
+                              ? 'border-emerald-500 bg-white ring-2 ring-emerald-500/20 text-slate-900 shadow-xs'
+                              : 'border-slate-200 bg-slate-50 text-slate-700 focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/20'
+                          }`}
+                        />
+                      ))}
                     </div>
-                    <p className="text-[11px] text-slate-500 pt-0.5">
-                      Enter the 6-digit verification code sent to your email.
+                    <p className="text-[11px] text-slate-500 text-center">
+                      Enter the 6-digit verification code sent to your inbox.
                     </p>
                   </div>
 
@@ -1067,8 +1194,8 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                       {isResending
                         ? 'Resending...'
                         : resendCooldown > 0
-                        ? `Resend in ${resendCooldown}s`
-                        : 'Resend Code'}
+                        ? `Resend code in ${resendCooldown}s`
+                        : 'Resend code'}
                     </button>
                     <button
                       type="button"
