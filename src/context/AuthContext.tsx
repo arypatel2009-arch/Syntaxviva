@@ -120,11 +120,18 @@ export function formatAuthError(err: any): string {
 
   if (
     code === 'over_email_send_rate_limit' ||
-    status === 429 ||
-    msg.includes('rate limit') ||
-    msg.includes('over_email_send_rate_limit')
+    msg.includes('over_email_send_rate_limit') ||
+    (status === 429 && msg.includes('email'))
   ) {
     return 'Too many verification emails have been requested. Please wait a while before requesting another email.';
+  }
+  if (
+    code === 'over_request_rate_limit' ||
+    status === 429 ||
+    msg.includes('rate limit') ||
+    msg.includes('too many requests')
+  ) {
+    return 'Too many requests have been made in a short period. Please wait a few moments and try again.';
   }
   if (code === 'user_already_exists' || msg.includes('already registered') || msg.includes('already exists')) {
     return 'An account with this email address already exists. Please sign in instead.';
@@ -290,26 +297,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     async function initAuth() {
       setIsLoading(true);
 
-      if (isSupabaseConfigured && supabase) {
-        try {
-          const {
-            data: { session: initialSession },
-          } = await supabase.auth.getSession();
-
-          if (initialSession && initialSession.user && isMounted) {
-            setSession(initialSession);
-            setSupabaseUser(initialSession.user);
-            setToken(initialSession.access_token);
-            setStoredToken(initialSession.access_token);
-            await loadProfile(initialSession.user, initialSession.access_token);
-            setIsLoading(false);
-            return;
-          }
-        } catch (sbErr) {
-          console.warn('[SyntaXViva Auth] Supabase getSession error:', sbErr);
-        }
-      }
-
       // Check stored authoritative session token
       const storedToken = getStoredToken();
       if (storedToken && isMounted) {
@@ -344,43 +331,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     initAuth();
 
-    // Setup Supabase onAuthStateChange listener
-    if (isSupabaseConfigured && supabase) {
-      const {
-        data: { subscription },
-      } = supabase.auth.onAuthStateChange(async (event, newSession) => {
-        if (!isMounted) return;
-
-        if (event === 'SIGNED_OUT' || !newSession) {
-          setSession(null);
-          setSupabaseUser(null);
-          setProfile(null);
-          setUser(null);
-          setToken(null);
-          removeStoredToken();
-          setIsLoading(false);
-        } else if (newSession?.user) {
-          setSession(newSession);
-          setSupabaseUser(newSession.user);
-          setToken(newSession.access_token);
-          setStoredToken(newSession.access_token);
-          await loadProfile(newSession.user, newSession.access_token);
-          setIsLoading(false);
-        }
-      });
-
-      return () => {
-        isMounted = false;
-        subscription.unsubscribe();
-      };
-    }
-
     return () => {
       isMounted = false;
     };
-  }, [loadProfile, applyProfile]);
+  }, [applyProfile]);
 
-  // Login method: Supabase Auth primary authority
+  // Login method: Standalone backend authority
   const login = async (email: string, password: string) => {
     setIsLoading(true);
     setError(null);
@@ -392,43 +348,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         throw new Error('Please enter both email and password.');
       }
 
-      // Temporary Development Diagnostics (Task 12: Never log plaintext password)
-      console.log('[Auth Diagnostics Frontend]', {
-        authOperation: 'login',
-        email: cleanEmail,
-        supabaseProjectUrl: supabaseUrl,
-        passwordProvided: Boolean(password),
-        passwordLength: password?.length,
-      });
+      const res = await api.login(cleanEmail, password);
 
-      // Authenticate with Supabase Auth (Single Authority for user accounts)
-      if (!isSupabaseConfigured || !supabase) {
-        throw new Error('Supabase authentication client is not configured.');
+      if (res.token) {
+        setToken(res.token);
+        setStoredToken(res.token);
       }
-
-      const { data, error: sbErr } = await supabase.auth.signInWithPassword({
-        email: cleanEmail,
-        password,
-      });
-
-      if (sbErr) {
-        throw sbErr;
+      if (res.profile) {
+        applyProfile(res.profile);
+      } else if (res.user) {
+        setUser(res.user);
       }
-
-      if (data?.session && data?.user) {
-        setSession(data.session);
-        setSupabaseUser(data.user);
-        setToken(data.session.access_token);
-        setStoredToken(data.session.access_token);
-        await loadProfile(data.user, data.session.access_token);
-        return;
-      }
-
-      throw new Error('Invalid email or password. Please double-check your credentials and try again.');
     } catch (err: any) {
       const friendlyMsg = formatAuthError(err);
       setError(friendlyMsg);
-      throw new Error(friendlyMsg);
+      throw err;
     } finally {
       setIsLoading(false);
     }
@@ -494,91 +428,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         await api.verifyFacultySecret(cleanSecret);
       }
 
-      if (targetRole === 'student' && !cleanRollNumber) {
-        throw new Error('Roll number is required for student registration.');
-      }
-
-      // Temporary Development Diagnostics (Task 12: Never log plaintext password)
-      console.log('[Auth Diagnostics Frontend]', {
-        authOperation: 'signup',
-        email: cleanEmail,
-        supabaseProjectUrl: supabaseUrl,
-        passwordProvided: Boolean(params.password),
-        passwordLength: params.password?.length,
-      });
-
-      // Register with Supabase Auth (Single Authority)
-      if (!isSupabaseConfigured || !supabase) {
-        throw new Error('Supabase authentication client is not configured.');
-      }
-
-      const { data, error: sbErr } = await supabase.auth.signUp({
+      const regRes = await api.register({
+        name: cleanName,
         email: cleanEmail,
         password: params.password,
-        options: {
-          data: {
-            full_name: cleanName,
-            roll_number: targetRole === 'student' ? cleanRollNumber : null,
-            institution_id: cleanInstitution,
-            class: cleanClassId,
-            class_id: cleanClassId,
-            division: cleanDivisionId,
-            division_id: cleanDivisionId,
-            role: targetRole,
-            faculty_authorized: targetRole === 'faculty' ? 'true' : 'false',
-          },
-          emailRedirectTo: getAuthRedirectUrl('/login'),
-        },
+        confirmPassword: params.confirmPassword,
+        role: targetRole,
+        facultySecretCode: params.facultySecretCode,
+        institution: cleanInstitution,
+        rollNumber: cleanRollNumber,
+        classId: cleanClassId,
+        divisionId: cleanDivisionId,
       });
 
-      if (sbErr) {
-        const msg = sbErr.message.toLowerCase();
-        const code = ((sbErr as any).code || '').toLowerCase();
-        if (code === 'user_already_exists' || msg.includes('already registered') || msg.includes('already exists')) {
-          throw new Error('An account with this email address already exists. Please sign in instead.');
-        }
-        throw sbErr;
-      }
-
-      if (data?.user) {
-        // If the user already exists, Supabase returns a user object with empty identities array
-        if (Array.isArray(data.user.identities) && data.user.identities.length === 0) {
-          throw new Error('An account with this email address already exists. Please sign in instead.');
-        }
-
-        if (data.session) {
-          setSession(data.session);
-          setSupabaseUser(data.user);
-          setToken(data.session.access_token);
-          setStoredToken(data.session.access_token);
-          await loadProfile(data.user, data.session.access_token);
-
-          // Sync profile to backend with valid access token
-          api.syncProfile({
-            full_name: cleanName,
-            institution_id: cleanInstitution,
-            roll_number: cleanRollNumber,
-            class_id: cleanClassId,
-            division_id: cleanDivisionId,
-          }).catch((err) => console.warn('Background profile sync note:', err));
-
-          return {
-            user: data.user,
-            session: data.session,
-            confirmationRequired: false,
-          };
-        }
-
-        // Email confirmation is required by Supabase (data.session is null).
-        // Strictly DO NOT attempt auto-login (signInWithPassword), which triggers 400 Bad Request.
-        return {
-          user: data.user,
-          session: null,
-          confirmationRequired: true,
-        };
-      }
-
-      throw new Error('Registration could not be completed. Please try again.');
+      return {
+        user: null,
+        session: null,
+        confirmationRequired: true,
+        requiresOtp: true,
+      };
     } catch (err: any) {
       const friendlyMsg = formatAuthError(err);
       setError(friendlyMsg);
@@ -613,12 +481,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
   };
 
-  // Logout method: uses supabase.auth.signOut()
+  // Logout method: custom session clear
   const logout = async () => {
     try {
-      if (isSupabaseConfigured && supabase) {
-        await supabase.auth.signOut();
-      }
       await api.logout();
     } catch (err) {
       console.warn('Logout warning:', err);
@@ -714,7 +579,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // Resend verification email: uses supabase.auth.resend({ type: 'signup', email })
+  // Resend verification email: uses api.resendOtp
   const resendVerificationEmail = async (email: string): Promise<{ success: boolean; message: string }> => {
     setError(null);
     const cleanEmail = email.trim().toLowerCase();
@@ -725,29 +590,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       throw new Error(msg);
     }
 
-    if (!isSupabaseConfigured || !supabase) {
-      const msg = 'Supabase authentication client is not configured.';
-      setError(msg);
-      throw new Error(msg);
-    }
-
     try {
-      const redirectTo = getAuthRedirectUrl('/login');
-      const { error: resendErr } = await supabase.auth.resend({
-        type: 'signup',
-        email: cleanEmail,
-        options: {
-          emailRedirectTo: redirectTo,
-        },
-      });
-
-      if (resendErr) {
-        throw resendErr;
-      }
-
+      const res = await api.resendOtp(cleanEmail);
       return {
         success: true,
-        message: 'Verification email sent! Please check your inbox and verify your email before logging in.',
+        message: res.message || 'Verification code sent! Please check your inbox.',
       };
     } catch (err: any) {
       const friendly = formatAuthError(err);
@@ -785,7 +632,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // Verify OTP for password recovery or email verification
+  // Verify OTP for account activation and session generation
   const verifyOtp = async (email: string, token: string): Promise<{ success: boolean; message: string }> => {
     setError(null);
     const cleanEmail = email.trim().toLowerCase();
@@ -797,33 +644,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       throw new Error(msg);
     }
 
-    if (!isSupabaseConfigured || !supabase) {
-      const msg = 'Supabase authentication client is not configured.';
-      setError(msg);
-      throw new Error(msg);
-    }
-
     try {
-      const { data, error: otpErr } = await supabase.auth.verifyOtp({
-        email: cleanEmail,
-        token: cleanToken,
-        type: 'recovery',
-      });
+      const res = await api.verifyOtp(cleanEmail, cleanToken);
 
-      if (otpErr) {
-        throw otpErr;
+      if (res.token) {
+        setToken(res.token);
+        setStoredToken(res.token);
       }
-
-      if (data?.session) {
-        setSession(data.session);
-        setSupabaseUser(data.user);
-        setToken(data.session.access_token);
-        setStoredToken(data.session.access_token);
+      if (res.profile) {
+        applyProfile(res.profile);
+      } else if (res.user) {
+        setUser(res.user);
       }
 
       return {
         success: true,
-        message: 'OTP verified successfully. You can now set your new password.',
+        message: res.message || 'Account verified successfully!',
       };
     } catch (err: any) {
       const friendly = formatAuthError(err);

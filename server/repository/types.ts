@@ -7,7 +7,7 @@ export type UserRole = 'student' | 'faculty' | 'admin';
 export type UserStatus = 'active' | 'suspended' | 'pending';
 
 export interface ProfileEntity {
-  id: string; // Supabase auth.users.id (UUID)
+  id: string; // User ID (UUID)
   email: string;
   full_name: string;
   role: UserRole;
@@ -18,6 +18,23 @@ export interface ProfileEntity {
   division_id: string | null;
   avatar_url?: string | null;
   status: UserStatus;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface UserEntity {
+  id: string;
+  email: string;
+  password_hash: string;
+  full_name: string;
+  role: UserRole;
+  institution_id: string | null;
+  roll_number: string | null;
+  class_id: string | null;
+  division_id: string | null;
+  is_verified: boolean;
+  verification_otp: string | null;
+  otp_expires_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -214,6 +231,12 @@ export interface DashboardStatsEntity {
 }
 
 export interface IApplicationRepository {
+  // Users (Standalone Custom Auth)
+  createUser(user: Partial<UserEntity> & { email: string; password_hash: string; full_name: string }): Promise<UserEntity>;
+  getUserByEmail(email: string): Promise<UserEntity | null>;
+  getUserById(id: string): Promise<UserEntity | null>;
+  updateUser(id: string, updates: Partial<UserEntity>): Promise<UserEntity | null>;
+
   // Profiles
   getProfileById(id: string): Promise<ProfileEntity | null>;
   getProfileByEmail(email: string): Promise<ProfileEntity | null>;

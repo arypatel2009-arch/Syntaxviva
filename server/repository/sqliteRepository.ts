@@ -5,6 +5,7 @@
 
 import {
   IApplicationRepository,
+  UserEntity,
   ProfileEntity,
   CollegeEntity,
   ClassroomEntity,
@@ -28,6 +29,10 @@ import {
   dbQuery,
   dbRun,
   saveDatabaseToDisk,
+  dbCreateUser,
+  dbGetUserByEmail,
+  dbGetUserById,
+  dbUpdateUser,
   getProfileById as dbGetProfileById,
   getProfileByEmail as dbGetProfileByEmail,
   getStudentByAcademicRoll as dbGetStudentByAcademicRoll,
@@ -70,6 +75,26 @@ function isDeadlinePassed(dueDate?: string | null): boolean {
 }
 
 export class SqliteApplicationRepository implements IApplicationRepository {
+  async createUser(user: Partial<UserEntity> & { email: string; password_hash: string; full_name: string }): Promise<UserEntity> {
+    const u = dbCreateUser(user as any);
+    return u as UserEntity;
+  }
+
+  async getUserByEmail(email: string): Promise<UserEntity | null> {
+    const u = dbGetUserByEmail(email);
+    return u ? (u as UserEntity) : null;
+  }
+
+  async getUserById(id: string): Promise<UserEntity | null> {
+    const u = dbGetUserById(id);
+    return u ? (u as UserEntity) : null;
+  }
+
+  async updateUser(id: string, updates: Partial<UserEntity>): Promise<UserEntity | null> {
+    const u = dbUpdateUser(id, updates);
+    return u ? (u as UserEntity) : null;
+  }
+
   async getProfileById(id: string): Promise<ProfileEntity | null> {
     const p = dbGetProfileById(id);
     return p ? (p as ProfileEntity) : null;

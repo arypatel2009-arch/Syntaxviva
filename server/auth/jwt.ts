@@ -21,18 +21,10 @@ export interface AuthenticatedRequest extends Request {
   user?: TokenPayload;
 }
 
-/**
- * @deprecated Legacy custom token signing. Retained solely for backwards-compatibility in test suites.
- * Never used for active production authentication.
- */
 export function generateToken(payload: TokenPayload): string {
   return jwt.sign(payload, JWT_SECRET, { expiresIn: TOKEN_EXPIRY });
 }
 
-/**
- * @deprecated Legacy custom token verification. Deprecated from active HTTP authentication.
- * Supabase Auth is the sole authority for active session verification.
- */
 export function verifyToken(token: string): TokenPayload | null {
   try {
     const decoded = jwt.verify(token, JWT_SECRET) as TokenPayload;
@@ -64,81 +56,17 @@ export async function authenticate(req: AuthenticatedRequest, res: Response, nex
   }
 
   try {
-    let sbUser: any = null;
-
-    if (supabase) {
-      try {
-        const { data, error } = await supabase.auth.getUser(token);
-        if (!error && data?.user) {
-          sbUser = data.user;
-        }
-      } catch {
-        // Fallback to decoded non-expired token if Supabase cloud call had a transient network error
-      }
-    }
-
-    if (!sbUser) {
-      const verified = verifyToken(token);
-      if (verified) {
-        req.user = verified;
-        next();
-        return;
-      }
-    }
-
-    if (!sbUser) {
+    const verified = verifyToken(token);
+    if (!verified) {
       res.status(401).json({ error: 'Invalid or expired session token.' });
       return;
     }
 
-    const repo = getRepository();
-    const metaRoleRaw = String(sbUser.user_metadata?.role || '').toLowerCase();
-    const isMetaFaculty =
-      metaRoleRaw === 'faculty' ||
-      String(sbUser.user_metadata?.faculty_authorized || '').toLowerCase() === 'true';
-    const metaRole: UserRole =
-      metaRoleRaw === 'admin'
-        ? 'admin'
-        : isMetaFaculty
-        ? 'faculty'
-        : 'student';
-
-    let profile = (await repo.getProfileById(sbUser.id)) || (sbUser.email ? await repo.getProfileByEmail(sbUser.email) : null);
-    if (!profile && sbUser.email) {
-      const fullName =
-        sbUser.user_metadata?.full_name || sbUser.user_metadata?.name || sbUser.email.split('@')[0];
-      profile = await repo.upsertProfile({
-        id: sbUser.id,
-        email: sbUser.email,
-        full_name: fullName,
-        role: metaRole,
-      });
-    } else if (profile && (isMetaFaculty || metaRole === 'admin') && profile.role !== metaRole) {
-      profile = await repo.upsertProfile({
-        id: profile.id,
-        email: profile.email,
-        full_name: profile.full_name,
-        role: metaRole,
-      });
-    }
-
-    if (profile) {
-      const effectiveRole: UserRole =
-        isMetaFaculty && profile.role === 'student' ? 'faculty' : profile.role;
-      req.user = {
-        userId: profile.id,
-        email: profile.email,
-        role: effectiveRole,
-        name: profile.full_name,
-      };
-      next();
-      return;
-    }
-
-    res.status(401).json({ error: 'User profile not found.' });
+    req.user = verified;
+    next();
   } catch (err: any) {
     console.error('[SyntaXViva Auth] Authentication error:', err);
-    res.status(401).json({ error: 'Invalid or expired session token.' });
+    res.status(401).json({ error: 'Invalid session token.' });
   }
 }
 

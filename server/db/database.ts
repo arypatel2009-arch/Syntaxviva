@@ -422,6 +422,9 @@ async function initSchemaAndSeed(db: Database): Promise<void> {
       if (!userCols.includes('class_id')) db.run('ALTER TABLE users ADD COLUMN class_id TEXT');
       if (!userCols.includes('division_id')) db.run('ALTER TABLE users ADD COLUMN division_id TEXT');
       if (!userCols.includes('college_id')) db.run('ALTER TABLE users ADD COLUMN college_id TEXT');
+      if (!userCols.includes('is_verified')) db.run('ALTER TABLE users ADD COLUMN is_verified INTEGER DEFAULT 0');
+      if (!userCols.includes('verification_otp')) db.run('ALTER TABLE users ADD COLUMN verification_otp TEXT');
+      if (!userCols.includes('otp_expires_at')) db.run('ALTER TABLE users ADD COLUMN otp_expires_at TEXT');
     }
 
     const profilesTableInfo = db.exec("PRAGMA table_info(profiles)");
@@ -700,6 +703,112 @@ export interface FacultyDivisionSessionRow {
   last_heartbeat: string;
   expires_at: string;
   created_at: string;
+}
+
+export interface UserRow {
+  id: string;
+  email: string;
+  password_hash: string;
+  full_name: string;
+  role: 'student' | 'faculty' | 'admin';
+  institution_id: string | null;
+  roll_number: string | null;
+  class_id: string | null;
+  division_id: string | null;
+  is_verified: boolean;
+  verification_otp: string | null;
+  otp_expires_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export function dbCreateUser(data: {
+  id?: string;
+  email: string;
+  password_hash: string;
+  full_name: string;
+  role?: 'student' | 'faculty' | 'admin';
+  institution_id?: string | null;
+  roll_number?: string | null;
+  class_id?: string | null;
+  division_id?: string | null;
+  is_verified?: boolean;
+  verification_otp?: string | null;
+  otp_expires_at?: string | null;
+}): UserRow {
+  const id = data.id || crypto.randomUUID();
+  const now = new Date().toISOString();
+  const role = data.role || 'student';
+  const isVerified = data.is_verified ? 1 : 0;
+  dbRun(
+    `INSERT INTO users (id, name, email, password_hash, role, institution, roll_number, class_id, division_id, is_verified, verification_otp, otp_expires_at, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      id,
+      data.full_name,
+      data.email.toLowerCase().trim(),
+      data.password_hash,
+      role,
+      data.institution_id || null,
+      data.roll_number || null,
+      data.class_id || null,
+      data.division_id || null,
+      isVerified,
+      data.verification_otp || null,
+      data.otp_expires_at || null,
+      now,
+      now,
+    ]
+  );
+  return dbGetUserById(id)!;
+}
+
+export function dbGetUserById(id: string): UserRow | null {
+  const row = dbGet<any>('SELECT * FROM users WHERE id = ?', [id]);
+  if (!row) return null;
+  return {
+    ...row,
+    full_name: row.full_name || row.name,
+    institution_id: row.institution_id || row.institution,
+    is_verified: Boolean(row.is_verified),
+  };
+}
+
+export function dbGetUserByEmail(email: string): UserRow | null {
+  const row = dbGet<any>('SELECT * FROM users WHERE lower(email) = lower(?)', [email.trim()]);
+  if (!row) return null;
+  return {
+    ...row,
+    full_name: row.full_name || row.name,
+    institution_id: row.institution_id || row.institution,
+    is_verified: Boolean(row.is_verified),
+  };
+}
+
+export function dbUpdateUser(id: string, updates: Partial<any>): UserRow | null {
+  const existing = dbGetUserById(id);
+  if (!existing) return null;
+  const now = new Date().toISOString();
+  dbRun(
+    `UPDATE users SET
+      password_hash = COALESCE(?, password_hash),
+      name = COALESCE(?, name),
+      is_verified = COALESCE(?, is_verified),
+      verification_otp = ?,
+      otp_expires_at = ?,
+      updated_at = ?
+     WHERE id = ?`,
+    [
+      updates.password_hash !== undefined ? updates.password_hash : existing.password_hash,
+      updates.full_name !== undefined ? updates.full_name : existing.full_name,
+      updates.is_verified !== undefined ? (updates.is_verified ? 1 : 0) : existing.is_verified ? 1 : 0,
+      updates.verification_otp !== undefined ? updates.verification_otp : existing.verification_otp,
+      updates.otp_expires_at !== undefined ? updates.otp_expires_at : existing.otp_expires_at,
+      now,
+      id,
+    ]
+  );
+  return dbGetUserById(id);
 }
 
 export function getProfileById(id: string): ProfileRow | null {

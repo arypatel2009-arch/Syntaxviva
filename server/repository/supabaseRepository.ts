@@ -7,6 +7,7 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import crypto from 'crypto';
 import {
   IApplicationRepository,
+  UserEntity,
   ProfileEntity,
   CollegeEntity,
   ClassroomEntity,
@@ -63,6 +64,61 @@ export class SupabaseApplicationRepository implements IApplicationRepository {
       this._isReady = false;
       return false;
     }
+  }
+
+  async createUser(user: Partial<UserEntity> & { email: string; password_hash: string; full_name: string }): Promise<UserEntity> {
+    if (!this.client) throw new Error('Supabase client not initialized');
+    const now = new Date().toISOString();
+    const payload = {
+      ...user,
+      id: user.id || crypto.randomUUID(),
+      email: user.email.toLowerCase().trim(),
+      role: user.role || 'student',
+      is_verified: user.is_verified ?? false,
+      created_at: now,
+      updated_at: now,
+    };
+    const { data, error } = await this.client.from('users').insert(payload).select().single();
+    if (error) throw error;
+    return data as UserEntity;
+  }
+
+  async getUserByEmail(email: string): Promise<UserEntity | null> {
+    if (!this.client) return null;
+    const { data, error } = await this.client
+      .from('users')
+      .select('*')
+      .ilike('email', email.trim().toLowerCase())
+      .maybeSingle();
+    if (error || !data) return null;
+    return data as UserEntity;
+  }
+
+  async getUserById(id: string): Promise<UserEntity | null> {
+    if (!this.client) return null;
+    const { data, error } = await this.client
+      .from('users')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle();
+    if (error || !data) return null;
+    return data as UserEntity;
+  }
+
+  async updateUser(id: string, updates: Partial<UserEntity>): Promise<UserEntity | null> {
+    if (!this.client) return null;
+    const payload = {
+      ...updates,
+      updated_at: new Date().toISOString(),
+    };
+    const { data, error } = await this.client
+      .from('users')
+      .update(payload)
+      .eq('id', id)
+      .select()
+      .maybeSingle();
+    if (error || !data) return null;
+    return data as UserEntity;
   }
 
   async getProfileById(id: string): Promise<ProfileEntity | null> {

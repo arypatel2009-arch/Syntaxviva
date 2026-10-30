@@ -1,11 +1,15 @@
 import { Router, Request, Response } from 'express';
+import bcrypt from 'bcryptjs';
 import { getRepository } from '../repository/index.js';
-import { authenticate, AuthenticatedRequest } from '../auth/jwt.js';
-import { supabase, supabaseUrl } from '../../src/lib/supabase.js';
+import { authenticate, AuthenticatedRequest, generateToken } from '../auth/jwt.js';
+import { sendOtpEmail } from '../lib/mailer.js';
 import { UserRole } from '../../src/types/index.js';
 import { loginRateLimiter, signupRateLimiter } from '../middleware/rateLimiter.js';
 
 export const authRouter = Router();
+
+// In-memory rate limiting map for OTP resends: email -> nextAllowedTimestampMs
+const resendCooldowns = new Map<string, number>();
 
 function formatAcademicUser(profile: any) {
   return {
@@ -240,71 +244,9 @@ export async function handleSignUp(req: Request, res: Response): Promise<void> {
       }
     }
 
-    if (!supabase) {
-      res.status(500).json({
-        error: 'Supabase authentication authority is not configured.',
-        code: 'supabase_not_configured',
-      });
-      return;
-    }
-
-    // Register user via Supabase Auth (Sole Cloud Authority)
-    const appBaseUrl = (process.env.VITE_APP_URL || process.env.VITE_SITE_URL || 'http://localhost:3005').replace(/\/+$/, '');
-    const { data, error } = await supabase.auth.signUp({
-      email: cleanEmail,
-      password,
-      options: {
-        data: {
-          full_name: cleanName,
-          role: targetRole,
-          institution: cleanInstitution,
-          roll_number: targetRole === 'student' ? cleanRollNumber : null,
-          class_id: cleanClassId,
-          division_id: cleanDivisionId,
-          faculty_authorized: targetRole === 'faculty' ? 'true' : 'false',
-        },
-        emailRedirectTo: `${appBaseUrl}/email-verified`,
-      },
-    });
-
-    if (error) {
-      const msg = error.message.toLowerCase();
-      const code = (error.code || '').toLowerCase();
-
-      if (code === 'user_already_exists' || msg.includes('already registered') || msg.includes('already exists')) {
-        res.status(400).json({
-          error: 'An account with this email address already exists. Please sign in instead.',
-          code: 'user_already_exists',
-        });
-        return;
-      }
-      if (code === 'email_address_invalid' || msg.includes('is invalid')) {
-        res.status(400).json({
-          error: `Email address "${cleanEmail}" is invalid. Please provide a valid, deliverable email address.`,
-          code: 'email_address_invalid',
-        });
-        return;
-      }
-      if (code === 'over_email_send_rate_limit' || msg.includes('rate limit')) {
-        res.status(429).json({
-          error: 'Verification email rate limit reached. Please wait a few minutes before trying again.',
-          code: 'over_email_send_rate_limit',
-        });
-        return;
-      }
-      res.status(400).json({
-        error: error.message || 'Registration failed.',
-        code: error.code || 'signup_error',
-      });
-      return;
-    }
-
-    if (!data?.user) {
-      res.status(400).json({ error: 'Failed to create user in authentication provider.' });
-      return;
-    }
-
-    if (Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+    // Check if user already exists
+    const existingUser = await repo.getUserByEmail(cleanEmail);
+    if (existingUser && existingUser.is_verified) {
       res.status(400).json({
         error: 'An account with this email address already exists. Please sign in instead.',
         code: 'user_already_exists',
@@ -312,40 +254,90 @@ export async function handleSignUp(req: Request, res: Response): Promise<void> {
       return;
     }
 
-    const sbUser = data.user;
-    // Upsert profile in application database linked by Supabase UUID (auth.users.id)
-    const profile = await repo.upsertProfile({
-      id: sbUser.id,
-      email: sbUser.email || cleanEmail,
-      full_name: cleanName,
-      role: targetRole,
-      institution_id: cleanInstitution,
-      roll_number: targetRole === 'student' ? cleanRollNumber : null,
-      class_id: cleanClassId,
-      division_id: cleanDivisionId,
-      status: 'active',
-    });
+    // Generate secure 6-digit OTP and 10-minute expiry
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otpExpiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+    const passwordHash = await bcrypt.hash(password, 10);
 
-    const token = data.session?.access_token || null;
-    if (token) {
-      res.cookie('token', token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        maxAge: 7 * 24 * 60 * 60 * 1000,
+    let userId: string;
+
+    if (existingUser && !existingUser.is_verified) {
+      // Update unverified user with new credentials and fresh OTP
+      userId = existingUser.id;
+      await repo.updateUser(existingUser.id, {
+        password_hash: passwordHash,
+        full_name: cleanName,
+        role: targetRole,
+        institution_id: cleanInstitution,
+        roll_number: targetRole === 'student' ? cleanRollNumber : null,
+        class_id: cleanClassId,
+        division_id: cleanDivisionId,
+        verification_otp: otp,
+        otp_expires_at: otpExpiresAt,
       });
+
+      await repo.upsertProfile({
+        id: existingUser.id,
+        email: cleanEmail,
+        full_name: cleanName,
+        role: targetRole,
+        institution_id: cleanInstitution,
+        roll_number: targetRole === 'student' ? cleanRollNumber : null,
+        class_id: cleanClassId,
+        division_id: cleanDivisionId,
+      });
+    } else {
+      // Create new user record in public.users
+      const newUser = await repo.createUser({
+        email: cleanEmail,
+        password_hash: passwordHash,
+        full_name: cleanName,
+        role: targetRole,
+        institution_id: cleanInstitution,
+        roll_number: targetRole === 'student' ? cleanRollNumber : null,
+        class_id: cleanClassId,
+        division_id: cleanDivisionId,
+        is_verified: false,
+        verification_otp: otp,
+        otp_expires_at: otpExpiresAt,
+      });
+      userId = newUser.id;
+
+      await repo.upsertProfile({
+        id: newUser.id,
+        email: cleanEmail,
+        full_name: cleanName,
+        role: targetRole,
+        institution_id: cleanInstitution,
+        roll_number: targetRole === 'student' ? cleanRollNumber : null,
+        class_id: cleanClassId,
+        division_id: cleanDivisionId,
+        status: 'active',
+      });
+    }
+
+    // Dispatch verification OTP directly via Resend API
+    try {
+      await sendOtpEmail({
+        to: cleanEmail,
+        otp,
+        fullName: cleanName,
+      });
+      resendCooldowns.set(cleanEmail, Date.now() + 60000); // 60s cooldown
+    } catch (mailErr: any) {
+      console.error('[SyntaXViva Auth] Failed to dispatch OTP email:', mailErr);
+      res.status(500).json({
+        error: 'Failed to send verification email. Please check your email address or try again.',
+        details: mailErr.message,
+      });
+      return;
     }
 
     res.status(201).json({
       success: true,
-      message: data.session
-        ? 'Account registered successfully.'
-        : 'Account registered! Please check your email to confirm your account.',
-      user: formatAcademicUser(profile),
-      profile: formatAcademicProfile(profile),
-      token,
-      session: data.session,
-      confirmationRequired: !data.session,
+      requiresOtp: true,
+      email: cleanEmail,
+      message: 'Registration successful! A 6-digit verification code has been sent to your email.',
     });
   } catch (err: any) {
     console.error('[SyntaXViva Auth] Registration error:', err);
@@ -354,7 +346,160 @@ export async function handleSignUp(req: Request, res: Response): Promise<void> {
 }
 
 // ----------------------------------------------------------------------------
-// POST /login: Supabase Primary Authority with Academic System Verification
+// POST /verify-otp: Validate 6-digit security code and issue 7-day JWT
+// ----------------------------------------------------------------------------
+export async function handleVerifyOtp(req: Request, res: Response): Promise<void> {
+  try {
+    const { email, otp } = req.body || {};
+    if (!email || !otp) {
+      res.status(400).json({ error: 'Email and 6-digit OTP code are required.' });
+      return;
+    }
+
+    const cleanEmail = String(email).trim().toLowerCase();
+    const cleanOtp = String(otp).trim();
+
+    const repo = getRepository();
+    const user = await repo.getUserByEmail(cleanEmail);
+
+    if (!user) {
+      res.status(400).json({ error: 'Account not found. Please register first.' });
+      return;
+    }
+
+    if (user.is_verified) {
+      // Already verified, generate token directly
+    } else {
+      if (!user.verification_otp || user.verification_otp !== cleanOtp) {
+        res.status(400).json({ error: 'Invalid verification code. Please check your code and try again.' });
+        return;
+      }
+
+      if (user.otp_expires_at && new Date(user.otp_expires_at).getTime() < Date.now()) {
+        res.status(400).json({ error: 'Verification code has expired. Please request a new code.' });
+        return;
+      }
+
+      // Mark user as verified and clear OTP fields
+      await repo.updateUser(user.id, {
+        is_verified: true,
+        verification_otp: null,
+        otp_expires_at: null,
+      });
+    }
+
+    let profile = await repo.getProfileById(user.id);
+    if (!profile) {
+      profile = await repo.upsertProfile({
+        id: user.id,
+        email: user.email,
+        full_name: user.full_name,
+        role: user.role,
+        institution_id: user.institution_id,
+        roll_number: user.roll_number,
+        class_id: user.class_id,
+        division_id: user.division_id,
+        status: 'active',
+      });
+    }
+
+    // Issue signed 7-day session JWT
+    const token = generateToken({
+      userId: user.id,
+      email: user.email,
+      role: user.role,
+      name: user.full_name,
+    });
+
+    res.cookie('token', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Account verified successfully.',
+      token,
+      user: formatAcademicUser(profile),
+      profile: formatAcademicProfile(profile),
+    });
+  } catch (err: any) {
+    console.error('[SyntaXViva Auth] Error verifying OTP:', err);
+    res.status(500).json({ error: 'Failed to verify code.' });
+  }
+}
+
+// ----------------------------------------------------------------------------
+// POST /resend-otp: Resend fresh 6-digit OTP code with 60-second cooldown
+// ----------------------------------------------------------------------------
+export async function handleResendOtp(req: Request, res: Response): Promise<void> {
+  try {
+    const { email } = req.body || {};
+    if (!email) {
+      res.status(400).json({ error: 'Email address is required.' });
+      return;
+    }
+
+    const cleanEmail = String(email).trim().toLowerCase();
+    const now = Date.now();
+    const nextAllowed = resendCooldowns.get(cleanEmail) || 0;
+
+    if (now < nextAllowed) {
+      const remainingSecs = Math.ceil((nextAllowed - now) / 1000);
+      res.status(429).json({
+        error: `Please wait ${remainingSecs}s before requesting another verification code.`,
+        retryAfter: remainingSecs,
+      });
+      return;
+    }
+
+    const repo = getRepository();
+    const user = await repo.getUserByEmail(cleanEmail);
+
+    if (!user) {
+      res.status(400).json({ error: 'No account found with this email address.' });
+      return;
+    }
+
+    if (user.is_verified) {
+      res.status(200).json({
+        success: true,
+        alreadyVerified: true,
+        message: 'This account is already verified. You can proceed to sign in.',
+      });
+      return;
+    }
+
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otpExpiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+
+    await repo.updateUser(user.id, {
+      verification_otp: otp,
+      otp_expires_at: otpExpiresAt,
+    });
+
+    await sendOtpEmail({
+      to: cleanEmail,
+      otp,
+      fullName: user.full_name,
+    });
+
+    resendCooldowns.set(cleanEmail, now + 60000); // 60s cooldown
+
+    res.status(200).json({
+      success: true,
+      message: 'A fresh 6-digit verification code has been sent to your email.',
+    });
+  } catch (err: any) {
+    console.error('[SyntaXViva Auth] Error resending OTP:', err);
+    res.status(500).json({ error: 'Failed to resend verification code. Please try again.' });
+  }
+}
+
+// ----------------------------------------------------------------------------
+// POST /login: Standalone bcrypt Authentication with Academic Lease Verification
 // ----------------------------------------------------------------------------
 export async function handleLogin(req: Request, res: Response): Promise<void> {
   try {
@@ -365,104 +510,107 @@ export async function handleLogin(req: Request, res: Response): Promise<void> {
       return;
     }
 
-    const cleanEmail = email.trim().toLowerCase();
+    const cleanEmail = String(email).trim().toLowerCase();
+    const repo = getRepository();
+    const user = await repo.getUserByEmail(cleanEmail);
 
-    // Authenticate with Supabase Auth (Single Authentication Authority)
-    if (!supabase) {
-      res.status(500).json({
-        error: 'Supabase authentication service is not configured.',
-        code: 'supabase_not_configured',
-      });
-      return;
-    }
-
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email: cleanEmail,
-      password,
-    });
-
-    if (!error && data?.session && data?.user) {
-      const sbUser = data.user;
-      const repo = getRepository();
-      let profile = (await repo.getProfileById(sbUser.id)) || (await repo.getProfileByEmail(sbUser.email || cleanEmail));
-      if (!profile) {
-        const fullName =
-          sbUser.user_metadata?.full_name ||
-          sbUser.user_metadata?.name ||
-          sbUser.email?.split('@')[0] ||
-          'SyntaXViva User';
-        const role = (sbUser.user_metadata?.role as UserRole) || 'student';
-        profile = await repo.upsertProfile({
-          id: sbUser.id,
-          email: sbUser.email || cleanEmail,
-          full_name: fullName,
-          role,
-          institution_id: sbUser.user_metadata?.institution || null,
-          roll_number: sbUser.user_metadata?.roll_number || null,
-          class_id: sbUser.user_metadata?.class_id || null,
-          division_id: sbUser.user_metadata?.division_id || null,
-          status: 'active',
-        });
-      }
-
-      res.cookie('token', data.session.access_token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        maxAge: 7 * 24 * 60 * 60 * 1000,
-      });
-
-      // If faculty, attempt to claim active division session lease
-      let sessionClaimResult = null;
-      if (profile.role === 'faculty' && profile.institution_id && profile.class_id && profile.division_id) {
-        sessionClaimResult = await repo.claimFacultyDivisionSession({
-          facultyId: profile.id,
-          facultyName: profile.full_name,
-          facultyEmail: profile.email,
-          institution: profile.institution_id,
-          classId: profile.class_id,
-          divisionId: profile.division_id,
-        });
-      }
-
-      res.status(200).json({
-        success: true,
-        token: data.session.access_token,
-        session: data.session,
-        user: formatAcademicUser(profile),
-        profile: formatAcademicProfile(profile),
-        facultySession: sessionClaimResult?.session || null,
-        facultySessionWarning: !sessionClaimResult?.success ? sessionClaimResult?.error : null,
-      });
-      return;
-    }
-
-    if (error) {
-      const msg = error.message.toLowerCase();
-      if (
-        msg.includes('not confirmed') ||
-        msg.includes('not verified') ||
-        msg.includes('verify your email') ||
-        error.code === 'email_not_confirmed'
-      ) {
-        res.status(400).json({
-          error: 'Please verify your email address before signing in. Check your inbox for the confirmation link.',
-          code: 'email_not_confirmed',
-        });
-        return;
-      }
-
+    if (!user) {
       res.status(401).json({
         error: 'Invalid email or password. Please double-check your credentials and try again.',
-        code: error.code || 'invalid_credentials',
+        code: 'invalid_credentials',
       });
       return;
     }
 
-    res.status(401).json({ error: 'Invalid email or password. Please double-check your credentials and try again.' });
+    const isPasswordValid = await bcrypt.compare(password, user.password_hash);
+    if (!isPasswordValid) {
+      res.status(401).json({
+        error: 'Invalid email or password. Please double-check your credentials and try again.',
+        code: 'invalid_credentials',
+      });
+      return;
+    }
+
+    // Enforce email verification
+    if (!user.is_verified) {
+      const now = Date.now();
+      let activeOtp = user.verification_otp;
+      if (!activeOtp || !user.otp_expires_at || new Date(user.otp_expires_at).getTime() < now) {
+        activeOtp = Math.floor(100000 + Math.random() * 900000).toString();
+        const otpExpiresAt = new Date(now + 10 * 60 * 1000).toISOString();
+        await repo.updateUser(user.id, {
+          verification_otp: activeOtp,
+          otp_expires_at: otpExpiresAt,
+        });
+        sendOtpEmail({
+          to: cleanEmail,
+          otp: activeOtp,
+          fullName: user.full_name,
+        }).catch((e) => console.warn('Background OTP send note:', e));
+      }
+
+      res.status(403).json({
+        error: 'Please verify your email address before signing in.',
+        code: 'email_not_verified',
+        requiresOtp: true,
+        email: cleanEmail,
+      });
+      return;
+    }
+
+    let profile = (await repo.getProfileById(user.id)) || (await repo.getProfileByEmail(user.email));
+    if (!profile) {
+      profile = await repo.upsertProfile({
+        id: user.id,
+        email: user.email,
+        full_name: user.full_name,
+        role: user.role,
+        institution_id: user.institution_id,
+        roll_number: user.roll_number,
+        class_id: user.class_id,
+        division_id: user.division_id,
+        status: 'active',
+      });
+    }
+
+    const token = generateToken({
+      userId: user.id,
+      email: user.email,
+      role: user.role,
+      name: user.full_name,
+    });
+
+    res.cookie('token', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
+
+    // If faculty, attempt to claim active division session lease
+    let sessionClaimResult = null;
+    if (profile.role === 'faculty' && profile.institution_id && profile.class_id && profile.division_id) {
+      sessionClaimResult = await repo.claimFacultyDivisionSession({
+        facultyId: profile.id,
+        facultyName: profile.full_name,
+        facultyEmail: profile.email,
+        institution: profile.institution_id,
+        classId: profile.class_id,
+        divisionId: profile.division_id,
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      token,
+      user: formatAcademicUser(profile),
+      profile: formatAcademicProfile(profile),
+      facultySession: sessionClaimResult?.session || null,
+      facultySessionWarning: !sessionClaimResult?.success ? sessionClaimResult?.error : null,
+    });
   } catch (err: any) {
     console.error('[SyntaXViva Auth] Login error:', err);
-    res.status(500).json({ error: 'Internal server error during login.' });
+    res.status(500).json({ error: 'Internal server error during authentication.' });
   }
 }
 
@@ -719,6 +867,8 @@ authRouter.get('/me', authenticate, handleGetUser);
 authRouter.post('/verify-faculty-secret', signupRateLimiter, handleVerifyFacultySecret);
 authRouter.post('/signup', signupRateLimiter, handleSignUp);
 authRouter.post('/register', signupRateLimiter, handleSignUp);
+authRouter.post('/verify-otp', handleVerifyOtp);
+authRouter.post('/resend-otp', handleResendOtp);
 authRouter.post('/login', loginRateLimiter, handleLogin);
 authRouter.post('/logout', handleLogout);
 authRouter.post('/sync-profile', authenticate, handleSyncProfile);

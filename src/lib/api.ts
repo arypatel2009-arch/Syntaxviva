@@ -111,7 +111,15 @@ export async function apiFetch<T>(endpoint: string, options: RequestInit = {}): 
 
   if (!response.ok) {
     const message = data?.error || `Request failed with status ${response.status}`;
-    throw new Error(message);
+    const err: any = new Error(message);
+    if (data && typeof data === 'object') {
+      err.data = data;
+      err.code = data.code;
+      err.requiresOtp = data.requiresOtp;
+      err.email = data.email;
+      err.retryAfter = data.retryAfter;
+    }
+    throw err;
   }
 
   if (data === null) {
@@ -159,6 +167,24 @@ export const api = {
       setStoredToken(data.token);
     }
     return data;
+  },
+
+  async verifyOtp(email: string, otp: string): Promise<AuthResponse> {
+    const data = await apiFetch<AuthResponse>('/api/auth/verify-otp', {
+      method: 'POST',
+      body: JSON.stringify({ email, otp }),
+    });
+    if (data.token) {
+      setStoredToken(data.token);
+    }
+    return data;
+  },
+
+  async resendOtp(email: string): Promise<{ success: boolean; message: string; alreadyVerified?: boolean }> {
+    return apiFetch<{ success: boolean; message: string; alreadyVerified?: boolean }>('/api/auth/resend-otp', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    });
   },
 
   async getMe(): Promise<{ user: User; profile?: UserProfile }> {

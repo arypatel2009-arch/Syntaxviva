@@ -86,9 +86,12 @@ export interface FacultyDivisionSession {
 }
 
 export interface AuthResponse {
-  token: string;
-  user: User;
+  token?: string;
+  user?: User;
   profile?: UserProfile;
+  requiresOtp?: boolean;
+  email?: string;
+  message?: string;
   facultySession?: FacultyDivisionSession | null;
   facultySessionWarning?: string | null;
 }

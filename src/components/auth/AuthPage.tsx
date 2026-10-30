@@ -248,11 +248,14 @@ export const AuthPage: React.FC<AuthPageProps> = ({
         divisionId: cleanDivision,
       });
 
-      if (result?.confirmationRequired) {
-        setEmailVerificationSent(cleanEmail);
+      if (result?.confirmationRequired || result?.requiresOtp) {
+        setEmail(cleanEmail);
+        setOtpCode('');
+        setMode('verify-otp');
         setResendCooldown(60);
+        setFormSuccess('Registration successful! A 6-digit verification code has been sent to your email.');
       } else {
-        setEmailVerificationSent(null);
+        if (onSuccess) onSuccess();
       }
     } catch (err: any) {
       setFormError(err.message || 'Registration failed. Please try again.');
@@ -345,9 +348,13 @@ export const AuthPage: React.FC<AuthPageProps> = ({
 
     setLoading(true);
     try {
-      await verifyOtp(cleanEmail, cleanOtp);
-      setFormSuccess('OTP code verified successfully! Please set your new password.');
-      setMode('reset-password');
+      const res = await verifyOtp(cleanEmail, cleanOtp);
+      setFormSuccess(res.message || 'OTP code verified successfully!');
+      if (onSuccess) {
+        onSuccess();
+      } else {
+        setMode('email-verified');
+      }
     } catch (err: any) {
       setFormError(err.message || 'Invalid or expired OTP security code.');
     } finally {
@@ -468,17 +475,30 @@ export const AuthPage: React.FC<AuthPageProps> = ({
               <div className="flex-1 space-y-1.5">
                 <div className="font-medium">{formError || error}</div>
                 {unverifiedLoginEmail && (
-                  <div className="pt-1">
+                  <div className="pt-1 flex flex-wrap gap-2">
                     <button
                       type="button"
                       onClick={() => {
-                        setEmailVerificationSent(unverifiedLoginEmail);
-                        setResendCooldown(0);
-                        setResendFeedback(null);
+                        setEmail(unverifiedLoginEmail);
+                        setOtpCode('');
+                        setMode('verify-otp');
+                        setFormError(null);
+                        setFormSuccess('Please enter the 6-digit code sent to your email.');
                       }}
                       className="inline-flex items-center gap-1 text-xs text-emerald-700 hover:text-emerald-800 font-bold underline underline-offset-2 cursor-pointer"
                     >
-                      Resend verification email &rarr;
+                      Enter 6-digit code &rarr;
+                    </button>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        setEmail(unverifiedLoginEmail);
+                        setMode('verify-otp');
+                        await handleResendVerification();
+                      }}
+                      className="inline-flex items-center gap-1 text-xs text-slate-600 hover:text-slate-800 font-medium underline underline-offset-2 cursor-pointer"
+                    >
+                      Resend code
                     </button>
                   </div>
                 )}
@@ -913,9 +933,29 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                 </form>
               )}
 
-              {/* VERIFY OTP FORM (Fallback) */}
+              {/* VERIFY OTP FORM */}
               {mode === 'verify-otp' && (
                 <form onSubmit={handleVerifyOtp} className="space-y-4">
+                  {/* Resend Status Feedback */}
+                  {resendFeedback && (
+                    <div
+                      className={`p-3 rounded-xl border text-xs text-left flex items-start gap-2.5 ${
+                        resendFeedback.type === 'success'
+                          ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                          : resendFeedback.type === 'info'
+                          ? 'bg-blue-50 border-blue-200 text-blue-800'
+                          : 'bg-rose-50 border-rose-200 text-rose-800'
+                      }`}
+                    >
+                      {resendFeedback.type === 'success' ? (
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                      ) : (
+                        <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                      )}
+                      <div className="flex-1 font-medium">{resendFeedback.message}</div>
+                    </div>
+                  )}
+
                   <div className="space-y-1">
                     <label className="text-xs font-semibold text-slate-700 block">
                       Email Address
@@ -961,17 +1001,26 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                     loading={loading}
                     className="w-full shadow-md shadow-emerald-600/20 font-bold"
                   >
-                    Verify OTP Code
+                    Verify & Continue
                   </Button>
 
                   <div className="flex items-center justify-between pt-1">
                     <button
                       type="button"
-                      onClick={() => switchMode('forgot-password')}
-                      className="inline-flex items-center gap-1.5 text-xs text-slate-600 hover:text-slate-900 font-medium cursor-pointer"
+                      disabled={isResending || resendCooldown > 0}
+                      onClick={handleResendVerification}
+                      className={`inline-flex items-center gap-1.5 text-xs font-semibold cursor-pointer ${
+                        isResending || resendCooldown > 0
+                          ? 'text-slate-400 cursor-not-allowed'
+                          : 'text-emerald-600 hover:text-emerald-700'
+                      }`}
                     >
-                      <ArrowLeft className="w-3.5 h-3.5" />
-                      Resend / Change Email
+                      <RefreshCw className={`w-3.5 h-3.5 ${isResending ? 'animate-spin' : ''}`} />
+                      {isResending
+                        ? 'Resending...'
+                        : resendCooldown > 0
+                        ? `Resend in ${resendCooldown}s`
+                        : 'Resend Code'}
                     </button>
                     <button
                       type="button"
