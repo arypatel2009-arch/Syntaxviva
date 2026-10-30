@@ -92,58 +92,47 @@ export async function apiFetch<T>(endpoint: string, options: RequestInit = {}): 
     headers,
   });
 
-  const contentType = response.headers.get('content-type') || '';
-  let data: any = null;
-  if (contentType.includes('application/json')) {
-    data = await response.json().catch(() => null);
-  } else {
-    const text = await response.text().catch(() => '');
-    if (text.startsWith('<')) {
-      data = null;
-    } else {
-      try {
-        data = JSON.parse(text);
-      } catch {
-        data = null;
-      }
+  let data: any = {};
+  try {
+    const text = await response.text();
+    try {
+      data = JSON.parse(text);
+    } catch {
+      data = text ? { message: text } : {};
     }
+  } catch {
+    data = {};
   }
 
   if (!response.ok) {
-    const message = data?.error || data?.message || `Request failed with status ${response.status}`;
+    const message = data?.message || data?.error || `Request failed with status ${response.status}`;
     const err: any = new Error(message);
     err.status = response.status;
     err.statusCode = response.status;
-    err.response = {
-      status: response.status,
-      data,
-    };
+    err.response = data;
     err.data = data;
-    if (data && typeof data === 'object') {
-      err.code = data.code;
-      err.requiresOtp = Boolean(data.requiresOtp);
-      err.email = data.email;
-      err.retryAfter = data.retryAfter;
-    }
-    if (response.status === 403) {
-      if (
-        data?.requiresOtp ||
-        data?.code === 'email_not_verified' ||
-        (data?.error && String(data.error).toLowerCase().includes('verify')) ||
-        (message && message.toLowerCase().includes('verify'))
-      ) {
-        err.requiresOtp = true;
-        err.code = data?.code || 'email_not_verified';
-        if (err.response) {
-          err.response.requiresOtp = true;
-        }
+    err.code = data?.code;
+    err.requiresOtp = Boolean(data?.requiresOtp);
+    err.email = data?.email;
+    err.retryAfter = data?.retryAfter;
+
+    if (
+      response.status === 403 ||
+      data?.requiresOtp ||
+      data?.code === 'email_not_verified' ||
+      (message && (
+        message.toLowerCase().includes('verify') ||
+        message.toLowerCase().includes('not confirmed') ||
+        message.toLowerCase().includes('unconfirmed')
+      ))
+    ) {
+      err.requiresOtp = true;
+      err.code = data?.code || 'email_not_verified';
+      if (err.response && typeof err.response === 'object') {
+        err.response.requiresOtp = true;
       }
     }
     throw err;
-  }
-
-  if (data === null) {
-    throw new Error(`Received unexpected non-JSON response from server for ${endpoint}`);
   }
 
   return data as T;
@@ -153,53 +142,77 @@ export const api = {
   // Auth
   async login(email: string, password: string): Promise<AuthResponse> {
     const cleanEmail = email.trim().toLowerCase();
+    const targetUrl = `${BACKEND_BASE_URL}/api/auth/login`;
+
     try {
-      const data = await apiFetch<AuthResponse>('/api/auth/login', {
+      const response = await fetch(targetUrl, {
         method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
         body: JSON.stringify({ email: cleanEmail, password }),
       });
+
+      let data: any = {};
+      try {
+        const text = await response.text();
+        try {
+          data = JSON.parse(text);
+        } catch {
+          data = text ? { message: text } : {};
+        }
+      } catch {
+        data = {};
+      }
+
+      // Check if unverified user needing OTP transition (HTTP 403 or requiresOtp flag)
+      if (
+        response.status === 403 ||
+        data?.requiresOtp ||
+        data?.code === 'email_not_verified' ||
+        (data?.error && String(data.error).toLowerCase().includes('verify')) ||
+        (data?.message && String(data.message).toLowerCase().includes('verify'))
+      ) {
+        return {
+          requiresOtp: true,
+          email: data?.email || cleanEmail,
+          message: data?.message || data?.error || 'We have sent a 6-digit verification code to your email. Please enter it below to activate your account.',
+        };
+      }
+
+      if (!response.ok) {
+        const msg = data?.message || data?.error || `Login failed with status ${response.status}`;
+        const err: any = new Error(msg);
+        err.status = response.status;
+        err.statusCode = response.status;
+        err.response = data;
+        err.data = data;
+        err.code = data?.code;
+        throw err;
+      }
+
       if (data?.token) {
         setStoredToken(data.token);
       }
       return data;
     } catch (err: any) {
-      const isUnverified403 = Boolean(
-        err.requiresOtp ||
-        err.status === 403 ||
-        err.statusCode === 403 ||
-        err?.response?.status === 403 ||
-        err?.data?.requiresOtp ||
-        err?.response?.data?.requiresOtp ||
+      if (
+        err?.requiresOtp ||
+        err?.response?.requiresOtp ||
+        err?.status === 403 ||
+        err?.statusCode === 403 ||
         err?.code === 'email_not_verified' ||
-        err?.data?.code === 'email_not_verified' ||
-        err?.response?.data?.code === 'email_not_verified' ||
-        (err.message && (
-          err.message.toLowerCase().includes('not verified') ||
+        (err?.message && (
+          err.message.toLowerCase().includes('verify') ||
           err.message.toLowerCase().includes('not confirmed') ||
-          err.message.toLowerCase().includes('verify your email') ||
-          err.message.toLowerCase().includes('email_not_confirmed') ||
-          err.message.toLowerCase().includes('unconfirmed')
+          err.message.includes('403')
         ))
-      );
-
-      if (isUnverified403) {
-        const resolvedEmail = err.email || err?.data?.email || err?.response?.data?.email || cleanEmail;
-        err.requiresOtp = true;
-        err.email = resolvedEmail;
-        err.code = 'email_not_verified';
-        if (!err.response) {
-          err.response = { status: 403, data: { requiresOtp: true, email: resolvedEmail, code: 'email_not_verified' }, requiresOtp: true };
-        } else {
-          err.response.requiresOtp = true;
-          if (err.response.data && typeof err.response.data === 'object') {
-            err.response.data.requiresOtp = true;
-            err.response.data.email = resolvedEmail;
-          }
-        }
+      ) {
         return {
           requiresOtp: true,
-          email: resolvedEmail,
-          message: err.message || 'Please verify your email address before signing in.',
+          email: err.email || err?.response?.email || cleanEmail,
+          message: err.message || 'We have sent a 6-digit verification code to your email. Please enter it below to activate your account.',
         };
       }
       throw err;

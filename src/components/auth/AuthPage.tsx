@@ -197,6 +197,8 @@ export const AuthPage: React.FC<AuthPageProps> = ({
     }
 
     const triggerOtpTransition = (targetEmail: string) => {
+      setEmailVerificationSent(null);
+      setUnverifiedLoginEmail(null);
       clearError();
       setFormError(null);
       setEmail(targetEmail);
@@ -213,34 +215,28 @@ export const AuthPage: React.FC<AuthPageProps> = ({
     setLoading(true);
     try {
       const res = await login(cleanEmail, password);
-      if (res && (res.requiresOtp || (res as any).code === 'email_not_verified')) {
+      if (res?.requiresOtp) {
         triggerOtpTransition(res.email || cleanEmail);
         return;
       }
       if (onSuccess) onSuccess();
     } catch (err: any) {
-      const isUnverified = Boolean(
-        err.requiresOtp ||
+      if (
+        err?.requiresOtp ||
         err?.response?.requiresOtp ||
         err?.response?.data?.requiresOtp ||
-        err.code === 'email_not_verified' ||
         err?.data?.requiresOtp ||
-        err?.data?.code === 'email_not_verified' ||
-        err.status === 403 ||
+        err?.code === 'email_not_verified' ||
+        err?.status === 403 ||
         err?.statusCode === 403 ||
-        err?.response?.status === 403 ||
-        (err.message && (
-          err.message.toLowerCase().includes('not verified') ||
+        (err?.message && (
+          err.message.toLowerCase().includes('verify') ||
           err.message.toLowerCase().includes('not confirmed') ||
-          err.message.toLowerCase().includes('verify your email') ||
-          err.message.toLowerCase().includes('email_not_confirmed') ||
           err.message.toLowerCase().includes('unconfirmed') ||
           err.message.includes('403')
         ))
-      );
-
-      if (isUnverified) {
-        const targetEmail = err.email || err?.data?.email || err?.response?.data?.email || cleanEmail;
+      ) {
+        const targetEmail = err.email || err?.response?.email || err?.data?.email || cleanEmail;
         triggerOtpTransition(targetEmail);
         return;
       }
