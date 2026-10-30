@@ -1,0 +1,342 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-display: "Plus Jakarta Sans", "Inter", sans-serif;
+  --font-mono: "JetBrains Mono", "Fira Code", "Cascadia Code", Consolas, "Courier New", monospace;
+
+  --color-ink: #0B0F17;
+  --color-panel: #0F1520;
+  --color-panel2: #111827;
+  --color-emeraldx: #059669;
+  --color-emerald2: #10B981;
+  --color-slateborder: #1E293B;
+
+  --shadow-glow: 0 0 80px rgba(16, 185, 129, 0.10);
+  --shadow-card: 0 20px 60px rgba(0, 0, 0, 0.25);
+
+  --animate-float: float 6s ease-in-out infinite;
+  --animate-pulseSoft: pulseSoft 2.5s ease-in-out infinite;
+  --animate-scan: scan 3s linear infinite;
+
+  @keyframes float {
+    0%, 100% {
+      transform: translateY(0px);
+    }
+    50% {
+      transform: translateY(-8px);
+    }
+  }
+
+  @keyframes pulseSoft {
+    0%, 100% {
+      opacity: 0.65;
+    }
+    50% {
+      opacity: 1;
+    }
+  }
+
+  @keyframes scan {
+    0% {
+      transform: translateY(-100%);
+    }
+    100% {
+      transform: translateY(400%);
+    }
+  }
+
+  --animate-marquee: marquee 30s linear infinite;
+
+  @keyframes marquee {
+    0% {
+      transform: translateX(0%);
+    }
+    100% {
+      transform: translateX(-50%);
+    }
+  }
+}
+
+@layer base {
+  * {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    font-family: 'Inter', 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    color: #e5e7eb;
+    background-color: #0B0F17;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  code, pre, .font-mono {
+    font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', Consolas, 'Courier New', monospace;
+    font-variant-ligatures: none;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  .font-display {
+    font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
+  }
+
+  /* Form input text contrast safeguard for light containers and modals (excludes code editor) */
+  .bg-white input,
+  .bg-white select,
+  .bg-white textarea:not(.code-editor-textarea),
+  input.bg-white,
+  select.bg-white,
+  textarea.bg-white:not(.code-editor-textarea),
+  .text-slate-900 input,
+  .text-slate-900 select,
+  .text-slate-900 textarea:not(.code-editor-textarea) {
+    color: #0f172a !important;
+  }
+
+  .bg-white input::placeholder,
+  .bg-white textarea:not(.code-editor-textarea)::placeholder,
+  input.bg-white::placeholder,
+  textarea.bg-white:not(.code-editor-textarea)::placeholder,
+  .text-slate-900 input::placeholder,
+  .text-slate-900 textarea:not(.code-editor-textarea)::placeholder {
+    color: #94a3b8 !important;
+  }
+
+  /* SyntaXViva Crystal-Clear Code Editor - Anti-Ghosting, No-Ligatures, Pixel-Perfect Alignment */
+  .code-editor-textarea {
+    color: transparent !important;
+    -webkit-text-fill-color: transparent !important;
+    background-color: transparent !important;
+    caret-color: #38bdf8 !important;
+    font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', Consolas, 'Courier New', monospace !important;
+    font-variant-ligatures: none !important;
+    font-feature-settings: "liga" 0, "calt" 0, "dlig" 0 !important;
+    -webkit-font-smoothing: antialiased !important;
+    -moz-osx-font-smoothing: grayscale !important;
+    text-rendering: optimizeLegibility !important;
+    outline: none !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+
+  .code-editor-pre {
+    color: #f8fafc !important;
+    font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', Consolas, 'Courier New', monospace !important;
+    font-variant-ligatures: none !important;
+    font-feature-settings: "liga" 0, "calt" 0, "dlig" 0 !important;
+    -webkit-font-smoothing: antialiased !important;
+    -moz-osx-font-smoothing: grayscale !important;
+    text-rendering: optimizeLegibility !important;
+  }
+}
+
+.syntaxviva-landing {
+  background:
+    radial-gradient(
+      circle at 70% 5%,
+      rgba(16, 185, 129, 0.08),
+      transparent 28%
+    ),
+    radial-gradient(
+      circle at 10% 35%,
+      rgba(5, 150, 105, 0.045),
+      transparent 25%
+    ),
+    #0B0F17;
+  color: #e5e7eb;
+}
+
+.syntaxviva-landing ::selection {
+  background: rgba(16, 185, 129, 0.25);
+  color: white;
+}
+
+.grid-bg {
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+  background-size: 42px 42px;
+}
+
+.academic-atmosphere {
+  background:
+    radial-gradient(
+      ellipse at 10% 15%,
+      rgba(191, 232, 255, 0.65),
+      transparent 42%
+    ),
+    radial-gradient(
+      ellipse at 85% 25%,
+      rgba(180, 250, 226, 0.42),
+      transparent 38%
+    ),
+    radial-gradient(
+      ellipse at 60% 90%,
+      rgba(207, 225, 255, 0.50),
+      transparent 45%
+    ),
+    #EAF5FC;
+}
+
+.glass {
+  background: rgba(11, 15, 23, 0.94);
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.09);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+}
+
+.glass-card {
+  background: rgba(255, 255, 255, 0.58);
+  backdrop-filter: blur(24px) saturate(145%);
+  -webkit-backdrop-filter: blur(24px) saturate(145%);
+  border: 1px solid rgba(255, 255, 255, 0.82);
+  box-shadow:
+    0 8px 32px rgba(71, 113, 153, 0.07),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+.glass-card-hover {
+  transition: all 0.25s ease;
+}
+
+.glass-card-hover:hover {
+  background: rgba(255, 255, 255, 0.76);
+  box-shadow:
+    0 12px 36px rgba(71, 113, 153, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95);
+  transform: translateY(-2px);
+}
+
+.glass-nav {
+  background: rgba(255, 255, 255, 0.65);
+  backdrop-filter: blur(24px) saturate(145%);
+  -webkit-backdrop-filter: blur(24px) saturate(145%);
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  box-shadow: 0 8px 32px rgba(71, 113, 153, 0.08);
+}
+
+.glass-input {
+  background: rgba(255, 255, 255, 0.70);
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  box-shadow: inset 0 1px 2px rgba(71, 113, 153, 0.04);
+}
+
+.glass-input:focus {
+  background: rgba(255, 255, 255, 0.95);
+  border-color: rgba(16, 185, 129, 0.5);
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15);
+}
+
+.border-soft {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.terminal-shadow {
+  box-shadow:
+    0 35px 100px rgba(0, 0, 0, 0.42),
+    0 0 70px rgba(16, 185, 129, 0.07);
+}
+
+.text-gradient {
+  background: linear-gradient(
+    100deg,
+    #f8fafc 0%,
+    #f8fafc 48%,
+    #6ee7b7 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.emerald-gradient {
+  background:
+    linear-gradient(
+      135deg,
+      rgba(5, 150, 105, 0.20),
+      rgba(16, 185, 129, 0.04)
+    );
+}
+
+.noise {
+  position: relative;
+}
+
+.noise::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.8'/%3E%3C/svg%3E");
+}
+
+.code-line {
+  min-height: 25px;
+  display: flex;
+  align-items: center;
+  padding: 0 14px;
+}
+
+.line-number {
+  width: 34px;
+  color: #475569;
+  user-select: none;
+}
+
+.line-number.text-red-400 {
+  color: #f87171;
+}
+
+.bug-line {
+  background: rgba(239, 68, 68, 0.10);
+  border-left: 2px solid #ef4444;
+}
+
+.valid-line {
+  background: rgba(16, 185, 129, 0.06);
+  border-left: 2px solid #10b981;
+}
+
+.tab-active {
+  background: rgba(16, 185, 129, 0.10);
+  border-color: rgba(16, 185, 129, 0.35);
+  color: #d1fae5;
+}
+
+.feature-card {
+  transition:
+    transform 0.3s ease,
+    border-color 0.3s ease,
+    background 0.3s ease;
+}
+
+.feature-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(16, 185, 129, 0.24);
+  background: rgba(15, 21, 32, 0.85);
+}
+
+.logo-mark {
+  background: linear-gradient(135deg, #10b981, #047857);
+  box-shadow: 0 0 30px rgba(16, 185, 129, 0.25);
+}
+
+.scan-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(16, 185, 129, 0.6),
+    transparent
+  );
+  animation: scan 3s linear infinite;
+}

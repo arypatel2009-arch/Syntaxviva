@@ -1,0 +1,237 @@
+[
+  {
+    "id": "notif_1792319180458_np9h0",
+    "assignmentId": "asg_1792319158183_u3fp6",
+    "title": "Phase 2 Unlocked: Assignment 1",
+    "assignmentTitle": "Assignment 1",
+    "language": "python",
+    "dueDate": "2026-12-31",
+    "message": "Faculty has unlocked Phase 2 Challenge for all students on \"Assignment 1\".",
+    "targetStudentIds": [
+      "std_norm_3_mv3md7vq",
+      "std_norm_2_mv3md7vq",
+      "std_norm_1_mv3md7vq",
+      "std_b_mv3m9nw4",
+      "std_a2_mv3m9nw4",
+      "std_a_mv3m9nw4",
+      "std_b_mv3kvby6",
+      "std_a2_mv3kvby6",
+      "std_a_mv3kvby6",
+      "std_b_mv3177iv",
+      "std_a2_mv3177iv",
+      "std_a_mv3177iv",
+      "std_b_mv2twz82",
+      "std_a2_mv2twz82",
+      "std_a_mv2twz82",
+      "std_b_mv2tup2u",
+      "std_a2_mv2tup2u",
+      "std_a_mv2tup2u",
+      "std_b_mv2trl2o",
+      "std_a2_mv2trl2o",
+      "std_a_mv2trl2o",
+      "usr_ary_patel_student",
+      "a3d0b909-8746-4be3-b1f0-087d22f6f282",
+      "d81d56b0-8e72-4574-9d75-064826afefb2",
+      "156c6397-72aa-4457-b768-adcedc3518d3",
+      "usr_prod_session_test",
+      "student_persist_test_02",
+      "student_persist_test_01",
+      "usr_valid_student",
+      "b2cf8827-3fee-4764-88d4-0445700ca0e9",
+      "fa0c69e5-4d9b-476d-bf07-f16f3ee5c95c",
+      "usr_1789316219499_rtueui",
+      "user_test_student_p2",
+      "usr_1789304913084_qqm2dhz",
+      "usr_student_default"
+    ],
+    "notifiedStudentCount": 35,
+    "dismissedBy": [],
+    "readBy": [],
+    "createdAt": "2026-10-18T10:26:20.458Z"
+  },
+  {
+    "id": "notif_1792319158210_oi7k3",
+    "assignmentId": "asg_1792319158183_u3fp6",
+    "title": "New Assignment: Assignment 1",
+    "assignmentTitle": "Assignment 1",
+    "language": "python",
+    "dueDate": "2026-12-31",
+    "message": "New PYTHON lab assignment published in your classroom.",
+    "targetStudentIds": [
+      "b2cf8827-3fee-4764-88d4-0445700ca0e9",
+      "usr_ary_patel_student"
+    ],
+    "notifiedStudentCount": 2,
+    "dismissedBy": [],
+    "readBy": [],
+    "createdAt": "2026-10-18T10:25:58.211Z"
+  },
+  {
+    "id": "notif_1791714353513_0wc1z",
+    "assignmentId": "asg_1791714353497_244dc",
+    "title": "New Assignment: Binary Search Viva Lab mv3ogqyh",
+    "assignmentTitle": "Binary Search Viva Lab mv3ogqyh",
+    "language": "python",
+    "dueDate": "2026-12-31",
+    "message": "New PYTHON lab assignment published in your classroom.",
+    "targetStudentIds": [
+      "std_a_mv3ogqyh"
+    ],
+    "notifiedStudentCount": 1,
+    "dismissedBy": [],
+    "readBy": [],
+    "createdAt": "2026-10-11T10:25:53.513Z"
+  },
+  {
+    "id": "notif_1791714235497_sdt70",
+    "assignmentId": "asg_1791714235473_03had",
+    "title": "New Assignment: Binary Search Viva Lab mv3oe7un",
+    "assignmentTitle": "Binary Search Viva Lab mv3oe7un",
+    "language": "python",
+    "dueDate": "2026-12-31",
+    "message": "New PYTHON lab assignment published in your classroom.",
+    "targetStudentIds": [
+      "std_a_mv3oe7un"
+    ],
+    "notifiedStudentCount": 1,
+    "dismissedBy": [],
+    "readBy": [],
+    "createdAt": "2026-10-11T10:23:55.497Z"
+  },
+  {
+    "id": "notif_1791710663740_40fq4",
+    "assignmentId": "asg_1791710663723_igql8",
+    "title": "New Assignment: Binary Search Viva Lab mv3m9nw4",
+    "assignmentTitle": "Binary Search Viva Lab mv3m9nw4",
+    "language": "python",
+    "dueDate": "2026-12-31",
+    "message": "New PYTHON lab assignment published in your classroom.",
+    "targetStudentIds": [
+      "std_a_mv3m9nw4"
+    ],
+    "notifiedStudentCount": 1,
+    "dismissedBy": [],
+    "readBy": [],
+    "createdAt": "2026-10-11T09:24:23.740Z"
+  },
+  {
+    "id": "notif_1791708316745_xli2f",
+    "assignmentId": "asg_1791708316718_mfhjj",
+    "title": "New Assignment: Binary Search Viva Lab mv3kvby6",
+    "assignmentTitle": "Binary Search Viva Lab mv3kvby6",
+    "language": "python",
+    "dueDate": "2026-12-31",
+    "message": "New PYTHON lab assignment published in your classroom.",
+    "targetStudentIds": [
+      "std_a_mv3kvby6"
+    ],
+    "notifiedStudentCount": 1,
+    "dismissedBy": [],
+    "readBy": [],
+    "createdAt": "2026-10-11T08:45:16.745Z"
+  },
+  {
+    "id": "notif_1791675277319_xojzn",
+    "assignmentId": "asg_1791675277296_4ezhc",
+    "title": "New Assignment: Binary Search Viva Lab mv3177iv",
+    "assignmentTitle": "Binary Search Viva Lab mv3177iv",
+    "language": "python",
+    "dueDate": "2026-12-31",
+    "message": "New PYTHON lab assignment published in your classroom.",
+    "targetStudentIds": [
+      "std_a_mv3177iv"
+    ],
+    "notifiedStudentCount": 1,
+    "dismissedBy": [],
+    "readBy": [],
+    "createdAt": "2026-10-10T23:34:37.319Z"
+  },
+  {
+    "id": "notif_1791665248215_mc7mx",
+    "assignmentId": "asg_1791665241456_cyv0m",
+    "title": "Phase 2 Unlocked: hiii",
+    "assignmentTitle": "hiii",
+    "language": "python",
+    "dueDate": "2026-12-31",
+    "message": "Faculty has unlocked Phase 2 Challenge for all students on \"hiii\".",
+    "targetStudentIds": [
+      "std_b_mv2twz82",
+      "std_a2_mv2twz82",
+      "std_a_mv2twz82",
+      "std_b_mv2tup2u",
+      "std_a2_mv2tup2u",
+      "std_a_mv2tup2u",
+      "std_b_mv2trl2o",
+      "std_a2_mv2trl2o",
+      "std_a_mv2trl2o",
+      "usr_ary_patel_student",
+      "a3d0b909-8746-4be3-b1f0-087d22f6f282",
+      "d81d56b0-8e72-4574-9d75-064826afefb2",
+      "156c6397-72aa-4457-b768-adcedc3518d3",
+      "usr_prod_session_test",
+      "student_persist_test_02",
+      "student_persist_test_01",
+      "usr_valid_student",
+      "a8d6226f-ebc1-4723-9b0f-df1a55039f1f",
+      "b2cf8827-3fee-4764-88d4-0445700ca0e9",
+      "fa0c69e5-4d9b-476d-bf07-f16f3ee5c95c",
+      "usr_1789316219499_rtueui",
+      "user_test_student_p2",
+      "usr_1789304913084_qqm2dhz",
+      "usr_student_default"
+    ],
+    "notifiedStudentCount": 24,
+    "dismissedBy": [],
+    "readBy": [],
+    "createdAt": "2026-10-10T20:47:28.216Z"
+  },
+  {
+    "id": "notif_1791665241480_8gfp7",
+    "assignmentId": "asg_1791665241456_cyv0m",
+    "title": "New Assignment: hiii",
+    "assignmentTitle": "hiii",
+    "language": "python",
+    "dueDate": "2026-12-31",
+    "message": "New PYTHON lab assignment published in your classroom.",
+    "targetStudentIds": [
+      "b2cf8827-3fee-4764-88d4-0445700ca0e9",
+      "usr_ary_patel_student"
+    ],
+    "notifiedStudentCount": 2,
+    "dismissedBy": [],
+    "readBy": [],
+    "createdAt": "2026-10-10T20:47:21.480Z"
+  },
+  {
+    "id": "notif_1791663042728_cuw9g",
+    "assignmentId": "asg_1791663042699_4vz4d",
+    "title": "New Assignment: Binary Search Viva Lab mv2twz82",
+    "assignmentTitle": "Binary Search Viva Lab mv2twz82",
+    "language": "python",
+    "dueDate": "2026-12-31",
+    "message": "New PYTHON lab assignment published in your classroom.",
+    "targetStudentIds": [
+      "std_a_mv2twz82"
+    ],
+    "notifiedStudentCount": 1,
+    "dismissedBy": [],
+    "readBy": [],
+    "createdAt": "2026-10-10T20:10:42.728Z"
+  },
+  {
+    "id": "notif_1791662936155_jmsqx",
+    "assignmentId": "asg_1791662936139_g7qge",
+    "title": "New Assignment: Binary Search Viva Lab mv2tup2u",
+    "assignmentTitle": "Binary Search Viva Lab mv2tup2u",
+    "language": "python",
+    "dueDate": "2026-12-31",
+    "message": "New PYTHON lab assignment published in your classroom.",
+    "targetStudentIds": [
+      "std_a_mv2tup2u"
+    ],
+    "notifiedStudentCount": 1,
+    "dismissedBy": [],
+    "readBy": [],
+    "createdAt": "2026-10-10T20:08:56.155Z"
+  }
+]
