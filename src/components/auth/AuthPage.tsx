@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Lock,
   Mail,
@@ -13,8 +13,12 @@ import {
   GraduationCap,
   Briefcase,
   RefreshCw,
+  ShieldCheck,
+  UserCheck,
+  FileText,
 } from 'lucide-react';
 import { Logo } from '../common/Logo.tsx';
+import { StudentRoleLogo, FacultyRoleLogo, HodRoleLogo } from '../common/RoleLogos.tsx';
 import { Button } from '../common/UIComponents.tsx';
 import { useAuth } from '../../context/AuthContext.tsx';
 import { UserRole } from '../../types/index.ts';
@@ -34,8 +38,6 @@ export const AuthPage: React.FC<AuthPageProps> = ({
     login,
     signUp,
     resetPassword,
-    forgotPassword,
-    confirmPasswordReset,
     updatePassword,
     resendVerificationEmail,
     verifyOtp,
@@ -44,13 +46,11 @@ export const AuthPage: React.FC<AuthPageProps> = ({
   } = useAuth();
 
   const [mode, setMode] = useState<'login' | 'signup' | 'forgot-password' | 'verify-otp' | 'reset-password' | 'email-verified'>(initialMode);
-  const [signupRole, setSignupRole] = useState<'student' | 'faculty'>('student');
+  const [signupRole, setSignupRole] = useState<'student' | 'faculty' | 'hod'>('student');
 
   // Form fields
   const [email, setEmail] = useState('');
   const [otpCode, setOtpCode] = useState('');
-  const [otpDigits, setOtpDigits] = useState<string[]>(['', '', '', '', '', '']);
-  const otpInputsRef = useRef<(HTMLInputElement | null)[]>([]);
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [name, setName] = useState('');
@@ -59,11 +59,18 @@ export const AuthPage: React.FC<AuthPageProps> = ({
   const [divisionId, setDivisionId] = useState('');
   const [rollNumber, setRollNumber] = useState('');
   const [facultySecretCode, setFacultySecretCode] = useState('');
+  const [hodSecretCode, setHodSecretCode] = useState('');
+  const [department, setDepartment] = useState('');
+  const [employeeId, setEmployeeId] = useState('');
+  const [hodVerificationCode, setHodVerificationCode] = useState('');
+  const [mobileNumber, setMobileNumber] = useState('');
+  const [documentUrl, setDocumentUrl] = useState('');
 
   // Password visibility
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [showFacultySecret, setShowFacultySecret] = useState(false);
+  const [showHodSecret, setShowHodSecret] = useState(false);
 
   // States
   const [loading, setLoading] = useState(false);
@@ -80,7 +87,6 @@ export const AuthPage: React.FC<AuthPageProps> = ({
   // Password reset completed state
   const [passwordResetComplete, setPasswordResetComplete] = useState(false);
 
-  const prevInitialModeRef = useRef(initialMode);
   // Synchronize when initialMode changes or URL hash dictates recovery
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -99,9 +105,8 @@ export const AuthPage: React.FC<AuthPageProps> = ({
         setMode('reset-password');
       } else if (hash.includes('type=signup') || hash.includes('type=email_verification')) {
         setMode('email-verified');
-      } else if (prevInitialModeRef.current !== initialMode) {
-        prevInitialModeRef.current = initialMode;
-        setMode((curr) => (curr === 'verify-otp' ? 'verify-otp' : initialMode));
+      } else {
+        setMode(initialMode);
       }
     }
   }, [initialMode]);
@@ -115,67 +120,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
     return () => clearInterval(timer);
   }, [resendCooldown]);
 
-  const handleOtpDigitChange = (index: number, val: string) => {
-    const clean = val.replace(/\D/g, '');
-    if (!clean) {
-      const next = [...otpDigits];
-      next[index] = '';
-      setOtpDigits(next);
-      setOtpCode(next.join(''));
-      return;
-    }
-
-    if (clean.length > 1) {
-      const pasted = clean.slice(0, 6).split('');
-      const next = [...otpDigits];
-      for (let i = 0; i < 6; i++) {
-        next[i] = pasted[i] || '';
-      }
-      setOtpDigits(next);
-      setOtpCode(next.join(''));
-      const focusIndex = Math.min(pasted.length, 5);
-      otpInputsRef.current[focusIndex]?.focus();
-      return;
-    }
-
-    const next = [...otpDigits];
-    next[index] = clean[clean.length - 1];
-    setOtpDigits(next);
-    setOtpCode(next.join(''));
-
-    if (index < 5) {
-      otpInputsRef.current[index + 1]?.focus();
-    }
-  };
-
-  const handleOtpKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Backspace' && !otpDigits[index] && index > 0) {
-      otpInputsRef.current[index - 1]?.focus();
-    }
-  };
-
-  const handleOtpPaste = (e: React.ClipboardEvent) => {
-    e.preventDefault();
-    const paste = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
-    if (!paste) return;
-    const next = ['', '', '', '', '', ''];
-    for (let i = 0; i < paste.length; i++) {
-      next[i] = paste[i];
-    }
-    setOtpDigits(next);
-    setOtpCode(next.join(''));
-    const focusIndex = Math.min(paste.length, 5);
-    otpInputsRef.current[focusIndex]?.focus();
-  };
-
   const switchMode = (newMode: 'login' | 'signup' | 'forgot-password' | 'verify-otp' | 'reset-password' | 'email-verified') => {
-    if (typeof window !== 'undefined') {
-      try {
-        window.history.replaceState({}, '', `/${newMode}`);
-      } catch {
-        // ignore
-      }
-    }
     if (emailVerificationSent) {
       setEmail(emailVerificationSent);
     }
@@ -186,34 +131,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
     setUnverifiedLoginEmail(null);
     setResendFeedback(null);
     setPasswordResetComplete(false);
-    setOtpCode('');
-    setOtpDigits(['', '', '', '', '', '']);
     clearError();
-  };
-
-  const triggerOtpTransition = (targetEmail: string) => {
-    if (typeof window !== 'undefined') {
-      try {
-        window.history.replaceState({}, '', '/verify-otp');
-      } catch {
-        // ignore
-      }
-    }
-    setEmailVerificationSent(null);
-    setUnverifiedLoginEmail(null);
-    clearError();
-    setFormError(null);
-    if (targetEmail) {
-      setEmail(targetEmail);
-    }
-    setOtpCode('');
-    setOtpDigits(['', '', '', '', '', '']);
-    setResendCooldown(60);
-    setFormSuccess('We have sent a 6-digit verification code to your email. Please enter it below to activate your account.');
-    setMode('verify-otp');
-    setTimeout(() => {
-      otpInputsRef.current[0]?.focus();
-    }, 150);
   };
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -232,39 +150,20 @@ export const AuthPage: React.FC<AuthPageProps> = ({
 
     setLoading(true);
     try {
-      const res: any = await login(cleanEmail, password);
-
-      // ૧. સીધું ચેક કરો જો res.requiresOtp હોય
-      if (res?.requiresOtp) {
-        triggerOtpTransition(res.email || cleanEmail);
-        return;
-      }
-
+      await login(cleanEmail, password);
       if (onSuccess) onSuccess();
     } catch (err: any) {
-      // ૨. કોઈપણ 403 અથવા અનવેરિફાઇડ ભૂલ આવે તો એરર બતાવવાને બદલે સીધું OTP મોડ પર સ્વિચ કરો
-      const errStr = (err?.message || err?.friendlyMessage || JSON.stringify(err) || '').toLowerCase();
-      const isUnverified =
-        err?.requiresOtp ||
-        err?.response?.requiresOtp ||
-        err?.response?.data?.requiresOtp ||
-        err?.data?.requiresOtp ||
-        err?.code === 'email_not_verified' ||
-        err?.status === 403 ||
-        err?.statusCode === 403 ||
-        errStr.includes('verify') ||
-        errStr.includes('not confirmed') ||
-        errStr.includes('unconfirmed') ||
-        errStr.includes('403');
-
-      if (isUnverified) {
-        const targetEmail = err.email || err?.response?.email || err?.data?.email || cleanEmail;
-        triggerOtpTransition(targetEmail);
-        return;
-      }
-
-      const msg = err.friendlyMessage || err.message || 'Invalid email or password.';
+      const msg = err.message || 'Invalid email or password.';
       setFormError(msg);
+      if (
+        msg.toLowerCase().includes('not verified') ||
+        msg.toLowerCase().includes('not confirmed') ||
+        msg.toLowerCase().includes('verify your email') ||
+        msg.toLowerCase().includes('email_not_confirmed') ||
+        msg.toLowerCase().includes('unconfirmed')
+      ) {
+        setUnverifiedLoginEmail(cleanEmail);
+      }
     } finally {
       setLoading(false);
     }
@@ -298,41 +197,68 @@ export const AuthPage: React.FC<AuthPageProps> = ({
     setFormSuccess(null);
     clearError();
 
-    const cleanName = name.trim();
     const cleanEmail = email.trim().toLowerCase();
-    const cleanInstitution = institution.trim();
-    const cleanClass = classId.trim();
-    const cleanDivision = divisionId.trim();
+    const cleanName = name.trim() || (cleanEmail ? cleanEmail.split('@')[0] : 'User');
+    const cleanInstitution = institution.trim().toUpperCase();
+    const cleanClass = classId.trim().toUpperCase();
+    const cleanDivision = divisionId.trim().toUpperCase();
     const cleanRoll = rollNumber.trim();
     const cleanFacultySecret = facultySecretCode.trim();
+    const cleanHodSecret = hodSecretCode.trim();
+    const cleanDepartment = department.trim().toUpperCase();
+    const cleanEmployeeId = employeeId.trim();
+    const cleanHodVerificationCode = hodVerificationCode.trim() || cleanHodSecret;
+    const cleanMobileNumber = mobileNumber.trim();
+    const cleanDocumentUrl = documentUrl.trim();
 
-    if (!cleanName) {
-      setFormError('Please enter your full name.');
-      return;
-    }
     if (!cleanEmail || !cleanEmail.includes('@') || !cleanEmail.includes('.')) {
-      setFormError('Please enter a valid email address.');
+      setFormError('Please enter a valid official academic email address.');
       return;
     }
     if (!cleanInstitution) {
-      setFormError('Please enter your institution name.');
+      setFormError('Please enter your institution / college name.');
       return;
     }
-    if (!cleanClass) {
-      setFormError(signupRole === 'student' ? 'Please enter your class / batch.' : 'Please enter your department / class.');
-      return;
-    }
-    if (!cleanDivision) {
-      setFormError('Please enter your division / section.');
-      return;
-    }
-    if (signupRole === 'student' && !cleanRoll) {
-      setFormError('Roll number is required for student registration.');
-      return;
-    }
-    if (signupRole === 'faculty' && !cleanFacultySecret) {
-      setFormError('Galat Faculty Access Code! Aap faculty account nahi bana sakte.');
-      return;
+
+    if (signupRole === 'student') {
+      if (!cleanClass) {
+        setFormError('Please enter your class / batch.');
+        return;
+      }
+      if (!cleanDivision) {
+        setFormError('Please enter your division / section.');
+        return;
+      }
+      if (!cleanRoll) {
+        setFormError('Roll number is required for student registration.');
+        return;
+      }
+    } else if (signupRole === 'faculty') {
+      if (!cleanFacultySecret) {
+        setFormError('Invalid Faculty Access Code! You cannot create a faculty account without a valid access code.');
+        return;
+      }
+      if (!cleanClass) {
+        setFormError('Please enter your department / class.');
+        return;
+      }
+      if (!cleanDivision) {
+        setFormError('Please enter your division / section.');
+        return;
+      }
+    } else if (signupRole === 'hod') {
+      if (!cleanHodSecret) {
+        setFormError('HOD Secret Key is required.');
+        return;
+      }
+      if (!cleanDepartment) {
+        setFormError('Department is required for HOD registration.');
+        return;
+      }
+      if (!cleanEmployeeId) {
+        setFormError('HOD Employee ID is required.');
+        return;
+      }
     }
 
     const passwordValidationError = getPasswordValidationError(password);
@@ -347,30 +273,35 @@ export const AuthPage: React.FC<AuthPageProps> = ({
 
     setLoading(true);
     try {
-      const result: any = await signUp({
+      await signUp({
         fullName: cleanName,
         email: cleanEmail,
         password,
         confirmPassword,
         role: signupRole,
         facultySecretCode: signupRole === 'faculty' ? cleanFacultySecret : undefined,
+        hodSecretCode: signupRole === 'hod' ? cleanHodSecret : undefined,
         institution: cleanInstitution,
         rollNumber: signupRole === 'student' ? cleanRoll : undefined,
-        classId: cleanClass,
-        divisionId: cleanDivision,
+        classId: signupRole === 'hod' ? cleanDepartment : cleanClass,
+        divisionId: signupRole === 'hod' ? (cleanDivision || undefined) : cleanDivision,
+        department: signupRole === 'hod' ? cleanDepartment : (signupRole === 'faculty' ? cleanClass : undefined),
+        employeeId: signupRole === 'hod' ? cleanEmployeeId : undefined,
+        hodVerificationCode: signupRole === 'hod' && cleanHodVerificationCode ? cleanHodVerificationCode : undefined,
+        mobileNumber: signupRole === 'hod' && cleanMobileNumber ? cleanMobileNumber : undefined,
+        documentUrl: signupRole === 'hod' && cleanDocumentUrl ? cleanDocumentUrl : undefined,
       });
 
-      if (result?.confirmationRequired || result?.requiresOtp || result?.user?.is_verified === false) {
-        triggerOtpTransition(cleanEmail);
+      if (signupRole === 'hod') {
+        setFormSuccess(
+          'HOD account registered successfully! You can now sign in to your Department Intelligence Dashboard.'
+        );
+        switchMode('login');
       } else {
-        if (onSuccess) onSuccess();
+        setEmailVerificationSent(cleanEmail);
+        setResendCooldown(60);
       }
     } catch (err: any) {
-      const errStr = (err.message || '').toLowerCase();
-      if (errStr.includes('verify') || errStr.includes('otp')) {
-        triggerOtpTransition(cleanEmail);
-        return;
-      }
       setFormError(err.message || 'Registration failed. Please try again.');
     } finally {
       setLoading(false);
@@ -378,7 +309,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
   };
 
   const handleResendVerification = async () => {
-    const targetEmail = email.trim() || emailVerificationSent || unverifiedLoginEmail;
+    const targetEmail = emailVerificationSent || unverifiedLoginEmail || email.trim();
     if (!targetEmail || isResending || resendCooldown > 0) return;
 
     setIsResending(true);
@@ -386,14 +317,14 @@ export const AuthPage: React.FC<AuthPageProps> = ({
     clearError();
 
     try {
-      const res: any = await resendVerificationEmail(targetEmail);
+      const res = await resendVerificationEmail(targetEmail);
       setResendFeedback({
         type: 'success',
-        message: res?.message || 'A fresh 6-digit verification code has been sent to your email.',
+        message: res.message || 'Verification email sent! Please check your inbox.',
       });
       setResendCooldown(60);
     } catch (err: any) {
-      const msg = err.message || 'Failed to resend verification code.';
+      const msg = err.message || 'Failed to resend verification email.';
       if (msg.toLowerCase().includes('rate limit') || msg.toLowerCase().includes('too many')) {
         setResendFeedback({
           type: 'error',
@@ -431,43 +362,12 @@ export const AuthPage: React.FC<AuthPageProps> = ({
 
     setLoading(true);
     try {
-      const res: any = await forgotPassword(cleanEmail);
-      setEmail(cleanEmail);
-      setOtpCode('');
-      setPassword('');
-      setConfirmPassword('');
-      setResendCooldown(60);
-      setFormSuccess(res?.message || 'Reset code sent! Please check your email.');
-      setMode('reset-password');
+      await resetPassword(cleanEmail);
+      setFormSuccess('Password reset link sent! Please check your email inbox and click the link to set a new password.');
     } catch (err: any) {
       setFormError(err.message || 'Could not send reset instructions. Please try again.');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleResendResetOtp = async () => {
-    const cleanEmail = email.trim().toLowerCase();
-    if (!cleanEmail || isResending || resendCooldown > 0) return;
-
-    setIsResending(true);
-    setResendFeedback(null);
-    clearError();
-
-    try {
-      const res: any = await forgotPassword(cleanEmail);
-      setResendFeedback({
-        type: 'success',
-        message: res?.message || 'A fresh reset code has been sent to your email.',
-      });
-      setResendCooldown(60);
-    } catch (err: any) {
-      setResendFeedback({
-        type: 'error',
-        message: err.message || 'Failed to resend reset code.',
-      });
-    } finally {
-      setIsResending(false);
     }
   };
 
@@ -479,28 +379,24 @@ export const AuthPage: React.FC<AuthPageProps> = ({
     clearError();
 
     const cleanEmail = email.trim().toLowerCase();
-    const cleanOtp = (otpDigits.join('') || otpCode).trim();
+    const cleanOtp = otpCode.trim();
 
     if (!cleanEmail) {
       setFormError('Please enter your registered email address.');
       return;
     }
     if (!cleanOtp || cleanOtp.length < 6) {
-      setFormError('Please enter the 6-digit verification code sent to your email.');
+      setFormError('Please enter the 6-digit OTP security code sent to your email.');
       return;
     }
 
     setLoading(true);
     try {
-      const res: any = await verifyOtp(cleanEmail, cleanOtp);
-      setFormSuccess(res?.message || 'Account verified successfully!');
-      if (onSuccess) {
-        onSuccess();
-      } else {
-        setMode('email-verified');
-      }
+      await verifyOtp(cleanEmail, cleanOtp);
+      setFormSuccess('OTP code verified successfully! Please set your new password.');
+      setMode('reset-password');
     } catch (err: any) {
-      setFormError(err.message || 'Invalid or expired verification code.');
+      setFormError(err.message || 'Invalid or expired OTP security code.');
     } finally {
       setLoading(false);
     }
@@ -512,18 +408,6 @@ export const AuthPage: React.FC<AuthPageProps> = ({
     setFormError(null);
     setFormSuccess(null);
     clearError();
-
-    const cleanEmail = email.trim().toLowerCase();
-    const cleanOtp = otpCode.trim();
-
-    if (!cleanEmail || !cleanEmail.includes('@')) {
-      setFormError('Please enter your registered email address.');
-      return;
-    }
-    if (!cleanOtp || cleanOtp.length < 6) {
-      setFormError('Please enter the 6-digit reset code sent to your email.');
-      return;
-    }
 
     const passwordValidationError = getPasswordValidationError(password);
     if (passwordValidationError) {
@@ -537,14 +421,11 @@ export const AuthPage: React.FC<AuthPageProps> = ({
 
     setLoading(true);
     try {
-      const res: any = await confirmPasswordReset(cleanEmail, cleanOtp, password);
-      switchMode('login');
-      setEmail(cleanEmail);
-      setPassword('');
-      setConfirmPassword('');
-      setFormSuccess(res?.message || 'Password has been reset successfully. Please sign in with your new password.');
+      await updatePassword(password);
+      setPasswordResetComplete(true);
+      setFormSuccess('Password updated successfully.');
     } catch (err: any) {
-      setFormError(err.message || 'Failed to reset password. Please check your reset code.');
+      setFormError(err.message || 'Failed to update password.');
     } finally {
       setLoading(false);
     }
@@ -568,7 +449,9 @@ export const AuthPage: React.FC<AuthPageProps> = ({
           {/* Header Title */}
           <div className="text-center space-y-1">
             <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
-              {mode === 'email-verified'
+              {emailVerificationSent
+                ? 'Verify Your Account'
+                : mode === 'email-verified'
                 ? 'Email Verified Successfully!'
                 : mode === 'verify-otp'
                 ? 'Verify Security Code'
@@ -577,11 +460,13 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                 : mode === 'login'
                 ? 'Welcome Back'
                 : mode === 'forgot-password'
-                ? 'Forgot Password'
-                : 'Reset Password'}
+                ? 'Reset Password'
+                : 'Set New Password'}
             </h1>
             <p className="text-xs text-slate-500">
-              {mode === 'email-verified'
+              {emailVerificationSent
+                ? 'Check your email to verify your SyntaXViva account.'
+                : mode === 'email-verified'
                 ? 'Your email address has been confirmed.'
                 : mode === 'verify-otp'
                 ? 'Enter the 6-digit OTP code sent to your email.'
@@ -590,13 +475,13 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                 : mode === 'login'
                 ? 'Sign in to access your dashboard and assignments.'
                 : mode === 'forgot-password'
-                ? 'Enter your registered email to receive a 6-digit verification code.'
-                : 'Enter the 6-digit verification code and your new secure password.'}
+                ? 'Enter your registered email to receive password reset instructions.'
+                : 'Enter and confirm your new secure password.'}
             </p>
           </div>
 
           {/* Mode Switcher Tabs */}
-          {(mode === 'login' || mode === 'signup') && (
+          {!emailVerificationSent && (mode === 'login' || mode === 'signup') && (
             <div className="flex bg-slate-100 p-1 rounded-2xl">
               <button
                 type="button"
@@ -624,388 +509,54 @@ export const AuthPage: React.FC<AuthPageProps> = ({
           )}
 
           {/* Feedback messages */}
-          {(formError || error) && mode !== 'verify-otp' && (
+          {(formError || error) && !emailVerificationSent && (
             <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-xl flex items-start gap-2.5 text-xs text-rose-800">
               <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
-              <div className="flex-1 font-medium">{formError || error}</div>
+              <div className="flex-1 space-y-1.5">
+                <div className="font-medium">{formError || error}</div>
+                {unverifiedLoginEmail && (
+                  <div className="pt-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEmailVerificationSent(unverifiedLoginEmail);
+                        setResendCooldown(0);
+                        setResendFeedback(null);
+                      }}
+                      className="inline-flex items-center gap-1 text-xs text-emerald-700 hover:text-emerald-800 font-bold underline underline-offset-2 cursor-pointer"
+                    >
+                      Resend verification email &rarr;
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
-          {formSuccess && !passwordResetComplete && mode !== 'verify-otp' && (
+          {formSuccess && !emailVerificationSent && !passwordResetComplete && (
             <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl flex items-start gap-2.5 text-xs text-emerald-800">
               <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
               <div className="flex-1 font-medium">{formSuccess}</div>
             </div>
           )}
 
-          {/* LOGIN FORM */}
-          {mode === 'login' && (
-            <form onSubmit={handleLogin} className="space-y-4">
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-slate-700 block">
-                  Email Address
-                </label>
-                <div className="relative">
-                  <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-3.5 pointer-events-none" />
-                  <input
-                    type="email"
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition"
-                  />
-                </div>
+          {/* EMAIL VERIFICATION SCREEN */}
+          {emailVerificationSent ? (
+            <div className="space-y-5 text-center py-2">
+              <div className="w-14 h-14 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center mx-auto border border-emerald-100 shadow-sm">
+                <Mail className="w-7 h-7" />
               </div>
 
-              <div className="space-y-1">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-semibold text-slate-700 block">
-                    Password
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => switchMode('forgot-password')}
-                    className="text-xs text-emerald-600 hover:text-emerald-700 font-medium cursor-pointer"
-                  >
-                    Forgot password?
-                  </button>
-                </div>
-                <div className="relative">
-                  <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-3.5 pointer-events-none" />
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    required
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••"
-                    className="w-full pl-9 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-3 text-slate-400 hover:text-slate-600 cursor-pointer"
-                  >
-                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
-              </div>
-
-              <Button
-                type="submit"
-                variant="primary"
-                size="lg"
-                loading={loading}
-                className="w-full shadow-md shadow-emerald-600/20 font-bold"
-              >
-                Sign In
-              </Button>
-
-              <div className="text-center pt-1">
-                <p className="text-xs text-slate-500">
-                  Don't have an account?{' '}
-                  <button
-                    type="button"
-                    onClick={() => switchMode('signup')}
-                    className="font-semibold text-emerald-600 hover:text-emerald-700 cursor-pointer"
-                  >
-                    Create an Account
-                  </button>
+              <div className="space-y-2">
+                <h3 className="text-base font-semibold text-slate-900">
+                  Verification email sent! Please check your inbox and verify your email before logging in.
+                </h3>
+                <p className="text-xs text-slate-600 leading-relaxed max-w-sm mx-auto">
+                  We have sent a verification link to{' '}
+                  <span className="font-semibold text-slate-900">{emailVerificationSent}</span>.
+                  Please check your inbox (and spam folder) and click the link to confirm and activate your account.
                 </p>
               </div>
-            </form>
-          )}
-
-          {/* SIGNUP FORM */}
-          {mode === 'signup' && (
-            <form onSubmit={handleSignUp} className="space-y-3.5">
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-slate-700 block">
-                  Select Role
-                </label>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSignupRole('student');
-                      setFacultySecretCode('');
-                    }}
-                    className={`py-2 px-3 rounded-xl border text-xs font-semibold flex items-center justify-center gap-1.5 transition cursor-pointer ${
-                      signupRole === 'student'
-                        ? 'bg-emerald-50 text-emerald-800 border-emerald-300 ring-1 ring-emerald-300'
-                        : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
-                    }`}
-                  >
-                    <GraduationCap className="w-3.5 h-3.5" />
-                    Student
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setSignupRole('faculty')}
-                    className={`py-2 px-3 rounded-xl border text-xs font-semibold flex items-center justify-center gap-1.5 transition cursor-pointer ${
-                      signupRole === 'faculty'
-                        ? 'bg-emerald-50 text-emerald-800 border-emerald-300 ring-1 ring-emerald-300'
-                        : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
-                    }`}
-                  >
-                    <Briefcase className="w-3.5 h-3.5" />
-                    Faculty / Professor
-                  </button>
-                </div>
-              </div>
-
-              {signupRole === 'faculty' && (
-                <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-3.5 transition-all">
-                  <label className="text-xs font-semibold uppercase tracking-wider text-amber-900 block">
-                    Faculty Secret Access Key <span className="text-red-500">*</span>
-                  </label>
-                  <div className="relative mt-1">
-                    <input
-                      type={showFacultySecret ? 'text' : 'password'}
-                      required
-                      className="w-full rounded-lg border border-amber-300 bg-white pl-3 pr-10 py-2 text-xs text-slate-900 placeholder-slate-400 focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
-                      value={facultySecretCode}
-                      onChange={(e) => setFacultySecretCode(e.target.value)}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowFacultySecret(!showFacultySecret)}
-                      className="absolute right-3 top-2 text-amber-700/70 hover:text-amber-900 cursor-pointer"
-                    >
-                      {showFacultySecret ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-slate-700 block">
-                  Full Legal Name
-                </label>
-                <div className="relative">
-                  <User className="w-4 h-4 text-slate-400 absolute left-3 top-3 pointer-events-none" />
-                  <input
-                    type="text"
-                    required
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-slate-700 block">
-                  Academic Email
-                </label>
-                <div className="relative">
-                  <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-3 pointer-events-none" />
-                  <input
-                    type="email"
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-slate-700 block">
-                  Institution / College
-                </label>
-                <div className="relative">
-                  <Building className="w-4 h-4 text-slate-400 absolute left-3 top-3 pointer-events-none" />
-                  <input
-                    type="text"
-                    required
-                    value={institution}
-                    onChange={(e) => setInstitution(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2.5">
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-slate-700 block">
-                    {signupRole === 'student' ? 'Class / Batch' : 'Department'}
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={classId}
-                    onChange={(e) => setClassId(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-slate-700 block">
-                    Division
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={divisionId}
-                    onChange={(e) => setDivisionId(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition"
-                  />
-                </div>
-              </div>
-
-              {signupRole === 'student' && (
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-slate-700 block">
-                    Roll Number
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={rollNumber}
-                    onChange={(e) => setRollNumber(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition"
-                  />
-                </div>
-              )}
-
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-slate-700 block">
-                  Password
-                </label>
-                <div className="relative">
-                  <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-3 pointer-events-none" />
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    required
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••"
-                    className="w-full pl-9 pr-10 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-2 text-slate-400 hover:text-slate-600 cursor-pointer"
-                  >
-                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
-                {password.length > 0 && getPasswordValidationError(password) && (
-                  <p className="text-[11px] text-rose-600 font-medium pt-0.5">
-                    {getPasswordValidationError(password)}
-                  </p>
-                )}
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-slate-700 block">
-                  Confirm Password
-                </label>
-                <div className="relative">
-                  <KeyRound className="w-4 h-4 text-slate-400 absolute left-3 top-3 pointer-events-none" />
-                  <input
-                    type={showConfirmPassword ? 'text' : 'password'}
-                    required
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    placeholder="••••••••"
-                    className="w-full pl-9 pr-10 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    className="absolute right-3 top-2 text-slate-400 hover:text-slate-600 cursor-pointer"
-                  >
-                    {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
-              </div>
-
-              <Button
-                type="submit"
-                variant="primary"
-                size="lg"
-                loading={loading}
-                className="w-full shadow-md shadow-emerald-600/20 font-bold"
-              >
-                {signupRole === 'student' ? 'Create Student Account' : 'Create Faculty Account'}
-              </Button>
-
-              <div className="text-center pt-1">
-                <p className="text-xs text-slate-500">
-                  Already have an account?{' '}
-                  <button
-                    type="button"
-                    onClick={() => switchMode('login')}
-                    className="font-semibold text-emerald-600 hover:text-emerald-700 cursor-pointer"
-                  >
-                    Sign in
-                  </button>
-                </p>
-              </div>
-            </form>
-          )}
-
-          {/* FORGOT PASSWORD FORM */}
-          {mode === 'forgot-password' && (
-            <form onSubmit={handleForgotPassword} className="space-y-4">
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-slate-700 block">
-                  Registered Email Address
-                </label>
-                <div className="relative">
-                  <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-3.5 pointer-events-none" />
-                  <input
-                    type="email"
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="you@example.com"
-                    className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition"
-                  />
-                </div>
-              </div>
-
-              <Button
-                type="submit"
-                variant="primary"
-                size="lg"
-                loading={loading}
-                className="w-full shadow-md shadow-emerald-600/20 font-bold"
-              >
-                Send Reset Code
-              </Button>
-
-              <div className="text-center pt-1">
-                <button
-                  type="button"
-                  onClick={() => switchMode('login')}
-                  className="inline-flex items-center gap-1.5 text-xs text-slate-600 hover:text-slate-900 font-medium cursor-pointer"
-                >
-                  <ArrowLeft className="w-3.5 h-3.5" />
-                  Back to Sign In
-                </button>
-              </div>
-            </form>
-          )}
-
-          {/* VERIFY OTP FORM */}
-          {mode === 'verify-otp' && (
-            <form onSubmit={handleVerifyOtp} className="space-y-4">
-              {/* Professional Success/Info Banner (Green Theme) */}
-              <div className="p-3.5 bg-emerald-50 text-emerald-800 border border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800 rounded-2xl flex items-start gap-2.5 text-xs shadow-xs">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
-                <div className="flex-1 font-medium leading-relaxed">
-                  {formSuccess || 'We have sent a 6-digit verification code to your email. Please enter it below to activate your account.'}
-                </div>
-              </div>
-
-              {/* Form Error (e.g. invalid OTP entered) */}
-              {formError && (
-                <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl flex items-start gap-2.5 text-xs text-rose-800">
-                  <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
-                  <div className="flex-1 font-medium">{formError}</div>
-                </div>
-              )}
 
               {/* Resend Status Feedback */}
               {resendFeedback && (
@@ -1027,284 +578,770 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                 </div>
               )}
 
-              <div className="space-y-1">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-semibold text-slate-700 block">
-                    Email Address
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => switchMode('login')}
-                    className="text-[11px] text-emerald-600 hover:text-emerald-700 font-medium cursor-pointer"
-                  >
-                    Change
-                  </button>
-                </div>
-                <div className="relative">
-                  <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-3.5 pointer-events-none" />
-                  <input
-                    type="email"
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="you@example.com"
-                    className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-xs font-semibold text-slate-700 block text-center">
-                  6-Digit Security Code
-                </label>
-                <div className="flex justify-between items-center gap-2 max-w-xs mx-auto py-1" onPaste={handleOtpPaste}>
-                  {otpDigits.map((digit, index) => (
-                    <input
-                      key={index}
-                      ref={(el) => (otpInputsRef.current[index] = el)}
-                      type="text"
-                      inputMode="numeric"
-                      pattern="[0-9]*"
-                      maxLength={1}
-                      value={digit}
-                      onChange={(e) => handleOtpDigitChange(index, e.target.value)}
-                      onKeyDown={(e) => handleOtpKeyDown(index, e)}
-                      className={`w-11 h-12 text-center text-xl font-bold font-mono rounded-xl border transition-all outline-none ${
-                        digit
-                          ? 'border-emerald-500 bg-white ring-2 ring-emerald-500/20 text-slate-900 shadow-xs'
-                          : 'border-slate-200 bg-slate-50 text-slate-700 focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/20'
-                      }`}
-                    />
-                  ))}
-                </div>
-                <p className="text-[11px] text-slate-500 text-center">
-                  Enter the 6-digit verification code sent to your inbox.
-                </p>
-              </div>
-
-              <Button
-                type="submit"
-                variant="primary"
-                size="lg"
-                loading={loading}
-                className="w-full shadow-md shadow-emerald-600/20 font-bold"
-              >
-                Verify & Continue
-              </Button>
-
-              <div className="flex items-center justify-between pt-1">
+              {/* Resend button with cooldown */}
+              <div className="space-y-3 pt-2">
                 <button
                   type="button"
-                  disabled={isResending || resendCooldown > 0}
                   onClick={handleResendVerification}
-                  className={`inline-flex items-center gap-1.5 text-xs font-semibold cursor-pointer ${
+                  disabled={isResending || resendCooldown > 0}
+                  className={`w-full py-2.5 px-4 rounded-xl text-xs font-semibold border flex items-center justify-center gap-2 transition cursor-pointer ${
                     isResending || resendCooldown > 0
-                      ? 'text-slate-400 cursor-not-allowed'
-                      : 'text-emerald-600 hover:text-emerald-700'
+                      ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed'
+                      : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50 hover:text-slate-900'
                   }`}
                 >
                   <RefreshCw className={`w-3.5 h-3.5 ${isResending ? 'animate-spin' : ''}`} />
                   {isResending
-                    ? 'Resending...'
+                    ? 'Sending verification email...'
                     : resendCooldown > 0
-                    ? `Resend code in ${resendCooldown}s`
-                    : 'Resend code'}
+                    ? `Resend available in ${resendCooldown}s`
+                    : 'Resend verification email'}
                 </button>
-                <button
-                  type="button"
+
+                <Button
+                  variant="primary"
+                  size="md"
                   onClick={() => switchMode('login')}
-                  className="text-xs text-slate-500 hover:text-slate-700 font-medium cursor-pointer"
+                  className="w-full font-semibold"
                 >
                   Back to Sign In
-                </button>
-              </div>
-            </form>
-          )}
-
-          {/* EMAIL VERIFIED CONFIRMATION SCREEN */}
-          {mode === 'email-verified' && (
-            <div className="space-y-5 text-center py-2">
-              <div className="w-16 h-16 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center mx-auto border border-emerald-100 shadow-sm">
-                <CheckCircle2 className="w-8 h-8" />
-              </div>
-
-              <div className="space-y-2">
-                <h3 className="text-lg font-bold text-slate-900">
-                  Welcome to SyntaxViva! Your email has been verified successfully.
-                </h3>
-                <p className="text-xs text-slate-600 leading-relaxed max-w-sm mx-auto">
-                  Your academic account is active. You can now sign in and access your oral viva dashboard.
-                </p>
-              </div>
-
-              <div className="pt-2">
-                <Button
-                  variant="primary"
-                  size="lg"
-                  onClick={() => {
-                    if (onSuccess) onSuccess();
-                    else switchMode('login');
-                  }}
-                  className="w-full shadow-md shadow-emerald-600/20 font-bold"
-                >
-                  Continue to Sign In
                 </Button>
               </div>
             </div>
-          )}
+          ) : (
+            <>
+              {/* LOGIN FORM */}
+              {mode === 'login' && (
+                <form onSubmit={handleLogin} className="space-y-4">
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-slate-700 block">
+                      Email Address
+                    </label>
+                    <div className="relative">
+                      <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-3.5 pointer-events-none" />
+                      <input
+                        type="email"
+                        required
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition"
+                      />
+                    </div>
+                  </div>
 
-          {/* RESET PASSWORD FORM */}
-          {mode === 'reset-password' && (
-            <div className="space-y-4">
-              <form onSubmit={handleResetPassword} className="space-y-4">
-                {resendFeedback && (
-                  <div
-                    className={`p-3 rounded-xl border text-xs text-left flex items-start gap-2.5 ${
-                      resendFeedback.type === 'success'
-                        ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
-                        : resendFeedback.type === 'info'
-                        ? 'bg-blue-50 border-blue-200 text-blue-800'
-                        : 'bg-rose-50 border-rose-200 text-rose-800'
-                    }`}
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-semibold text-slate-700 block">
+                        Password
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => switchMode('forgot-password')}
+                        className="text-xs text-emerald-600 hover:text-emerald-700 font-medium cursor-pointer"
+                      >
+                        Forgot password?
+                      </button>
+                    </div>
+                    <div className="relative">
+                      <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-3.5 pointer-events-none" />
+                      <input
+                        type={showPassword ? 'text' : 'password'}
+                        required
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder="••••••••"
+                        className="w-full pl-9 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-3 text-slate-400 hover:text-slate-600 cursor-pointer"
+                      >
+                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <Button
+                    type="submit"
+                    variant="primary"
+                    size="lg"
+                    loading={loading}
+                    className="w-full shadow-md shadow-emerald-600/20 font-bold"
                   >
-                    {resendFeedback.type === 'success' ? (
-                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                    ) : (
-                      <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                    Sign In
+                  </Button>
+
+                  <div className="text-center pt-1">
+                    <p className="text-xs text-slate-500">
+                      Don't have an account?{' '}
+                      <button
+                        type="button"
+                        onClick={() => switchMode('signup')}
+                        className="font-semibold text-emerald-600 hover:text-emerald-700 cursor-pointer"
+                      >
+                        Create an Account
+                      </button>
+                    </p>
+                  </div>
+                </form>
+              )}
+
+              {/* SIGNUP FORM */}
+              {mode === 'signup' && (
+                <form onSubmit={handleSignUp} className="space-y-3.5">
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold text-slate-800 block">
+                        Select Academic Role
+                      </label>
+                      <span className="text-[10px] text-slate-400 font-medium">
+                        Professional Identity
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-2">
+                      {/* Student Card with Professional Logo */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSignupRole('student');
+                          setFacultySecretCode('');
+                          setHodSecretCode('');
+                          setHodVerificationCode('');
+                        }}
+                        className={`relative p-2.5 sm:p-3 rounded-2xl border text-center transition cursor-pointer flex flex-col items-center gap-1.5 group ${
+                          signupRole === 'student'
+                            ? 'bg-emerald-50/80 text-emerald-950 border-emerald-400 ring-2 ring-emerald-500/25 shadow-xs'
+                            : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50 hover:border-slate-300'
+                        }`}
+                      >
+                        <StudentRoleLogo size="md" glow={signupRole === 'student'} />
+                        <div className="space-y-0.5">
+                          <div className="text-xs font-black tracking-tight">Student</div>
+                          <div className="text-[10px] text-slate-500 font-semibold">Scholar</div>
+                        </div>
+                        {signupRole === 'student' && (
+                          <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-emerald-500 ring-2 ring-white shadow-xs"></span>
+                        )}
+                      </button>
+
+                      {/* Faculty Card with Professional Logo */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSignupRole('faculty');
+                          setHodSecretCode('');
+                          setHodVerificationCode('');
+                        }}
+                        className={`relative p-2.5 sm:p-3 rounded-2xl border text-center transition cursor-pointer flex flex-col items-center gap-1.5 group ${
+                          signupRole === 'faculty'
+                            ? 'bg-emerald-50/80 text-emerald-950 border-emerald-400 ring-2 ring-emerald-500/25 shadow-xs'
+                            : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50 hover:border-slate-300'
+                        }`}
+                      >
+                        <FacultyRoleLogo size="md" glow={signupRole === 'faculty'} />
+                        <div className="space-y-0.5">
+                          <div className="text-xs font-black tracking-tight">Faculty</div>
+                          <div className="text-[10px] text-slate-500 font-semibold">Educator</div>
+                        </div>
+                        {signupRole === 'faculty' && (
+                          <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-emerald-500 ring-2 ring-white shadow-xs"></span>
+                        )}
+                      </button>
+
+                      {/* HOD Card with Professional Logo */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSignupRole('hod');
+                          setFacultySecretCode('');
+                        }}
+                        className={`relative p-2.5 sm:p-3 rounded-2xl border text-center transition cursor-pointer flex flex-col items-center gap-1.5 group ${
+                          signupRole === 'hod'
+                            ? 'bg-emerald-50/80 text-emerald-950 border-emerald-400 ring-2 ring-emerald-500/25 shadow-xs'
+                            : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50 hover:border-slate-300'
+                        }`}
+                      >
+                        <HodRoleLogo size="md" glow={signupRole === 'hod'} />
+                        <div className="space-y-0.5">
+                          <div className="text-xs font-black tracking-tight">HOD</div>
+                          <div className="text-[10px] text-slate-500 font-semibold">Dept Head</div>
+                        </div>
+                        {signupRole === 'hod' && (
+                          <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-emerald-500 ring-2 ring-white shadow-xs"></span>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Active Role Professional Identity Banner */}
+                  {signupRole === 'student' && (
+                    <div className="p-2.5 rounded-xl bg-emerald-50/70 border border-emerald-200 flex items-center gap-2.5 text-xs text-emerald-950 shadow-2xs">
+                      <StudentRoleLogo size="sm" />
+                      <div className="min-w-0 flex-1">
+                        <div className="font-bold flex items-center gap-1.5">
+                          <span>Student Portal Registration</span>
+                          <span className="text-[9px] bg-emerald-200 text-emerald-800 px-1 py-0.2 rounded font-mono font-bold">SCHOLAR</span>
+                        </div>
+                        <span className="text-[11px] text-emerald-700 block truncate">AI-evaluated coding labs, algorithmic defense, and viva transcripts</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {signupRole === 'faculty' && (
+                    <div className="p-2.5 rounded-xl bg-amber-50/70 border border-amber-200 flex items-center gap-2.5 text-xs text-amber-950 shadow-2xs">
+                      <FacultyRoleLogo size="sm" />
+                      <div className="min-w-0 flex-1">
+                        <div className="font-bold flex items-center gap-1.5">
+                          <span>Faculty Workspace Registration</span>
+                          <span className="text-[9px] bg-amber-200 text-amber-900 px-1 py-0.2 rounded font-mono font-bold">EDUCATOR</span>
+                        </div>
+                        <span className="text-[11px] text-amber-800 block truncate">Coursework creation, code mutation injection, and automated grading</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {signupRole === 'hod' && (
+                    <div className="p-2.5 rounded-xl bg-emerald-50/90 border border-emerald-300 flex items-center gap-2.5 text-xs text-emerald-950 shadow-2xs">
+                      <HodRoleLogo size="sm" />
+                      <div className="min-w-0 flex-1">
+                        <div className="font-bold flex items-center gap-1.5">
+                          <span>Department Head (HOD) Registration</span>
+                          <span className="text-[9px] bg-emerald-200 text-emerald-900 px-1 py-0.2 rounded font-mono font-bold">EXECUTIVE</span>
+                        </div>
+                        <span className="text-[11px] text-emerald-700 block truncate">Institutional intelligence, faculty workload, and department governance</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {signupRole === 'faculty' && (
+                    <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-3.5 transition-all">
+                      <label className="text-xs font-semibold uppercase tracking-wider text-amber-900 block">
+                        Faculty Secret Access Key <span className="text-red-500">*</span>
+                      </label>
+                      <div className="relative mt-1">
+                        <input
+                          type={showFacultySecret ? 'text' : 'password'}
+                          required
+                          className="w-full rounded-lg border border-amber-300 bg-white pl-3 pr-10 py-2 text-xs text-slate-900 placeholder-slate-400 focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                          value={facultySecretCode}
+                          onChange={(e) => setFacultySecretCode(e.target.value)}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowFacultySecret(!showFacultySecret)}
+                          className="absolute right-3 top-2 text-amber-700/70 hover:text-amber-900 cursor-pointer"
+                        >
+                          {showFacultySecret ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {signupRole === 'hod' && (
+                    <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 p-3.5 transition-all">
+                      <label className="text-xs font-semibold uppercase tracking-wider text-emerald-900 block">
+                        HOD Secret Key <span className="text-red-500">*</span>
+                      </label>
+                      <div className="relative mt-1">
+                        <input
+                          type={showHodSecret ? 'text' : 'password'}
+                          required
+                          className="w-full rounded-lg border border-emerald-300 bg-white pl-3 pr-10 py-2 text-xs text-slate-900 focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                          value={hodSecretCode}
+                          onChange={(e) => setHodSecretCode(e.target.value)}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowHodSecret(!showHodSecret)}
+                          className="absolute right-3 top-2 text-emerald-700/70 hover:text-emerald-900 cursor-pointer"
+                        >
+                          {showHodSecret ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-slate-700 block">
+                      Full Name <span className="text-red-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <User className="w-4 h-4 text-slate-400 absolute left-3 top-3 pointer-events-none" />
+                      <input
+                        type="text"
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-slate-700 block">
+                      {signupRole === 'hod' ? 'Official Academic Email' : 'Academic Email'} <span className="text-red-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-3 pointer-events-none" />
+                      <input
+                        type="email"
+                        required
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-slate-700 block">
+                      Institution / College Name <span className="text-red-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <Building className="w-4 h-4 text-slate-400 absolute left-3 top-3 pointer-events-none" />
+                      <input
+                        type="text"
+                        required
+                        value={institution}
+                        onChange={(e) => setInstitution(e.target.value.toUpperCase())}
+                        className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 font-bold uppercase focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition"
+                      />
+                    </div>
+                  </div>
+
+                  {signupRole !== 'hod' ? (
+                    <>
+                      <div className="grid grid-cols-2 gap-2.5">
+                        <div className="space-y-1">
+                          <label className="text-xs font-semibold text-slate-700 block">
+                            {signupRole === 'student' ? 'Class / Batch' : 'Department'}
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            value={classId}
+                            onChange={(e) => setClassId(e.target.value.toUpperCase())}
+                            className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 font-bold uppercase focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-xs font-semibold text-slate-700 block">
+                            Division
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            value={divisionId}
+                            onChange={(e) => setDivisionId(e.target.value.toUpperCase())}
+                            className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 font-bold uppercase focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition"
+                          />
+                        </div>
+                      </div>
+
+                      {signupRole === 'student' && (
+                        <div className="space-y-1">
+                          <label className="text-xs font-semibold text-slate-700 block">
+                            Roll Number
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            value={rollNumber}
+                            onChange={(e) => setRollNumber(e.target.value)}
+                            className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition"
+                          />
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      {/* HOD Specific Fields */}
+                      <div className="grid grid-cols-2 gap-2.5">
+                        <div className="space-y-1">
+                          <label className="text-xs font-semibold text-slate-700 block">
+                            Department <span className="text-red-500">*</span>
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            value={department}
+                            onChange={(e) => setDepartment(e.target.value)}
+                            className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-xs font-semibold text-slate-700 block">
+                            HOD Employee ID <span className="text-red-500">*</span>
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            value={employeeId}
+                            onChange={(e) => setEmployeeId(e.target.value)}
+                            className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-xs font-semibold text-slate-700 block">
+                          Mobile Number <span className="text-slate-400 text-[10px] font-normal">(Optional)</span>
+                        </label>
+                        <input
+                          type="tel"
+                          value={mobileNumber}
+                          onChange={(e) => setMobileNumber(e.target.value)}
+                          className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition"
+                        />
+                      </div>
+                    </>
+                  )}
+
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-slate-700 block">
+                      Password
+                    </label>
+                    <div className="relative">
+                      <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-3 pointer-events-none" />
+                      <input
+                        type={showPassword ? 'text' : 'password'}
+                        required
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder="••••••••"
+                        className="w-full pl-9 pr-10 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                      >
+                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                    {password.length > 0 && getPasswordValidationError(password) && (
+                      <p className="text-[11px] text-rose-600 font-medium pt-0.5">
+                        {getPasswordValidationError(password)}
+                      </p>
                     )}
-                    <div className="flex-1 font-medium">{resendFeedback.message}</div>
                   </div>
-                )}
 
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-slate-700 block">
-                    Registered Email Address
-                  </label>
-                  <div className="relative">
-                    <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-3.5 pointer-events-none" />
-                    <input
-                      type="email"
-                      required
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="you@example.com"
-                      className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition"
-                    />
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-slate-700 block">
+                      Confirm Password
+                    </label>
+                    <div className="relative">
+                      <KeyRound className="w-4 h-4 text-slate-400 absolute left-3 top-3 pointer-events-none" />
+                      <input
+                        type={showConfirmPassword ? 'text' : 'password'}
+                        required
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        placeholder="••••••••"
+                        className="w-full pl-9 pr-10 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        className="absolute right-3 top-2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                      >
+                        {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
                   </div>
-                </div>
 
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-slate-700 block">
-                    6-Digit Reset Code
-                  </label>
-                  <div className="relative">
-                    <KeyRound className="w-4 h-4 text-slate-400 absolute left-3 top-3.5 pointer-events-none" />
-                    <input
-                      type="text"
-                      required
-                      maxLength={6}
-                      value={otpCode}
-                      onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
-                      placeholder="123456"
-                      className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 font-mono tracking-widest placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition"
-                    />
+                  <Button
+                    type="submit"
+                    variant="primary"
+                    size="lg"
+                    loading={loading}
+                    className="w-full shadow-md shadow-emerald-600/20 font-bold flex items-center justify-center gap-2"
+                  >
+                    {signupRole === 'student' ? (
+                      <>
+                        <StudentRoleLogo size="sm" className="w-4 h-4" />
+                        <span>Create Student Account</span>
+                      </>
+                    ) : signupRole === 'faculty' ? (
+                      <>
+                        <FacultyRoleLogo size="sm" className="w-4 h-4" />
+                        <span>Create Faculty Account</span>
+                      </>
+                    ) : (
+                      <>
+                        <HodRoleLogo size="sm" className="w-4 h-4" />
+                        <span>Register HOD Account</span>
+                      </>
+                    )}
+                  </Button>
+
+                  <div className="text-center pt-1">
+                    <p className="text-xs text-slate-500">
+                      Already have an account?{' '}
+                      <button
+                        type="button"
+                        onClick={() => switchMode('login')}
+                        className="font-semibold text-emerald-600 hover:text-emerald-700 cursor-pointer"
+                      >
+                        Sign in
+                      </button>
+                    </p>
                   </div>
-                  <p className="text-[11px] text-slate-500 pt-0.5">
-                    Enter the 6-digit verification code sent to your email.
-                  </p>
-                </div>
+                </form>
+              )}
 
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-slate-700 block">
-                    New Password
-                  </label>
-                  <div className="relative">
-                    <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-3.5 pointer-events-none" />
-                    <input
-                      type={showPassword ? 'text' : 'password'}
-                      required
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      placeholder="••••••••"
-                      className="w-full pl-9 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition"
-                    />
+              {/* FORGOT PASSWORD FORM */}
+              {mode === 'forgot-password' && (
+                <form onSubmit={handleForgotPassword} className="space-y-4">
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-slate-700 block">
+                      Registered Email Address
+                    </label>
+                    <div className="relative">
+                      <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-3.5 pointer-events-none" />
+                      <input
+                        type="email"
+                        required
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="Enter email address"
+                        className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition"
+                      />
+                    </div>
+                  </div>
+
+                  <Button
+                    type="submit"
+                    variant="primary"
+                    size="lg"
+                    loading={loading}
+                    className="w-full shadow-md shadow-emerald-600/20 font-bold"
+                  >
+                    Send Password Reset Link
+                  </Button>
+
+                  <div className="text-center pt-1">
                     <button
                       type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-3 text-slate-400 hover:text-slate-600 cursor-pointer"
+                      onClick={() => switchMode('login')}
+                      className="inline-flex items-center gap-1.5 text-xs text-slate-600 hover:text-slate-900 font-medium cursor-pointer"
                     >
-                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      <ArrowLeft className="w-3.5 h-3.5" />
+                      Back to Sign In
                     </button>
                   </div>
-                  {password.length > 0 && getPasswordValidationError(password) && (
-                    <p className="text-[11px] text-rose-600 font-medium pt-0.5">
-                      {getPasswordValidationError(password)}
+                </form>
+              )}
+
+              {/* VERIFY OTP FORM (Fallback) */}
+              {mode === 'verify-otp' && (
+                <form onSubmit={handleVerifyOtp} className="space-y-4">
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-slate-700 block">
+                      Email Address
+                    </label>
+                    <div className="relative">
+                      <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-3.5 pointer-events-none" />
+                      <input
+                        type="email"
+                        required
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="Enter email address"
+                        className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-slate-700 block">
+                      6-Digit Security OTP Code
+                    </label>
+                    <div className="relative">
+                      <KeyRound className="w-4 h-4 text-slate-400 absolute left-3 top-3.5 pointer-events-none" />
+                      <input
+                        type="text"
+                        required
+                        maxLength={6}
+                        value={otpCode}
+                        onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
+                        placeholder="123456"
+                        className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 font-mono tracking-widest placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition"
+                      />
+                    </div>
+                    <p className="text-[11px] text-slate-500 pt-0.5">
+                      Enter the 6-digit verification code sent to your email.
                     </p>
+                  </div>
+
+                  <Button
+                    type="submit"
+                    variant="primary"
+                    size="lg"
+                    loading={loading}
+                    className="w-full shadow-md shadow-emerald-600/20 font-bold"
+                  >
+                    Verify OTP Code
+                  </Button>
+
+                  <div className="flex items-center justify-between pt-1">
+                    <button
+                      type="button"
+                      onClick={() => switchMode('forgot-password')}
+                      className="inline-flex items-center gap-1.5 text-xs text-slate-600 hover:text-slate-900 font-medium cursor-pointer"
+                    >
+                      <ArrowLeft className="w-3.5 h-3.5" />
+                      Resend / Change Email
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => switchMode('login')}
+                      className="text-xs text-slate-500 hover:text-slate-700 font-medium cursor-pointer"
+                    >
+                      Back to Sign In
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              {/* EMAIL VERIFIED CONFIRMATION SCREEN */}
+              {mode === 'email-verified' && (
+                <div className="space-y-5 text-center py-2">
+                  <div className="w-16 h-16 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center mx-auto border border-emerald-100 shadow-sm">
+                    <CheckCircle2 className="w-8 h-8" />
+                  </div>
+
+                  <div className="space-y-2">
+                    <h3 className="text-lg font-bold text-slate-900">
+                      Welcome to SyntaxViva! Your email has been verified successfully.
+                    </h3>
+                    <p className="text-xs text-slate-600 leading-relaxed max-w-sm mx-auto">
+                      Your academic account is active. You can now sign in and access your oral viva dashboard.
+                    </p>
+                  </div>
+
+                  <div className="pt-2">
+                    <Button
+                      variant="primary"
+                      size="lg"
+                      onClick={() => {
+                        if (onSuccess) onSuccess();
+                        else switchMode('login');
+                      }}
+                      className="w-full shadow-md shadow-emerald-600/20 font-bold"
+                    >
+                      Continue to Sign In
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* RESET PASSWORD FORM */}
+              {mode === 'reset-password' && (
+                <div className="space-y-4">
+                  {passwordResetComplete ? (
+                    <div className="space-y-4 text-center py-2">
+                      <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center mx-auto border border-emerald-100">
+                        <CheckCircle2 className="w-6 h-6" />
+                      </div>
+                      <div className="space-y-1">
+                        <h3 className="text-sm font-semibold text-slate-900">
+                          Password Updated Successfully
+                        </h3>
+                        <p className="text-xs text-slate-500">
+                          Your password has been updated. You can now sign in with your new credentials.
+                        </p>
+                      </div>
+                      <Button
+                        variant="primary"
+                        size="md"
+                        onClick={() => switchMode('login')}
+                        className="w-full font-semibold"
+                      >
+                        Continue to Sign In
+                      </Button>
+                    </div>
+                  ) : (
+                    <form onSubmit={handleResetPassword} className="space-y-4">
+                      <div className="space-y-1">
+                        <label className="text-xs font-semibold text-slate-700 block">
+                          New Password
+                        </label>
+                        <div className="relative">
+                          <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-3.5 pointer-events-none" />
+                          <input
+                            type={showPassword ? 'text' : 'password'}
+                            required
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            placeholder="••••••••"
+                            className="w-full pl-9 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowPassword(!showPassword)}
+                            className="absolute right-3 top-3 text-slate-400 hover:text-slate-600 cursor-pointer"
+                          >
+                            {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          </button>
+                        </div>
+                        {password.length > 0 && getPasswordValidationError(password) && (
+                          <p className="text-[11px] text-rose-600 font-medium pt-0.5">
+                            {getPasswordValidationError(password)}
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-xs font-semibold text-slate-700 block">
+                          Confirm New Password
+                        </label>
+                        <div className="relative">
+                          <KeyRound className="w-4 h-4 text-slate-400 absolute left-3 top-3.5 pointer-events-none" />
+                          <input
+                            type={showConfirmPassword ? 'text' : 'password'}
+                            required
+                            value={confirmPassword}
+                            onChange={(e) => setConfirmPassword(e.target.value)}
+                            placeholder="••••••••"
+                            className="w-full pl-9 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                            className="absolute right-3 top-3 text-slate-400 hover:text-slate-600 cursor-pointer"
+                          >
+                            {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          </button>
+                        </div>
+                      </div>
+
+                      <Button
+                        type="submit"
+                        variant="primary"
+                        size="lg"
+                        loading={loading}
+                        className="w-full shadow-md shadow-emerald-600/20 font-bold"
+                      >
+                        Update Password
+                      </Button>
+
+                      <div className="text-center pt-1">
+                        <button
+                          type="button"
+                          onClick={() => switchMode('login')}
+                          className="inline-flex items-center gap-1.5 text-xs text-slate-600 hover:text-slate-900 font-medium cursor-pointer"
+                        >
+                          <ArrowLeft className="w-3.5 h-3.5" />
+                          Back to Sign In
+                        </button>
+                      </div>
+                    </form>
                   )}
                 </div>
-
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-slate-700 block">
-                    Confirm New Password
-                  </label>
-                  <div className="relative">
-                    <KeyRound className="w-4 h-4 text-slate-400 absolute left-3 top-3.5 pointer-events-none" />
-                    <input
-                      type={showConfirmPassword ? 'text' : 'password'}
-                      required
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      placeholder="••••••••"
-                      className="w-full pl-9 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                      className="absolute right-3 top-2 text-slate-400 hover:text-slate-600 cursor-pointer"
-                    >
-                      {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
-                  </div>
-                </div>
-
-                <Button
-                  type="submit"
-                  variant="primary"
-                  size="lg"
-                  loading={loading}
-                  className="w-full shadow-md shadow-emerald-600/20 font-bold"
-                >
-                  Reset Password
-                </Button>
-
-                <div className="flex items-center justify-between pt-1">
-                  <button
-                    type="button"
-                    disabled={isResending || resendCooldown > 0}
-                    onClick={handleResendResetOtp}
-                    className={`inline-flex items-center gap-1.5 text-xs font-semibold cursor-pointer ${
-                      isResending || resendCooldown > 0
-                        ? 'text-slate-400 cursor-not-allowed'
-                        : 'text-emerald-600 hover:text-emerald-700'
-                    }`}
-                  >
-                    <RefreshCw className={`w-3.5 h-3.5 ${isResending ? 'animate-spin' : ''}`} />
-                    {isResending
-                      ? 'Resending...'
-                      : resendCooldown > 0
-                      ? `Resend in ${resendCooldown}s`
-                      : 'Resend Code'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => switchMode('login')}
-                    className="text-xs text-slate-500 hover:text-slate-700 font-medium cursor-pointer"
-                  >
-                    Back to Sign In
-                  </button>
-                </div>
-              </form>
-            </div>
+              )}
+            </>
           )}
         </div>
       </div>
