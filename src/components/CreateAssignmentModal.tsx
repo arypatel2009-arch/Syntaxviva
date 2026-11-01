@@ -181,7 +181,7 @@ export const CreateAssignmentModal: React.FC<CreateAssignmentModalProps> = ({
               required
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="e.g. find the largest number"
+              placeholder="Assignment Title"
               className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
@@ -234,7 +234,7 @@ export const CreateAssignmentModal: React.FC<CreateAssignmentModalProps> = ({
               type="text"
               value={requirements}
               onChange={(e) => setRequirements(e.target.value)}
-              placeholder="e.g. Read two integers from standard input and print the larger number."
+              placeholder="Read two integers from standard input and print the larger number."
               className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
@@ -288,7 +288,7 @@ export const CreateAssignmentModal: React.FC<CreateAssignmentModalProps> = ({
                         type="text"
                         value={tc.input}
                         onChange={(e) => updateTestCase(idx, 'input', e.target.value)}
-                        placeholder="e.g. 10 25\n"
+                        placeholder="Input data"
                         className="w-full px-2 py-1 font-mono text-xs border border-slate-300 rounded bg-white"
                       />
                     </div>
@@ -298,7 +298,7 @@ export const CreateAssignmentModal: React.FC<CreateAssignmentModalProps> = ({
                         type="text"
                         value={tc.expected}
                         onChange={(e) => updateTestCase(idx, 'expected', e.target.value)}
-                        placeholder="e.g. 25"
+                        placeholder="Expected output"
                         className="w-full px-2 py-1 font-mono text-xs border border-slate-300 rounded bg-white"
                       />
                     </div>

@@ -15,6 +15,7 @@ import { PublicReviewsPage } from './pages/PublicReviews.tsx';
 import { AuthPage } from './components/auth/AuthPage.tsx';
 import { FacultyDashboard } from './components/FacultyDashboard.tsx';
 import { StudentDashboard } from './components/StudentDashboard.tsx';
+import { HodDashboard } from './components/hod/HodDashboard.tsx';
 import { SystemInspectorModal } from './components/SystemInspectorModal.tsx';
 import { MutationRegistryDrawer } from './components/MutationRegistryDrawer.tsx';
 import { IntroVideoModal } from './components/common/IntroVideoModal.tsx';
@@ -71,6 +72,14 @@ const AppContent: React.FC = () => {
   // LOGGED IN USER EXPERIENCE (Student or Faculty Dashboard)
   // --------------------------------------------------------------------------
   if (user) {
+    if (role === 'hod') {
+      return (
+        <div className="min-h-screen bg-[#070b14] font-sans text-slate-100">
+          <HodDashboard />
+        </div>
+      );
+    }
+
     if (role === 'faculty' || role === 'admin') {
       return (
         <div className="min-h-screen bg-slate-50 font-sans text-slate-900">
@@ -119,15 +128,13 @@ const AppContent: React.FC = () => {
     currentPath === '/login' ||
     currentPath === '/signup' ||
     currentPath === '/forgot-password' ||
-    currentPath === '/verify-otp' ||
     currentPath === '/reset-password' ||
     currentPath === '/email-verified' ||
     isHashSignup ||
     isHashRecovery
   ) {
-    let mode: 'login' | 'signup' | 'forgot-password' | 'verify-otp' | 'reset-password' | 'email-verified' = 'login';
+    let mode: 'login' | 'signup' | 'forgot-password' | 'reset-password' | 'email-verified' = 'login';
     if (currentPath === '/signup') mode = 'signup';
-    else if (currentPath === '/verify-otp') mode = 'verify-otp';
     else if (currentPath === '/forgot-password') mode = 'forgot-password';
     else if (currentPath === '/reset-password' || isHashRecovery) mode = 'reset-password';
     else if (currentPath === '/email-verified' || isHashSignup) mode = 'email-verified';
@@ -144,7 +151,7 @@ const AppContent: React.FC = () => {
   // --------------------------------------------------------------------------
   // PROTECTED ROUTE ENFORCEMENT FOR UNAUTHENTICATED USERS
   // --------------------------------------------------------------------------
-  if (!user && (currentPath.startsWith('/student') || currentPath.startsWith('/faculty') || currentPath.startsWith('/admin'))) {
+  if (!user && (currentPath.startsWith('/student') || currentPath.startsWith('/faculty') || currentPath.startsWith('/admin') || currentPath.startsWith('/hod'))) {
     return (
       <AuthPage
         initialMode="login"

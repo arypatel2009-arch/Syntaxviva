@@ -7,12 +7,14 @@ interface StudentSubmissionsViewProps {
   assignments: Assignment[];
   onSelectAssignment: (assignmentId: string, phase?: 'phase1' | 'phase2') => void;
   onViewResults: (assignment: Assignment) => void;
+  onViewFullResult?: (assignment: Assignment) => void;
 }
 
 export const StudentSubmissionsView: React.FC<StudentSubmissionsViewProps> = ({
   assignments,
   onSelectAssignment,
   onViewResults,
+  onViewFullResult,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -82,8 +84,8 @@ export const StudentSubmissionsView: React.FC<StudentSubmissionsViewProps> = ({
                   const p2Status = (asg as any).myPhase2Status;
                   const rawSubmittedAt = (asg as any).mySubmittedAt;
                   const submittedObj = rawSubmittedAt ? new Date(rawSubmittedAt) : null;
-                  const isPassed = p2Status === 'PHASE2_PASSED' || myState === 'PASSED' || myState === 'PHASE2_PASSED';
-                  const isFailed = p2Status === 'PHASE2_FAILED' || p2Status === 'SECURITY_TERMINATED';
+                  const isPassed = p2Status === 'PHASE2_PASSED' || p2Status === 'PASSED' || myState === 'PASSED' || myState === 'PHASE2_PASSED';
+                  const isFailed = p2Status === 'PHASE2_FAILED' || p2Status === 'FAILED' || myState === 'PHASE2_FAILED' || myState === 'FAILED' || p2Status === 'SECURITY_TERMINATED';
 
                   return (
                     <tr key={asg.id} className="group hover:bg-slate-50/70 transition-colors">
@@ -141,15 +143,22 @@ export const StudentSubmissionsView: React.FC<StudentSubmissionsViewProps> = ({
                       </td>
                       <td className="py-3.5 text-right pr-6 whitespace-nowrap">
                         <div className="flex items-center justify-end gap-2">
-                          <button
-                            onClick={() => onViewResults(asg)}
-                            className="opacity-0 group-hover:opacity-100 transition-opacity inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => onViewFullResult ? onViewFullResult(asg) : onViewResults(asg)}
+                            icon={Eye}
+                            className="font-semibold"
                           >
-                            <Eye className="w-3.5 h-3.5" />
-                            Results
-                          </button>
+                            View Result &amp; Code
+                          </Button>
                           <RowActionMenu
                             items={[
+                              {
+                                label: 'Full Screen Dossier',
+                                icon: Eye,
+                                onClick: () => onViewFullResult ? onViewFullResult(asg) : onViewResults(asg),
+                              },
                               {
                                 label: 'View Results Report',
                                 icon: Eye,

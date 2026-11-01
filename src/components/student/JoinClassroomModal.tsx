@@ -97,6 +97,11 @@ export const JoinClassroomModal: React.FC<JoinClassroomModalProps> = ({
       setErrorCode(serverCode);
 
       if (
+        serverCode === 'division_mismatch' ||
+        serverMsg.toLowerCase().includes('division mismatch')
+      ) {
+        setError(`❌ ${serverMsg.replace(/^[❌⚠️\s]+/, '')}`);
+      } else if (
         serverCode === 'cross_college_forbidden' ||
         serverMsg.toLowerCase().includes('cross-college') ||
         err.status === 403
@@ -148,7 +153,9 @@ export const JoinClassroomModal: React.FC<JoinClassroomModalProps> = ({
           {error && (
             <div
               className={`p-4 rounded-xl border text-xs space-y-1.5 ${
-                errorCode === 'cross_college_forbidden' || error.includes('Cross-college')
+                errorCode === 'division_mismatch' || error.includes('Division mismatch')
+                  ? 'bg-rose-950/60 border-rose-500/80 text-rose-200'
+                  : errorCode === 'cross_college_forbidden' || error.includes('Cross-college')
                   ? 'bg-amber-950/40 border-amber-500/40 text-amber-300'
                   : errorCode === 'already_enrolled'
                   ? 'bg-cyan-950/40 border-cyan-500/40 text-cyan-300'
@@ -173,7 +180,7 @@ export const JoinClassroomModal: React.FC<JoinClassroomModalProps> = ({
               maxLength={6}
               value={code}
               onChange={handleCodeChange}
-              placeholder="e.g. SYN101"
+              placeholder="Classroom Code"
               className="w-full text-center tracking-[0.35em] font-mono text-2xl font-bold uppercase py-3.5 px-4 rounded-xl border border-slate-700 bg-slate-950/80 focus:outline-hidden focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/20 text-white transition-all placeholder:text-slate-600 placeholder:tracking-normal placeholder:font-sans placeholder:text-base placeholder:font-normal"
             />
             <p className="text-[11px] text-slate-400 text-center">

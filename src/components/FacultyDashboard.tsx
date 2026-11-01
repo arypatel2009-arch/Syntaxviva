@@ -9,6 +9,8 @@ import { FacultyAssignmentsView } from './faculty/FacultyAssignmentsView.tsx';
 import { CreateAssignmentModal } from './faculty/CreateAssignmentModal.tsx';
 import { FacultyStudentsView } from './faculty/FacultyStudentsView.tsx';
 import { SubmissionReviewModal } from './faculty/SubmissionReviewModal.tsx';
+import { LargeSubmissionResultModal } from './common/LargeSubmissionResultModal.tsx';
+import { AssignmentSubmissionsReportModal } from './common/AssignmentSubmissionsReportModal.tsx';
 import { FacultyAnalyticsView } from './faculty/FacultyAnalyticsView.tsx';
 import { StudentProfileView } from './student/StudentProfileView.tsx';
 import { BookACallModal } from './common/BookACallModal.tsx';
@@ -40,6 +42,7 @@ export const FacultyDashboard: React.FC<FacultyDashboardProps> = () => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isBookModalOpen, setIsBookModalOpen] = useState(false);
   const [reviewSubmission, setReviewSubmission] = useState<any | null>(null);
+  const [reportAssignmentId, setReportAssignmentId] = useState<string | null>(null);
   const [showProfileGateModal, setShowProfileGateModal] = useState(false);
 
   const isFacultyProfileComplete = isProfileComplete(user, profile, role);
@@ -149,13 +152,14 @@ export const FacultyDashboard: React.FC<FacultyDashboardProps> = () => {
         />
 
         {/* Dynamic Tab Body */}
-        <main className="p-4 sm:p-6 lg:p-8 grow">
+        <main className={currentTab === 'settings' ? 'p-3 sm:p-5 lg:p-7 xl:p-8 grow w-full min-h-[calc(100vh-5rem)]' : 'p-4 sm:p-6 lg:p-8 grow'}>
           {currentTab === 'dashboard' && (
             <FacultyDashboardView
               assignments={filteredAssignments}
               stats={stats}
               onCreateAssignment={handleOpenCreateAssignment}
               onViewAssignments={() => setCurrentTab('assignments')}
+              onViewSubmissions={(asg) => setReportAssignmentId(asg.id)}
               onReviewSubmission={(sub) => setReviewSubmission(sub)}
               onRefresh={loadData}
               onDeleteAssignment={handleDeleteAssignment}
@@ -169,30 +173,7 @@ export const FacultyDashboard: React.FC<FacultyDashboardProps> = () => {
               onCreateAssignment={handleOpenCreateAssignment}
               onRefresh={loadData}
               onDeleteAssignment={handleDeleteAssignment}
-              onViewSubmissions={async (asg) => {
-                try {
-                  const res = await api.getAssignmentSubmissions(asg.id);
-                  if (res.submissions && res.submissions.length > 0) {
-                    setReviewSubmission(res.submissions[0]);
-                  } else {
-                    setReviewSubmission({
-                      id: asg.id,
-                      assignmentTitle: asg.title,
-                      state: 'NO_SUBMISSIONS_YET',
-                      studentName: 'No submissions',
-                      studentEmail: 'Waiting for student participation',
-                      submittedAt: null,
-                      evaluation: { testsPassed: 0, testsTotal: 0, testResults: [] },
-                    });
-                  }
-                } catch (err) {
-                  console.error('Failed to load assignment submissions:', err);
-                  setReviewSubmission({
-                    id: asg.id,
-                    assignmentTitle: asg.title,
-                  });
-                }
-              }}
+              onViewSubmissions={(asg) => setReportAssignmentId(asg.id)}
             />
           )}
 
@@ -203,6 +184,7 @@ export const FacultyDashboard: React.FC<FacultyDashboardProps> = () => {
                 stats={stats}
                 onCreateAssignment={handleOpenCreateAssignment}
                 onViewAssignments={() => setCurrentTab('assignments')}
+                onViewSubmissions={(asg) => setReportAssignmentId(asg.id)}
                 onReviewSubmission={(sub) => setReviewSubmission(sub)}
                 onRefresh={loadData}
                 onDeleteAssignment={handleDeleteAssignment}
@@ -226,11 +208,22 @@ export const FacultyDashboard: React.FC<FacultyDashboardProps> = () => {
         onSuccess={loadData}
       />
 
-      {/* Submission Review Modal (Panel 24) */}
-      <SubmissionReviewModal
-        submission={reviewSubmission}
-        onClose={() => setReviewSubmission(null)}
-      />
+      {/* Full-Screen Forensic Submission Review Modal (Badi Screen) */}
+      {reviewSubmission && (
+        <LargeSubmissionResultModal
+          submission={reviewSubmission}
+          onClose={() => setReviewSubmission(null)}
+        />
+      )}
+
+      {/* Assignment Submissions & Performance Report Modal */}
+      {reportAssignmentId && (
+        <AssignmentSubmissionsReportModal
+          assignmentId={reportAssignmentId}
+          onClose={() => setReportAssignmentId(null)}
+          onSelectAssignment={(id) => setReportAssignmentId(id)}
+        />
+      )}
 
       {/* Book a Call Inquiry Modal for Faculty Upgrade */}
       <BookACallModal

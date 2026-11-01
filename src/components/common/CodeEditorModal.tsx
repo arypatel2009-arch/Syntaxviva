@@ -723,6 +723,16 @@ export function formatCodeLikeVSCode(rawCode: string, language: string): string 
  * 3. DEVELOPER CODE EDITOR COMPONENT (VS-DARK + MINIMAP + TOOLBAR)
  * ========================================================================== */
 
+export interface BugAnnotation {
+  line: number;
+  message?: string;
+  name?: string;
+  category?: string;
+  mutatedFragment?: string;
+  originalFragment?: string;
+  isFixed?: boolean;
+}
+
 export interface DeveloperCodeEditorProps {
   value: string;
   onChange: (value: string) => void;
@@ -734,6 +744,8 @@ export interface DeveloperCodeEditorProps {
   minimalToolbar?: boolean;
   hideCopyButton?: boolean;
   disableCopyPaste?: boolean;
+  bugAnnotations?: BugAnnotation[];
+  showBugAnnotations?: boolean;
   onCopyAttempt?: () => void;
   onPasteAttempt?: () => void;
   onCutAttempt?: () => void;
@@ -750,6 +762,8 @@ export const DeveloperCodeEditor: React.FC<DeveloperCodeEditorProps> = ({
   minimalToolbar = false,
   hideCopyButton = false,
   disableCopyPaste = false,
+  bugAnnotations,
+  showBugAnnotations = true,
   onCopyAttempt,
   onPasteAttempt,
   onCutAttempt,
@@ -1081,19 +1095,41 @@ export const DeveloperCodeEditor: React.FC<DeveloperCodeEditorProps> = ({
             const lineNum = idx + 1;
             const isActive = lineNum === activeLine;
             const isBeyond = lineNum > lineCount;
+            const lineContent = lines[idx] || '';
+            const bug = showBugAnnotations
+              ? bugAnnotations?.find((b) => {
+                  if (b.line === lineNum) return true;
+                  if (b.mutatedFragment && lineContent.trim().length > 0 && lineContent.includes(b.mutatedFragment.trim())) return true;
+                  return false;
+                })
+              : undefined;
+            const isUnfixedBug = bug && !bug.isFixed;
+            const isFixedBug = bug && bug.isFixed;
+
             return (
               <div
                 key={lineNum}
                 style={{ height: `${rowHeightPx}px`, lineHeight: `${rowHeightPx}px` }}
                 className={`${
-                  isActive
+                  isUnfixedBug
+                    ? 'text-rose-400 font-extrabold bg-rose-950/70 -mx-2 px-2 rounded-xs ring-1 ring-rose-500/60'
+                    : isFixedBug
+                    ? 'text-emerald-400 font-bold bg-emerald-950/40 -mx-2 px-2 rounded-xs'
+                    : isActive
                     ? 'text-[#4ade80] font-bold bg-slate-800/60 -mx-2 px-2 rounded-xs'
                     : isBeyond
                     ? 'text-slate-800/30'
                     : 'text-slate-400 font-medium'
                 }`}
+                title={
+                  isUnfixedBug
+                    ? `⚠️ Defect on Line ${lineNum}: ${bug?.name || bug?.message || 'Bug'} (Not Fixed)`
+                    : isFixedBug
+                    ? `✅ Defect on Line ${lineNum} Resolved`
+                    : undefined
+                }
               >
-                {isBeyond ? '' : lineNum}
+                {isBeyond ? '' : isUnfixedBug ? `● ${lineNum}` : isFixedBug ? `✓ ${lineNum}` : lineNum}
               </div>
             );
           })}
@@ -1117,21 +1153,86 @@ export const DeveloperCodeEditor: React.FC<DeveloperCodeEditorProps> = ({
               textRendering: 'optimizeLegibility',
             }}
           >
-            {lines.map((line, i) => (
-              <div
-                key={i}
-                style={{ height: `${rowHeightPx}px`, lineHeight: `${rowHeightPx}px` }}
-                className={`${
-                  i + 1 === activeLine && !readOnly ? 'bg-slate-800/60 -mx-4 px-4' : ''
-                }`}
-              >
-                {line.length > 0 ? (
-                  renderHighlightedLine(line, language, bracketDepthRef)
-                ) : (
-                  <span>&nbsp;</span>
-                )}
-              </div>
-            ))}
+            {lines.map((line, i) => {
+              const lineNum = i + 1;
+              const bug = showBugAnnotations
+                ? bugAnnotations?.find((b) => {
+                    if (b.line === lineNum) return true;
+                    if (b.mutatedFragment && line.trim().length > 0 && line.includes(b.mutatedFragment.trim())) return true;
+                    return false;
+                  })
+                : undefined;
+              const isUnfixedBug = bug && !bug.isFixed;
+              const isFixedBug = bug && bug.isFixed;
+
+              // Helper to render the line with precise wavy underline ONLY on the bug
+              const renderLineContent = () => {
+                if (!line.length) return <span>&nbsp;</span>;
+                if (!isUnfixedBug) {
+                  return (
+                    <span className={isFixedBug ? 'text-emerald-200' : ''}>
+                      {renderHighlightedLine(line, language, bracketDepthRef)}
+                    </span>
+                  );
+                }
+
+                const mutFrag = (bug?.mutatedFragment || '').trim();
+                // If a specific mutated snippet is found in this line, underline ONLY that snippet
+                if (mutFrag.length > 0 && line.includes(mutFrag)) {
+                  const bugIdx = line.indexOf(mutFrag);
+                  const beforeBug = line.slice(0, bugIdx);
+                  const bugPart = line.slice(bugIdx, bugIdx + mutFrag.length);
+                  const afterBug = line.slice(bugIdx + mutFrag.length);
+
+                  return (
+                    <span>
+                      {beforeBug.length > 0 && renderHighlightedLine(beforeBug, language, bracketDepthRef)}
+                      <span
+                        className="bug-wavy-underline underline decoration-wavy decoration-rose-500 decoration-2 underline-offset-4 text-rose-200 font-bold bg-rose-950/70 px-1 py-0.5 rounded ring-1 ring-rose-500/80 shadow-xs cursor-help inline-block"
+                        title={`Bug at Line ${lineNum}: ${bug?.name || 'Injected Defect'} — ${bug?.message || ''}`}
+                      >
+                        {renderHighlightedLine(bugPart, language, bracketDepthRef)}
+                      </span>
+                      {afterBug.length > 0 && renderHighlightedLine(afterBug, language, bracketDepthRef)}
+                    </span>
+                  );
+                }
+
+                // If whole line is the defect, underline only the code characters (excluding leading indentation)
+                const leadingSpaces = line.match(/^\s*/)?.[0] || '';
+                const codeOnly = line.slice(leadingSpaces.length);
+
+                return (
+                  <span>
+                    {leadingSpaces}
+                    <span
+                      className="bug-wavy-underline underline decoration-wavy decoration-rose-500 decoration-2 underline-offset-4 text-rose-100 font-semibold bg-rose-950/50 px-1 py-0.5 rounded ring-1 ring-rose-500/60 inline-block"
+                      title={`Bug at Line ${lineNum}: ${bug?.name || 'Injected Defect'} — ${bug?.message || ''}`}
+                    >
+                      {renderHighlightedLine(codeOnly, language, bracketDepthRef)}
+                    </span>
+                  </span>
+                );
+              };
+
+              return (
+                <div
+                  key={i}
+                  style={{ height: `${rowHeightPx}px`, lineHeight: `${rowHeightPx}px` }}
+                  className={`${
+                    lineNum === activeLine && !readOnly ? 'bg-slate-800/60 -mx-4 px-4' : ''
+                  } ${
+                    isUnfixedBug
+                      ? 'bg-rose-950/30 -mx-4 px-4 border-b border-rose-500/40'
+                      : isFixedBug
+                      ? 'bg-emerald-950/25 -mx-4 px-4 border-b border-emerald-500/40'
+                      : ''
+                  }`}
+                >
+                  {renderLineContent()}
+                </div>
+              );
+            })}
           </pre>
 
           {/* Absolute Textarea matching Pre dimensions 1:1 */}
@@ -1183,7 +1284,9 @@ export const DeveloperCodeEditor: React.FC<DeveloperCodeEditorProps> = ({
                 ? `// Type your ${language.toUpperCase()} fix manually. Copy/paste is disabled for assessment integrity.`
                 : `// Write or paste your ${language.toUpperCase()} code here (VS Code multi-line editor supports 1000+ lines)...`
             }
-            className="code-editor-textarea absolute inset-0 w-full h-full m-0 pt-3 pb-32 px-4 bg-transparent text-transparent placeholder:text-slate-500 caret-[#38bdf8] font-mono font-medium whitespace-pre resize-none focus:outline-hidden overflow-hidden selection:bg-emerald-500/35"
+            className={`code-editor-textarea absolute inset-0 w-full h-full m-0 pt-3 pb-32 px-4 bg-transparent text-transparent placeholder:text-slate-500 caret-[#38bdf8] font-mono font-medium whitespace-pre resize-none focus:outline-hidden overflow-hidden selection:bg-emerald-500/35 ${
+              readOnly ? 'pointer-events-none' : ''
+            }`}
             style={{
               fontSize: `${fontSize}px`,
               lineHeight: `${rowHeightPx}px`,

@@ -232,7 +232,7 @@ Please get back to me.`;
                         required
                         value={formData.email}
                         onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                        placeholder="e.g. ramesh@college.edu"
+                        placeholder="academic.email@institution.edu"
                         className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
                       />
                     </div>
@@ -245,7 +245,7 @@ Please get back to me.`;
                         type="text"
                         value={formData.institution}
                         onChange={(e) => setFormData({ ...formData, institution: e.target.value })}
-                        placeholder="e.g. University / Department name"
+                        placeholder="University / Department Name"
                         className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
                       />
                     </div>

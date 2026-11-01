@@ -1,5 +1,14 @@
 @import "tailwindcss";
 
+.bug-wavy-underline,
+.bug-wavy-underline * {
+  text-decoration-line: underline !important;
+  text-decoration-style: wavy !important;
+  text-decoration-color: #f43f5e !important;
+  text-decoration-thickness: 2.5px !important;
+  text-underline-offset: 4px !important;
+}
+
 @theme {
   --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-display: "Plus Jakarta Sans", "Inter", sans-serif;

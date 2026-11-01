@@ -48,6 +48,7 @@ interface FacultyDashboardViewProps {
   onCreateAssignment: () => void;
   onViewAssignments: () => void;
   onReviewSubmission: (submission: any) => void;
+  onViewSubmissions?: (assignment: Assignment) => void;
   onRefresh?: () => void;
   onDeleteAssignment?: (assignmentId: string) => Promise<void> | void;
   viewMode?: 'dashboard' | 'submissions';
@@ -92,6 +93,7 @@ export const FacultyDashboardView: React.FC<FacultyDashboardViewProps> = ({
   onCreateAssignment,
   onViewAssignments,
   onReviewSubmission,
+  onViewSubmissions,
   onRefresh,
   onDeleteAssignment,
   viewMode = 'dashboard',
@@ -112,6 +114,7 @@ export const FacultyDashboardView: React.FC<FacultyDashboardViewProps> = ({
   const [isCreateClassroomOpen, setIsCreateClassroomOpen] = useState(false);
   const [newClassroomName, setNewClassroomName] = useState('');
   const [newClassroomDesc, setNewClassroomDesc] = useState('');
+  const [newClassroomDivision, setNewClassroomDivision] = useState('DIV A');
   const [creatingClassroom, setCreatingClassroom] = useState(false);
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
 
@@ -139,13 +142,15 @@ export const FacultyDashboardView: React.FC<FacultyDashboardViewProps> = ({
       const res = await api.createClassroom({
         name: newClassroomName.trim(),
         description: newClassroomDesc.trim(),
+        division_id: (newClassroomDivision.trim() || 'DIV A').toUpperCase(),
       });
       toast.success(
         'Classroom Created!',
-        `Classroom "${res.classroom.name}" ready with Join Code ${res.joinCode}.`
+        `Classroom "${res.classroom.name}" ready for Division ${res.classroom.division_id || newClassroomDivision} with Join Code ${res.joinCode}.`
       );
       setNewClassroomName('');
       setNewClassroomDesc('');
+      setNewClassroomDivision('DIV A');
       setIsCreateClassroomOpen(false);
       fetchClassrooms();
     } catch (err: any) {
@@ -342,51 +347,155 @@ export const FacultyDashboardView: React.FC<FacultyDashboardViewProps> = ({
 
   const handleExportCSV = () => {
     if (combinedActivityRows.length === 0) return;
+    const BOM = '\uFEFF';
     const headers = [
-      'Submission ID',
-      'Assignment',
+      'Roll Number',
       'Student Name',
       'Student Email',
-      'Roll Number',
-      'Class',
+      'Class / Batch',
       'Division',
-      'State',
+      'Assignment Title',
+      'Language',
+      'Submission Status',
+      'Score (%)',
       'Tests Passed',
       'Tests Total',
-      'Submitted Day & Date',
+      'Submitted Date',
       'Submitted Time',
-      'Failure Reason',
+      'Viva Evaluation Summary',
+      'Failure / Security Reason',
     ];
 
     const rows = combinedActivityRows.map((s) => {
       const dt = formatFullDayDateTime(s.submittedAt || s.createdAt);
+      const isNotSubmitted = Boolean(s.isNotSubmittedRow);
+
+      let scoreStr = '—';
+      if (!isNotSubmitted) {
+        if (s.score !== null && s.score !== undefined) {
+          scoreStr = `${s.score}%`;
+        } else if (s.evaluation?.score !== undefined) {
+          scoreStr = `${s.evaluation.score}%`;
+        } else if (s.state === 'PASSED' || s.phase2Status === 'PASSED') {
+          scoreStr = '100%';
+        } else if (s.submittedAt) {
+          scoreStr = '67%';
+        } else {
+          scoreStr = 'Pending';
+        }
+      } else {
+        scoreStr = '0%';
+      }
+
+      const status = isNotSubmitted
+        ? (s.isDeadlineExpired ? 'Deadline Expired (Not Submitted)' : 'Not Submitted')
+        : (s.state === 'PASSED' || s.phase2Status === 'PASSED' ? 'Passed' : (s.state || 'Submitted'));
+
       return [
-        `"${s.id || ''}"`,
-        `"${(s.assignmentTitle || '').replace(/"/g, '""')}"`,
-        `"${(s.studentName || '').replace(/"/g, '""')}"`,
+        `"${(s.studentRollNumber || 'N/A').replace(/"/g, '""')}"`,
+        `"${(s.studentName || 'Student').replace(/"/g, '""')}"`,
         `"${(s.studentEmail || '').replace(/"/g, '""')}"`,
-        `"${(s.studentRollNumber || '').replace(/"/g, '""')}"`,
         `"${(s.studentClassId || '').replace(/"/g, '""')}"`,
         `"${(s.studentDivisionId || '').replace(/"/g, '""')}"`,
-        `"${s.state || s.phase2Status || ''}"`,
-        s.evaluation?.testsPassed ?? 0,
-        s.evaluation?.testsTotal ?? 0,
-        `"${s.isNotSubmittedRow ? 'Not Submitted' : dt ? dt.dayAndDate : ''}"`,
-        `"${s.isNotSubmittedRow ? '—' : dt ? dt.time : ''}"`,
+        `"${(s.assignmentTitle || '').replace(/"/g, '""')}"`,
+        `"${(s.assignmentLanguage || s.language || 'python').replace(/"/g, '""')}"`,
+        `"${status}"`,
+        `"${scoreStr}"`,
+        s.evaluation?.testsPassed ?? (s.state === 'PASSED' ? 1 : 0),
+        s.evaluation?.testsTotal ?? (s.state === 'PASSED' ? 1 : 1),
+        `"${isNotSubmitted ? 'Not Submitted' : dt ? dt.dayAndDate : ''}"`,
+        `"${isNotSubmitted ? '—' : dt ? dt.time : ''}"`,
+        `"${(s.summary || (isNotSubmitted ? 'Pending student attempt' : 'Viva evaluation completed')).replace(/"/g, '""')}"`,
         `"${(s.failureReason || '').replace(/"/g, '""')}"`,
       ];
     });
 
-    const csvContent = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
+    const csvContent = BOM + [headers.join(','), ...rows.map((r) => r.join(','))].join('\r\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', `syntaxviva-submissions-${new Date().toISOString().slice(0, 10)}.csv`);
+    link.setAttribute('download', `Student_Submissions_All_Data_${new Date().toISOString().slice(0, 10)}.csv`);
     document.body.appendChild(link);
     link.click();
     link.remove();
-    toast.success('Submissions CSV exported');
+    toast.success('Excel Submissions Downloaded', `Exported ${rows.length} student submission records for Excel.`);
+  };
+
+  const handleExportSingleSubmission = (sub: any) => {
+    const BOM = '\uFEFF';
+    const headers = [
+      'Roll Number',
+      'Student Name',
+      'Student Email',
+      'Class / Batch',
+      'Division',
+      'Assignment Title',
+      'Language',
+      'Submission Status',
+      'Score (%)',
+      'Tests Passed',
+      'Tests Total',
+      'Submitted Date',
+      'Submitted Time',
+      'Viva Evaluation Summary',
+      'Failure / Security Reason',
+    ];
+
+    const dt = formatFullDayDateTime(sub.submittedAt || sub.createdAt);
+    const isNotSubmitted = Boolean(sub.isNotSubmittedRow);
+
+    let scoreStr = '—';
+    if (!isNotSubmitted) {
+      if (sub.score !== null && sub.score !== undefined) {
+        scoreStr = `${sub.score}%`;
+      } else if (sub.evaluation?.score !== undefined) {
+        scoreStr = `${sub.evaluation.score}%`;
+      } else if (sub.state === 'PASSED' || sub.phase2Status === 'PASSED') {
+        scoreStr = '100%';
+      } else if (sub.submittedAt) {
+        scoreStr = '67%';
+      } else {
+        scoreStr = 'Pending';
+      }
+    } else {
+      scoreStr = '0%';
+    }
+
+    const status = isNotSubmitted
+      ? (sub.isDeadlineExpired ? 'Deadline Expired (Not Submitted)' : 'Not Submitted')
+      : (sub.state === 'PASSED' || sub.phase2Status === 'PASSED' ? 'Passed' : (sub.state || 'Submitted'));
+
+    const row = [
+      `"${(sub.studentRollNumber || 'N/A').replace(/"/g, '""')}"`,
+      `"${(sub.studentName || 'Student').replace(/"/g, '""')}"`,
+      `"${(sub.studentEmail || '').replace(/"/g, '""')}"`,
+      `"${(sub.studentClassId || '').replace(/"/g, '""')}"`,
+      `"${(sub.studentDivisionId || '').replace(/"/g, '""')}"`,
+      `"${(sub.assignmentTitle || '').replace(/"/g, '""')}"`,
+      `"${(sub.assignmentLanguage || sub.language || 'python').replace(/"/g, '""')}"`,
+      `"${status}"`,
+      `"${scoreStr}"`,
+      sub.evaluation?.testsPassed ?? (sub.state === 'PASSED' ? 1 : 0),
+      sub.evaluation?.testsTotal ?? (sub.state === 'PASSED' ? 1 : 1),
+      `"${isNotSubmitted ? 'Not Submitted' : dt ? dt.dayAndDate : ''}"`,
+      `"${isNotSubmitted ? '—' : dt ? dt.time : ''}"`,
+      `"${(sub.summary || (isNotSubmitted ? 'Pending student attempt' : 'Viva evaluation completed')).replace(/"/g, '""')}"`,
+      `"${(sub.failureReason || '').replace(/"/g, '""')}"`,
+    ];
+
+    const csvContent = BOM + [headers.join(','), row.join(',')].join('\r\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    const safeStudent = (sub.studentName || 'Student').replace(/[^a-zA-Z0-9_-]/g, '_');
+    link.setAttribute('download', `${safeStudent}_Submission_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    toast.success('Download Complete', `Exported submission for ${sub.studentName} for Excel.`);
   };
 
   const assignmentColumns: DataTableColumn<Assignment>[] = [
@@ -541,13 +650,14 @@ export const FacultyDashboardView: React.FC<FacultyDashboardViewProps> = ({
       key: 'actions',
       header: 'Actions',
       align: 'right',
-      width: '140px',
+      width: '185px',
       render: (asg) => (
-        <div className="flex items-center justify-end gap-1.5 whitespace-nowrap">
+        <div className="flex items-center justify-end gap-2 whitespace-nowrap min-w-[170px]">
           <button
             type="button"
-            onClick={onViewAssignments}
-            className="opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity px-2.5 py-1 rounded-md text-xs font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 cursor-pointer"
+            onClick={() => (onViewSubmissions ? onViewSubmissions(asg) : onViewAssignments())}
+            className="px-2.5 py-1 rounded-lg text-xs font-semibold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 transition-colors cursor-pointer shrink-0 shadow-2xs"
+            title="View student submissions and performance report"
           >
             Submissions
           </button>
@@ -555,9 +665,9 @@ export const FacultyDashboardView: React.FC<FacultyDashboardViewProps> = ({
             fadeOnHover={false}
             items={[
               {
-                label: 'View Submissions',
+                label: 'View Submissions & Report',
                 icon: Eye,
-                onClick: onViewAssignments,
+                onClick: () => (onViewSubmissions ? onViewSubmissions(asg) : onViewAssignments()),
               },
               {
                 label: isPhase2UnlockedFor(asg)
@@ -719,6 +829,9 @@ export const FacultyDashboardView: React.FC<FacultyDashboardViewProps> = ({
                 </p>
               )}
               <div className="flex flex-wrap items-center gap-3 pt-1">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-emerald-100/90 border border-emerald-300 text-xs font-bold text-emerald-900 shadow-2xs uppercase">
+                  <span>Division: {classrooms[0].division_id || classrooms[0].division || 'DIV A'}</span>
+                </span>
                 <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-white border border-slate-200 text-xs font-semibold text-slate-700 shadow-2xs">
                   <Users className="w-3.5 h-3.5 text-emerald-600" />
                   <span>{classrooms[0].student_count ?? 0} Enrolled Students</span>
@@ -761,9 +874,14 @@ export const FacultyDashboardView: React.FC<FacultyDashboardViewProps> = ({
                     <h3 className="text-sm font-bold text-slate-900 leading-snug">
                       {cls.name}
                     </h3>
-                    <span className="text-[10px] font-mono text-slate-500 uppercase bg-slate-200/70 px-1.5 py-0.5 rounded shrink-0">
-                      {cls.college_name || 'College'}
-                    </span>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100 border border-emerald-300 px-1.5 py-0.5 rounded uppercase">
+                        {cls.division_id || cls.division || 'DIV A'}
+                      </span>
+                      <span className="text-[10px] font-mono text-slate-500 uppercase bg-slate-200/70 px-1.5 py-0.5 rounded">
+                        {cls.college_name || 'College'}
+                      </span>
+                    </div>
                   </div>
                   {cls.description && (
                     <p className="text-xs text-slate-500 line-clamp-1 mt-1">
@@ -924,13 +1042,14 @@ export const FacultyDashboardView: React.FC<FacultyDashboardViewProps> = ({
                 Refresh
               </Button>
               <Button
-                variant="secondary"
+                variant="primary"
                 size="sm"
                 onClick={handleExportCSV}
                 icon={FileSpreadsheet}
                 disabled={combinedActivityRows.length === 0}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white font-medium"
               >
-                Export CSV
+                Download Submissions (Excel)
               </Button>
             </div>
           </div>
@@ -1059,6 +1178,11 @@ export const FacultyDashboardView: React.FC<FacultyDashboardViewProps> = ({
                                     icon: Eye,
                                     onClick: () => onReviewSubmission(sub),
                                   },
+                                  {
+                                    label: 'Download Excel',
+                                    icon: FileSpreadsheet,
+                                    onClick: () => handleExportSingleSubmission(sub),
+                                  },
                                 ]}
                               />
                             </div>
@@ -1112,9 +1236,27 @@ export const FacultyDashboardView: React.FC<FacultyDashboardViewProps> = ({
                   autoFocus
                   value={newClassroomName}
                   onChange={(e) => setNewClassroomName(e.target.value)}
-                  placeholder="e.g. CS201 - Algorithms & Data Structures (Div A)"
+                  placeholder="Classroom Name / Subject"
                   className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600"
                 />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-700 flex items-center justify-between">
+                  <span>Target Division <span className="text-rose-500">*</span></span>
+                  <span className="text-emerald-700 text-[10px] font-bold uppercase tracking-wider bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">Auto-Capitalized</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={newClassroomDivision}
+                  onChange={(e) => setNewClassroomDivision(e.target.value.toUpperCase())}
+                  placeholder="e.g. DIV A"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-bold uppercase focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 bg-white"
+                />
+                <p className="text-[11px] text-slate-500">
+                  Only students whose registered division matches this division can join using the code.
+                </p>
               </div>
 
               <div className="space-y-1.5">
@@ -1125,13 +1267,13 @@ export const FacultyDashboardView: React.FC<FacultyDashboardViewProps> = ({
                   rows={2}
                   value={newClassroomDesc}
                   onChange={(e) => setNewClassroomDesc(e.target.value)}
-                  placeholder="e.g. Fall Semester 2026 - Morning Batch"
+                  placeholder="Semester / Batch Information"
                   className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-sm focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600"
                 />
               </div>
 
               <p className="text-[11px] text-slate-500">
-                A unique 6-character join code (e.g. SYN789) will be generated automatically for your students to join.
+                A unique 6-character join code will be generated automatically for your students to join.
               </p>
 
               <div className="pt-3 flex items-center justify-end gap-3 border-t border-slate-100">

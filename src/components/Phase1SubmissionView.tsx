@@ -585,7 +585,7 @@ export const Phase1SubmissionView: React.FC<Phase1SubmissionViewProps> = ({
                       : 'bg-rose-600 text-white'
                   }`}
                 >
-                  {aiEval.result || (aiEval.is_correct ? 'PASS' : 'FAIL')} • Score: {aiEval.score ?? 'N/A'}/100
+                  {aiEval.result || (aiEval.is_correct ? 'PASSED' : 'NEEDS REVISION')}
                 </span>
               </div>
 

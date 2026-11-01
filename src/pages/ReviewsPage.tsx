@@ -437,7 +437,7 @@ export const ReviewsPage: React.FC<ReviewsPageProps> = ({ onNavigate, onOpenAuth
                     required
                     value={formData.author_name}
                     onChange={(e) => setFormData({ ...formData, author_name: e.target.value })}
-                    placeholder="e.g. Dr. Alex Mercer or Aarav Patel"
+                    placeholder="Reviewer Full Name"
                     className="w-full rounded-xl border border-slate-800 bg-slate-950/80 px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-hidden focus:border-emerald-500 transition"
                   />
                 </div>
@@ -451,7 +451,7 @@ export const ReviewsPage: React.FC<ReviewsPageProps> = ({ onNavigate, onOpenAuth
                     required
                     value={formData.institution}
                     onChange={(e) => setFormData({ ...formData, institution: e.target.value })}
-                    placeholder="e.g. Stanford University or MIT Computer Science"
+                    placeholder="College / Institution Name"
                     className="w-full rounded-xl border border-slate-800 bg-slate-950/80 px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-hidden focus:border-emerald-500 transition"
                   />
                 </div>

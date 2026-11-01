@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   Clock,
   AlertTriangle,
@@ -10,6 +10,7 @@ import {
   RotateCcw,
   Sparkles,
   AlertCircle,
+  Info,
   Code2,
   Send,
   ShieldAlert,
@@ -23,10 +24,13 @@ import {
   ChevronUp,
 } from 'lucide-react';
 import { api } from '../lib/api.ts';
+import { toast } from './common/Toast.tsx';
 import { Assignment, Phase2StatusResponse, TestRunResponse, TestRunResult } from '../types/index.ts';
 import { ProctoringManager } from '../lib/proctoring/proctoringManager.ts';
 import { ProctoringState } from '../lib/proctoring/types.ts';
-import { DeveloperCodeEditor, formatCodeLikeVSCode } from './common/CodeEditorModal.tsx';
+import { DeveloperCodeEditor, formatCodeLikeVSCode, BugAnnotation } from './common/CodeEditorModal.tsx';
+import { LargeSubmissionResultModal } from './common/LargeSubmissionResultModal.tsx';
+import { useAuth } from '../context/AuthContext.tsx';
 
 interface Phase2ChallengeViewProps {
   assignmentId: string;
@@ -37,6 +41,8 @@ export const Phase2ChallengeView: React.FC<Phase2ChallengeViewProps> = ({
   assignmentId,
   onBack,
 }) => {
+  const { user, profile } = useAuth();
+
   // Loading & State
   const [loading, setLoading] = useState(true);
   const [phase2State, setPhase2State] = useState<Phase2StatusResponse | null>(null);
@@ -61,7 +67,22 @@ export const Phase2ChallengeView: React.FC<Phase2ChallengeViewProps> = ({
   const [testRunOutcome, setTestRunOutcome] = useState<TestRunResponse | null>(null);
   const [showTestPanel, setShowTestPanel] = useState(false);
   const [selectedTestIndex, setSelectedTestIndex] = useState(0);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [editorMode, setEditorMode] = useState<'diagnostic' | 'standard'>('diagnostic');
+  // Authoritative error message state with automatic Gemini/API key suppression
+  const [errorMessage, setRawErrorMessage] = useState<string | null>(null);
+  const setErrorMessage = (msg: string | null) => {
+    if (!msg) {
+      setRawErrorMessage(null);
+      return;
+    }
+    const lower = msg.toLowerCase();
+    if (lower.includes('gemini') || lower.includes('api key') || lower.includes('gemini_api_key')) {
+      setRawErrorMessage(null);
+      return;
+    }
+    setRawErrorMessage(msg);
+  };
+  const setSafeErrorMessage = setErrorMessage;
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   // Proctoring & Security State (Non-Camera Integrity)
@@ -93,6 +114,103 @@ export const Phase2ChallengeView: React.FC<Phase2ChallengeViewProps> = ({
     phase2State?.state === 'PHASE2_PASSED' || phase2State?.evaluationStatus === 'PASSED';
   const isFailed =
     phase2State?.state === 'PHASE2_FAILED' || phase2State?.evaluationStatus === 'FAILED';
+
+  const bugReports: any[] = useMemo(() => {
+    const fromEval = (phase2State as any)?.evaluation?.bugReports;
+    const rawList = (Array.isArray(fromEval) && fromEval.length > 0)
+      ? fromEval
+      : (Array.isArray((phase2State as any)?.bugReports) && (phase2State as any).bugReports.length > 0)
+      ? (phase2State as any).bugReports
+      : (Array.isArray(phase2State?.bugs) ? phase2State.bugs : []);
+
+    return rawList.map((b: any, idx: number) => {
+      const isFixed = isFailed ? false : (b.isFixed !== undefined ? Boolean(b.isFixed) : isPassed);
+      const lineNum = b.location?.line || b.line || idx + 1;
+      return {
+        bugIndex: b.bugIndex || idx + 1,
+        name: b.name || `Defect #${idx + 1}`,
+        category: b.category || 'Logic',
+        description: b.description || 'Injected defect',
+        location: { line: lineNum, column: 0 },
+        mutatedFragment: b.mutatedFragment || '',
+        originalFragment: b.originalFragment || '',
+        isFixed,
+        status: isFixed ? 'FIXED' : 'NOT_FIXED',
+        explanation: b.explanation || (isFixed ? `Defect #${idx + 1} resolved.` : `Mistake on Line ${lineNum}: Defect '${b.name}' was not modified.`),
+      };
+    });
+  }, [phase2State, isPassed, isFailed]);
+
+  const bugAnnotations: BugAnnotation[] = useMemo(() => {
+    return bugReports.map((b) => ({
+      line: b.location?.line || 1,
+      name: b.name,
+      category: b.category,
+      message: b.explanation || b.description,
+      mutatedFragment: b.mutatedFragment,
+      originalFragment: b.originalFragment,
+      isFixed: b.isFixed,
+    }));
+  }, [bugReports]);
+
+  const totalBugs = bugReports.length || 3;
+  const fixedCount = isFailed ? 0 : bugReports.filter((b) => b.isFixed).length;
+  const missedCount = isFailed ? totalBugs : totalBugs - fixedCount;
+  const score = isFailed ? 0 : (isPassed ? 100 : ((phase2State as any)?.evaluation?.score ?? (phase2State as any)?.score ?? 0));
+
+  // Full-Screen Badi Screen Dossier Data
+  const submissionForModal = useMemo(() => {
+    if (!isSubmitted && !isFailed && !isPassed) return null;
+
+    const evalObj = (phase2State as any)?.evaluation || {};
+    const finalScore = isFailed ? 0 : (isPassed ? 100 : ((phase2State as any)?.evaluation?.score ?? (phase2State as any)?.score ?? 0));
+
+    return {
+      id: (phase2State as any)?.challengeId || assignmentId,
+      assignmentId,
+      assignmentTitle: assignment?.title || (phase2State as any)?.assignment?.title || 'Assignment Defense',
+      assignmentLanguage: assignment?.language || (phase2State as any)?.language || language || 'c',
+      language: assignment?.language || (phase2State as any)?.language || language || 'c',
+      studentName: profile?.full_name || user?.name || user?.email?.split('@')[0] || 'Student',
+      studentRollNumber: profile?.roll_number || (user as any)?.roll_number || user?.rollNumber || '—',
+      studentDivisionId: profile?.division_id || (user as any)?.division || user?.divisionId || 'DIV A',
+      studentEmail: user?.email || profile?.email || '',
+      state: isPassed ? 'PASSED' : isFailed ? 'PHASE2_FAILED' : 'PHASE2_SUBMITTED',
+      phase2Status: isPassed ? 'PASSED' : isFailed ? 'FAILED' : 'SUBMITTED',
+      score: finalScore,
+      submittedAt: (phase2State as any)?.submittedAt || new Date().toISOString(),
+      summary: (phase2State as any)?.summary || evalObj?.summary || (isPassed ? 'All injected defects repaired.' : 'Phase 2 debugging failed: Injected defects were not resolved.'),
+      failureReason: isFailed ? ((phase2State as any)?.summary || evalObj?.summary || 'Injected defects were not resolved.') : null,
+      mutatedCode: (phase2State as any)?.mutatedCode || initialMutatedCode || '',
+      repairedCode: (phase2State as any)?.finalCode || (phase2State as any)?.repairedCode || code || '',
+      originalCode: (phase2State as any)?.originalCode || (phase2State as any)?.baselineCode || '',
+      phase1Code: (phase2State as any)?.originalCode || (phase2State as any)?.baselineCode || '',
+      baselineCode: (phase2State as any)?.originalCode || (phase2State as any)?.baselineCode || '',
+      solutionCode: (phase2State as any)?.originalCode || (phase2State as any)?.baselineCode || (assignment as any)?.starter_code || '',
+      referenceSolution: (phase2State as any)?.originalCode || (phase2State as any)?.baselineCode || (assignment as any)?.starter_code || '',
+      bugMutations: bugReports,
+      bugReports: bugReports,
+      evaluation: {
+        score: finalScore,
+        testsTotal: evalObj?.testsTotal || evalObj?.tests_total || 2,
+        testsPassed: isPassed ? (evalObj?.testsTotal || evalObj?.tests_total || 2) : 0,
+        testsFailed: isPassed ? 0 : 1,
+        results: evalObj?.results || [],
+        bugReports: bugReports,
+        summary: (phase2State as any)?.summary || evalObj?.summary,
+      },
+      securityEvents: (proctoringState.violations || []).map((v) => ({
+        id: v.id,
+        eventType: v.type,
+        severity: v.severity,
+        details: v.details,
+        timestamp: v.timestamp,
+      })),
+      vivaQuestions: (assignment as any)?.viva_questions_json ? (() => {
+        try { return JSON.parse((assignment as any).viva_questions_json); } catch { return []; }
+      })() : [],
+    };
+  }, [isSubmitted, isFailed, isPassed, phase2State, assignment, language, user, profile, code, initialMutatedCode, bugReports, proctoringState.violations, assignmentId]);
 
   // Immediate Security Fail / Direct Disqualification handler
   const handleSecurityFail = useCallback(
@@ -271,7 +389,7 @@ export const Phase2ChallengeView: React.FC<Phase2ChallengeViewProps> = ({
       }
     } catch (err: any) {
       console.error('Failed to load Phase 2 state:', err);
-      setErrorMessage(err.message || 'Failed to connect to server.');
+      setSafeErrorMessage(err.message || 'Failed to connect to server.');
     } finally {
       setLoading(false);
     }
@@ -431,7 +549,7 @@ export const Phase2ChallengeView: React.FC<Phase2ChallengeViewProps> = ({
       }));
     } catch (err: any) {
       console.error('Failed to start Phase 2 challenge:', err);
-      setErrorMessage(err.message || 'Failed to start challenge. Please try again.');
+      setSafeErrorMessage(err.message || 'Failed to start challenge. Please try again.');
     } finally {
       setStarting(false);
     }
@@ -525,7 +643,12 @@ export const Phase2ChallengeView: React.FC<Phase2ChallengeViewProps> = ({
         setSelectedTestIndex(0);
       }
 
-      if (res.evaluationStatus === 'PASSED') {
+      const isPass = res.evaluationStatus === 'PASSED';
+      const evalScore = res.score !== undefined ? res.score : (isPass ? 100 : 0);
+
+      setEditorMode('diagnostic');
+
+      if (isPass) {
         setSuccessMessage(
           `Challenge PASSED! All ${res.testsPassed}/${res.testsTotal} deterministic test cases verified.`
         );
@@ -538,6 +661,18 @@ export const Phase2ChallengeView: React.FC<Phase2ChallengeViewProps> = ({
           submittedAt: res.submittedAt,
           finalCode: formattedFinalCode,
           evaluationStatus: 'PASSED',
+          score: evalScore,
+          summary: res.summary || res.message,
+          issues: res.issues || [],
+          suggestions: res.suggestions || [],
+          bugReports: res.bugReports || [],
+          evaluation: res.evaluation || {
+            status: 'PASSED',
+            score: evalScore,
+            summary: res.summary,
+            issues: res.issues,
+            bugReports: res.bugReports,
+          },
           testsTotal: res.testsTotal,
           testsPassed: res.testsPassed,
           testsFailed: res.testsFailed,
@@ -557,6 +692,18 @@ export const Phase2ChallengeView: React.FC<Phase2ChallengeViewProps> = ({
           submittedAt: res.submittedAt,
           finalCode: formattedFinalCode,
           evaluationStatus: 'FAILED',
+          score: evalScore,
+          summary: res.summary || res.message,
+          issues: res.issues || [],
+          suggestions: res.suggestions || [],
+          bugReports: res.bugReports || [],
+          evaluation: res.evaluation || {
+            status: 'FAILED',
+            score: evalScore,
+            summary: res.summary,
+            issues: res.issues,
+            bugReports: res.bugReports,
+          },
           testsTotal: res.testsTotal,
           testsPassed: res.testsPassed,
           testsFailed: res.testsFailed,
@@ -567,7 +714,7 @@ export const Phase2ChallengeView: React.FC<Phase2ChallengeViewProps> = ({
       }
     } catch (err: any) {
       console.error('Failed to submit Phase 2 fix:', err);
-      setErrorMessage(err.message || 'Submission recorded.');
+      setSafeErrorMessage(err.message || 'Submission recorded.');
       setPhase2State((prev) => ({
         ...(prev || { isAvailable: false, assignment: assignment || undefined }),
         isAvailable: false,
@@ -792,6 +939,16 @@ export const Phase2ChallengeView: React.FC<Phase2ChallengeViewProps> = ({
           </div>
         </div>
       </div>
+    );
+  }
+
+  // Badi Screen Full-Screen Result Dossier (Side-by-Side Comparison & Bug Review)
+  if ((isSubmitted || isFailed || isPassed) && submissionForModal) {
+    return (
+      <LargeSubmissionResultModal
+        submission={submissionForModal}
+        onClose={onBack}
+      />
     );
   }
 
@@ -1127,125 +1284,128 @@ export const Phase2ChallengeView: React.FC<Phase2ChallengeViewProps> = ({
         </div>
       )}
 
-      {/* SyntaXViva AI Evaluation Outcome Banner */}
-      {isPassed && (
-        <div className="p-5 bg-emerald-50 border border-emerald-200 rounded-2xl flex flex-col gap-2 text-emerald-900 text-xs shadow-xs">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
-              <span className="font-bold text-sm text-emerald-950">SyntaXViva AI Verification: PASSED</span>
+      {/* Top SyntaXViva AI Verification Banner (matches user screenshot) */}
+      {(isSubmitted || isFailed || isPassed) && (
+        <div
+          className={`p-5 rounded-2xl border flex flex-col gap-3 text-xs shadow-xs ${
+            isFailed
+              ? 'bg-rose-50/80 border-rose-200 text-rose-950'
+              : 'bg-emerald-50/80 border-emerald-200 text-emerald-950'
+          }`}
+        >
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-2.5 font-bold text-sm">
+              {isFailed ? (
+                <>
+                  <div className="w-7 h-7 rounded-lg bg-rose-100 border border-rose-300 text-rose-600 flex items-center justify-center shrink-0">
+                    <XCircle className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <span className="text-rose-950 text-sm font-bold">Phase 2 Verification: FAILED</span>
+                    <span className="block text-[11px] font-normal text-rose-700">
+                      {missedCount} of {totalBugs} injected defect(s) were not resolved
+                    </span>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="w-7 h-7 rounded-lg bg-emerald-100 border border-emerald-300 text-emerald-600 flex items-center justify-center shrink-0">
+                    <CheckCircle2 className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <span className="text-emerald-950 text-sm font-bold">Phase 2 Verification: PASSED</span>
+                    <span className="block text-[11px] font-normal text-emerald-700">
+                      All {totalBugs} injected defects were successfully resolved
+                    </span>
+                  </div>
+                </>
+              )}
             </div>
-            {(phase2State as any)?.evaluation?.score !== undefined && (
-              <span className="px-3 py-1 bg-emerald-600 text-white font-mono font-bold rounded-full text-xs">
-                Score: {(phase2State as any).evaluation.score}/100
-              </span>
-            )}
-          </div>
-          <div className="text-xs text-emerald-800 leading-relaxed font-medium">
-            {(phase2State as any)?.evaluation?.summary ||
-              'Your Phase 2 solution was verified by SyntaXViva AI as a valid modification of the approved Phase 1 baseline.'}
-          </div>
-          <div className="pt-2 flex items-center justify-between border-t border-emerald-200/80 flex-wrap gap-2">
-            <span className="text-[11px] text-emerald-800">
-              Want to practice identifying and fixing all 3 complex defects again?
-            </span>
-            <button
-              type="button"
-              onClick={handleRetryChallenge}
-              disabled={starting}
-              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs transition cursor-pointer shadow-sm shadow-emerald-700/30"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-              <span>{starting ? 'Generating 3 Defects...' : 'Retake Phase 2 (Test 3 Defects)'}</span>
-            </button>
-          </div>
-        </div>
-      )}
 
-      {isFailed && (
-        <div className="p-5 bg-rose-50 border border-rose-200 rounded-2xl flex flex-col gap-2 text-rose-900 text-xs shadow-xs">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <XCircle className="w-5 h-5 text-rose-600 shrink-0" />
-              <span className="font-bold text-sm text-rose-950">SyntaXViva AI Verification: FAILED</span>
-            </div>
-            {(phase2State as any)?.evaluation?.score !== undefined && (
-              <span className="px-3 py-1 bg-rose-600 text-white font-mono font-bold rounded-full text-xs">
-                Score: {(phase2State as any).evaluation.score}/100
-              </span>
+            <span
+              className={`px-3 py-1 font-mono font-bold rounded-full text-xs text-white ${
+                isFailed ? 'bg-rose-600' : 'bg-emerald-600'
+              }`}
+            >
+              Score: {score}/100
+            </span>
+          </div>
+
+          <div className="text-xs leading-relaxed">
+            {isFailed ? (
+              <p className="text-rose-900 font-medium">
+                {fixedCount > 0 ? (
+                  <>You successfully resolved <strong>{fixedCount}</strong> of {totalBugs} defects, but <strong>{missedCount}</strong> defect(s) remained uncorrected. All injected defects must be fixed to pass.</>
+                ) : (
+                  <>None of the <strong>{totalBugs}</strong> injected defects were resolved. Review the code diagnostic below to see where each defect was located.</>
+                )}
+              </p>
+            ) : (
+              <p className="text-emerald-900 font-medium">
+                Excellent work! All <strong>{totalBugs}</strong> injected complex defects were identified and resolved successfully.
+              </p>
             )}
           </div>
-          <div className="text-xs text-rose-800 leading-relaxed font-medium">
-            {(phase2State as any)?.evaluation?.summary ||
-              phase2State?.failureReason ||
-              errorMessage ||
-              'The submitted Phase 2 solution did not satisfy AI evaluation.'}
-          </div>
-          {Array.isArray((phase2State as any)?.evaluation?.issues) &&
-            (phase2State as any).evaluation.issues.length > 0 && (
-              <div className="pt-2 border-t border-rose-200/80">
-                <span className="font-bold text-rose-900">Issues Identified:</span>
-                <ul className="list-disc list-inside text-rose-800 space-y-0.5 mt-1">
-                  {(phase2State as any).evaluation.issues.map((iss: string, idx: number) => (
-                    <li key={idx}>{iss}</li>
+
+          {isFailed && bugReports.filter((b) => !b.isFixed).length > 0 && (
+            <div className="pt-2 border-t border-rose-200/80 space-y-2">
+              <span className="font-bold text-xs text-rose-950 flex items-center gap-1.5">
+                <AlertCircle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                Unresolved Defects (Highlighted with red wavy underlines below):
+              </span>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                {bugReports
+                  .filter((b) => !b.isFixed)
+                  .map((b, idx) => (
+                    <div
+                      key={idx}
+                      className="p-3 rounded-xl bg-white/90 border border-rose-200/90 shadow-2xs space-y-1"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-mono font-bold text-rose-600 bg-rose-50 border border-rose-200/70 px-1.5 py-0.5 rounded">
+                          Line {b.location?.line || '?'}
+                        </span>
+                        <span className="text-[9px] font-bold uppercase tracking-wider text-rose-700 bg-rose-100/70 px-1.5 py-0.5 rounded">
+                          Unresolved
+                        </span>
+                      </div>
+                      <div className="font-bold text-slate-800 text-xs truncate" title={b.name}>
+                        {b.name}
+                      </div>
+                      <p className="text-[11px] text-slate-500 line-clamp-2 leading-snug">
+                        {b.description || 'Injected defect was not modified in your submission.'}
+                      </p>
+                    </div>
                   ))}
-                </ul>
               </div>
-            )}
-          <div className="pt-2 flex items-center justify-between border-t border-rose-200/80 flex-wrap gap-2">
-            <span className="text-[11px] text-rose-800">
-              Try again with 3 fresh complex defects.
-            </span>
-            <button
-              type="button"
-              onClick={handleRetryChallenge}
-              disabled={starting}
-              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-rose-700 hover:bg-rose-800 text-white font-bold text-xs transition cursor-pointer shadow-sm shadow-rose-700/30"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-              <span>{starting ? 'Generating 3 Defects...' : 'Retake Phase 2 (Test 3 Defects)'}</span>
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Success Notification (if not passed) */}
-      {!isPassed && !isFailed && successMessage && (
-        <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-center gap-3 text-emerald-900 text-xs">
-          <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
-          <div className="flex-1">
-            <span className="font-bold">Phase 2 Recorded:</span>{' '}
-            <span>{successMessage}</span>
-          </div>
+            </div>
+          )}
         </div>
       )}
 
       {/* Expired Notification */}
-      {isExpired && !isSubmitted && (
+      {isExpired && !isSubmitted && !isFailed && !isPassed && (
         <div className="p-4 bg-red-50 border border-red-200 rounded-2xl flex items-center justify-between gap-3 text-red-900 text-xs flex-wrap">
           <div className="flex items-center gap-3 flex-1">
             <AlertTriangle className="w-5 h-5 text-red-600 shrink-0" />
             <div className="flex-1">
               <span className="font-bold">Time Expired:</span>{' '}
-              <span>
-                The 180-second server deadline has passed.
-              </span>
+              <span>The 180-second server deadline has passed.</span>
             </div>
           </div>
           <button
             type="button"
-            onClick={handleRetryChallenge}
-            disabled={starting}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-700 hover:bg-red-800 text-white font-bold text-xs transition cursor-pointer shadow-sm"
+            onClick={onBack}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-800 text-white font-bold text-xs transition cursor-pointer shadow-sm"
           >
-            <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-            <span>{starting ? 'Generating...' : 'Try Again with 3 Defects'}</span>
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>Back to Assignments</span>
           </button>
         </div>
       )}
 
       {/* Error Notification */}
-      {!isFailed && errorMessage && (
+      {!isFailed && !isPassed && errorMessage && !errorMessage.toLowerCase().includes('gemini') && !errorMessage.toLowerCase().includes('api key') && (
         <div className="p-4 bg-red-50 border border-red-200 rounded-2xl flex items-center gap-3 text-red-900 text-xs">
           <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
           <span>{errorMessage}</span>
@@ -1255,68 +1415,235 @@ export const Phase2ChallengeView: React.FC<Phase2ChallengeViewProps> = ({
       {/* MAIN CONTENT: Left (Editor & Problem) + Right (Sidebar) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* LEFT / MAIN AREA (Col 8) */}
-        <div className="lg:col-span-8 space-y-4">
-          {/* Instructions Banner & 3 Complex Bugs Checklist */}
-          <div className="p-4 bg-linear-to-r from-purple-50 via-indigo-50/60 to-purple-50 border border-purple-200 rounded-2xl shadow-xs space-y-3">
-            <div className="flex items-center justify-between flex-wrap gap-2">
-              <div className="flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-purple-600 shrink-0" />
-                <span className="font-bold text-xs text-purple-950">
-                  Phase 2 Viva: Exactly 3 Complex Bugs Injected
-                </span>
+        <div className="lg:col-span-8 space-y-5">
+          {/* If Submitted/Failed/Passed: Render Hero Card + 4 Metric Stat Cards + Bug Verification Breakdown */}
+          {isSubmitted || isFailed || isPassed ? (
+            <>
+              {/* Hero Banner (matches user screenshot) */}
+              <div
+                className={`p-6 rounded-2xl border text-white shadow-lg space-y-4 ${
+                  isFailed
+                    ? 'bg-linear-to-r from-slate-950 via-rose-950 to-slate-900 border-rose-800/50'
+                    : 'bg-linear-to-r from-slate-950 via-emerald-950 to-slate-900 border-emerald-800/50'
+                }`}
+              >
+                <div className="flex items-start gap-4">
+                  <div
+                    className={`p-3 rounded-2xl shrink-0 border ${
+                      isFailed
+                        ? 'bg-rose-900/40 border-rose-700/60 text-rose-400'
+                        : 'bg-emerald-900/40 border-emerald-700/60 text-emerald-400'
+                    }`}
+                  >
+                    {isFailed ? <AlertTriangle className="w-8 h-8" /> : <CheckCircle2 className="w-8 h-8" />}
+                  </div>
+                  <div className="space-y-1.5 flex-1">
+                    <span
+                      className={`inline-block px-3 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider border ${
+                        isFailed
+                          ? 'bg-rose-900/80 text-rose-200 border-rose-700'
+                          : 'bg-emerald-900/80 text-emerald-200 border-emerald-700'
+                      }`}
+                    >
+                      {isFailed ? `FAILED • SCORE: ${score}/100` : `PASSED • SCORE: 100/100`}
+                    </span>
+                    <h2 className="text-2xl font-extrabold tracking-tight">
+                      {isFailed ? 'Phase 2 Debugging Failed' : 'Phase 2 Debugging Passed'}
+                    </h2>
+                    <p className="text-xs text-slate-300 leading-relaxed">
+                      {isFailed
+                        ? `Assessment Rule: All injected defects must be resolved. You missed ${missedCount} defect(s).`
+                        : `Assessment Rule: All injected defects resolved. Full marks awarded.`}
+                    </p>
+                  </div>
+                </div>
+
+                {isFailed && (
+                  <div className="p-3 bg-slate-900/80 border border-slate-800 rounded-xl flex items-center gap-2.5 text-xs text-slate-200">
+                    <Info className="w-4 h-4 text-rose-400 shrink-0" />
+                    <span>
+                      <strong>Mistake Diagnostic:</strong> In the Code Review below, lines where you made mistakes or missed defects are highlighted with{' '}
+                      <span className="text-rose-400 font-bold underline decoration-wavy decoration-rose-500 underline-offset-4">
+                        red wavy underlines
+                      </span>.
+                    </span>
+                  </div>
+                )}
               </div>
-              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-purple-200 text-purple-900 border border-purple-300">
+
+              {/* 4 Metric Stat Cards (matches user screenshot) */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs text-center space-y-1">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Total Defects</span>
+                  <div className="text-3xl font-extrabold text-slate-800 tabular-nums">{totalBugs}</div>
+                </div>
+                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs text-center space-y-1">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600">Fixed Bugs</span>
+                  <div className="text-3xl font-extrabold text-emerald-600 tabular-nums">{fixedCount}</div>
+                </div>
+                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs text-center space-y-1">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-rose-600">Missed Bugs</span>
+                  <div className="text-3xl font-extrabold text-rose-600 tabular-nums">{missedCount}</div>
+                </div>
+                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs text-center space-y-1">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-600">Final Score</span>
+                  <div className="text-3xl font-extrabold text-indigo-600 tabular-nums">{score}%</div>
+                </div>
+              </div>
+
+              {/* INJECTED BUG VERIFICATION BREAKDOWN (matches user screenshot) */}
+              {bugReports.length > 0 && (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-purple-600" />
+                    <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-900">
+                      Injected Bug Verification Breakdown
+                    </h3>
+                  </div>
+
+                  <div className="space-y-2.5">
+                    {bugReports.map((b: any, idx: number) => {
+                      const isBugFixed = Boolean(b.isFixed);
+                      return (
+                        <div
+                          key={idx}
+                          className={`p-4 rounded-xl border space-y-2 transition-all ${
+                            isBugFixed
+                              ? 'bg-emerald-50/70 border-emerald-200 text-emerald-950'
+                              : 'bg-rose-50/70 border-rose-200 text-rose-950 shadow-xs'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-2 flex-wrap">
+                            <div className="flex items-center gap-2 font-bold text-xs">
+                              {isBugFixed ? (
+                                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                              ) : (
+                                <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                              )}
+                              <span>
+                                {b.name} (Line {b.location?.line || '?'})
+                              </span>
+                            </div>
+                            <span
+                              className={`px-2.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${
+                                isBugFixed
+                                  ? 'bg-emerald-100 text-emerald-700 border-emerald-300'
+                                  : 'bg-rose-100 text-rose-700 border-rose-300'
+                              }`}
+                            >
+                              {isBugFixed ? 'Resolved Fix' : 'Missed Mistake'}
+                            </span>
+                          </div>
+
+                          <p className="text-xs text-slate-700 leading-relaxed font-medium">
+                            {isBugFixed ? (
+                              `Defect on Line ${b.location?.line || '?'}: '${b.name}' was correctly resolved.`
+                            ) : (
+                              <>
+                                Mistake on Line {b.location?.line || '?'}: Defect '{b.name}' was not modified.{' '}
+                                {b.mutatedFragment && b.originalFragment ? (
+                                  <span className="font-mono text-[11px] text-rose-800">
+                                    Mutated code:{' '}
+                                    <code className="bug-wavy-underline font-bold px-1 py-0.5 bg-rose-100 rounded">
+                                      {b.mutatedFragment}
+                                    </code>{' '}
+                                    replaced baseline logic.
+                                  </span>
+                                ) : (
+                                  b.description
+                                )}
+                              </>
+                            )}
+                          </p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </>
+          ) : (
+            /* Active Challenge Instructions Banner */
+            <div className="p-3.5 bg-linear-to-r from-purple-50 via-indigo-50/60 to-purple-50 border border-purple-200/90 rounded-2xl shadow-xs flex items-center justify-between gap-3 flex-wrap">
+              <div className="flex items-center gap-2.5">
+                <Sparkles className="w-4 h-4 text-purple-600 shrink-0" />
+                <div>
+                  <span className="font-bold text-xs text-purple-950">
+                    Phase 2 Viva: Exactly 3 Injected Defects
+                  </span>
+                  <p className="text-[11px] text-purple-800 mt-0.5">
+                    Locate all 3 defects in your code, fix them, and submit your solution.
+                  </p>
+                </div>
+              </div>
+              <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-purple-200 text-purple-900 border border-purple-300">
                 Fix All 3 Bugs to Pass
               </span>
             </div>
-            <p className="text-[11px] text-purple-800 leading-relaxed">
-              SyntaXViva has injected <strong>3 distinct, complex defects</strong> (algorithmic logic, accumulator invariants, control-flow, or data bounds) into your submitted code. Read through the implementation, locate all 3 injected bugs, and fix them directly before submitting.
-            </p>
-          </div>
+          )}
 
-          {/* Mutated Code Editor */}
+          {/* Code Editor Container */}
           <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden flex flex-col">
-            {/* Editor Toolbar Header */}
+            {/* Editor Toolbar Header (matches user screenshot tabs) */}
             <div className="px-5 py-3 border-b border-slate-200 bg-slate-50 flex items-center justify-between flex-wrap gap-2">
               <div className="flex items-center gap-2">
                 <Code2 className="w-4 h-4 text-slate-500" />
                 <span className="text-xs font-bold text-slate-800 font-mono">
-                  mutated_solution.
-                  {language === 'python'
-                    ? 'py'
-                    : language === 'javascript'
-                    ? 'js'
-                    : language === 'typescript'
-                    ? 'ts'
-                    : language === 'java'
-                    ? 'java'
-                    : language === 'cpp'
-                    ? 'cpp'
-                    : language === 'c'
-                    ? 'c'
-                    : 'txt'}
+                  {isSubmitted || isFailed || isPassed ? 'Submitted Code Verification' : 'mutated_solution.' + (
+                    language === 'python'
+                      ? 'py'
+                      : language === 'javascript'
+                      ? 'js'
+                      : language === 'typescript'
+                      ? 'ts'
+                      : language === 'java'
+                      ? 'java'
+                      : language === 'cpp'
+                      ? 'cpp'
+                      : language === 'c'
+                      ? 'c'
+                      : 'txt'
+                  )}
                 </span>
-                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-800 border border-purple-200">
-                  3 Complex Bugs
-                </span>
-                {isSubmitted ? (
-                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 flex items-center gap-1">
-                    <Lock className="w-2.5 h-2.5" /> Submitted Fix
-                  </span>
-                ) : isExpired ? (
-                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-800 flex items-center gap-1">
-                    <Lock className="w-2.5 h-2.5" /> Read-Only (Expired)
+                {isSubmitted || isFailed || isPassed ? (
+                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-200 text-slate-700">
+                    Verification View
                   </span>
                 ) : (
-                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800">
-                    Live Challenge Editor
+                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-800 border border-purple-200">
+                    3 Complex Bugs
                   </span>
                 )}
               </div>
 
-              {/* Action Tools */}
-              <div className="flex items-center gap-2">
-                {isChallengeActive && initialMutatedCode && (
+              {/* Inspector View Mode Tabs (matches user screenshot) */}
+              {isSubmitted || isFailed || isPassed ? (
+                <div className="flex items-center bg-slate-200/80 p-0.5 rounded-lg border border-slate-300/70 text-[11px]">
+                  <button
+                    type="button"
+                    onClick={() => setEditorMode('diagnostic')}
+                    className={`px-3 py-1 rounded-md font-bold transition cursor-pointer flex items-center gap-1.5 ${
+                      editorMode === 'diagnostic'
+                        ? 'bg-slate-900 text-white shadow-xs'
+                        : 'text-slate-700 hover:text-slate-950'
+                    }`}
+                  >
+                    <span>Diagnostic Inspector (With Underlines)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditorMode('standard')}
+                    className={`px-3 py-1 rounded-md font-medium transition cursor-pointer ${
+                      editorMode === 'standard'
+                        ? 'bg-slate-900 text-white font-bold shadow-xs'
+                        : 'text-slate-700 hover:text-slate-950'
+                    }`}
+                  >
+                    <span>Standard Code Editor</span>
+                  </button>
+                </div>
+              ) : (
+                isChallengeActive && initialMutatedCode && (
                   <button
                     type="button"
                     onClick={handleResetToMutated}
@@ -1326,8 +1653,8 @@ export const Phase2ChallengeView: React.FC<Phase2ChallengeViewProps> = ({
                     <RotateCcw className="w-3 h-3 text-slate-500" />
                     <span>Reset to Mutated</span>
                   </button>
-                )}
-              </div>
+                )
+              )}
             </div>
 
             {/* Code Editor Container */}
@@ -1339,17 +1666,23 @@ export const Phase2ChallengeView: React.FC<Phase2ChallengeViewProps> = ({
               onContextMenu={handleContextMenuBlocked}
             >
               <DeveloperCodeEditor
-                value={code}
+                value={
+                  (isSubmitted || isFailed || isPassed)
+                    ? (phase2State?.finalCode || (phase2State as any)?.repaired_code || code || phase2State?.mutatedCode || '')
+                    : code
+                }
                 onChange={(nextVal) => {
-                  if (isSubmitted || isExpired) return;
+                  if (isSubmitted || isExpired || isFailed || isPassed) return;
                   setCode(nextVal);
                   if (errorMessage) setErrorMessage(null);
                 }}
                 language={language || 'python'}
-                readOnly={isSubmitted || isExpired}
+                readOnly={isSubmitted || isExpired || isFailed || isPassed}
                 minHeight={450}
                 filename={`phase2_submission.${
-                  language === 'cpp'
+                  language === 'c'
+                    ? 'c'
+                    : language === 'cpp'
                     ? 'cpp'
                     : language === 'java'
                     ? 'java'
@@ -1362,6 +1695,8 @@ export const Phase2ChallengeView: React.FC<Phase2ChallengeViewProps> = ({
                 minimalToolbar={false}
                 hideCopyButton={true}
                 disableCopyPaste={isChallengeActive}
+                bugAnnotations={bugAnnotations}
+                showBugAnnotations={editorMode === 'diagnostic' && (isSubmitted || isFailed || isPassed)}
                 onCopyAttempt={() =>
                   handleSecurityFail(
                     'Exam Disqualified / Failed: Prohibited copy action during Phase 2 Viva.',
@@ -1389,16 +1724,21 @@ export const Phase2ChallengeView: React.FC<Phase2ChallengeViewProps> = ({
                 <span>{linesCount} lines</span>
                 <span>•</span>
                 <span>{code.length} chars</span>
-                {isChallengeActive && (
+                {(isSubmitted || isFailed || isPassed) ? (
+                  <>
+                    <span>•</span>
+                    <span className="text-emerald-700 font-semibold">Evaluation Finalized</span>
+                  </>
+                ) : isChallengeActive ? (
                   <>
                     <span>•</span>
                     <span className="text-blue-700 font-semibold">Ready to Submit</span>
                   </>
-                )}
+                ) : null}
               </div>
 
-              {/* Submit Button (One-Time Only) */}
-              {isSubmitted ? (
+              {/* Submit Button or Navigation */}
+              {isSubmitted || isFailed || isPassed ? (
                 <div className="flex items-center gap-2 flex-wrap">
                   <button
                     type="button"
@@ -1419,14 +1759,12 @@ export const Phase2ChallengeView: React.FC<Phase2ChallengeViewProps> = ({
                       </>
                     )}
                   </button>
-                  <span className="text-xs text-emerald-700 font-semibold flex items-center gap-1">
-                    <CheckCircle2 className="w-3.5 h-3.5" /> Fix Stored
-                  </span>
                   <button
                     onClick={onBack}
-                    className="px-4 py-2 text-xs font-semibold rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-800 transition cursor-pointer"
+                    className="px-4 py-2 text-xs font-bold rounded-xl bg-slate-900 hover:bg-slate-800 text-white transition cursor-pointer shadow-xs flex items-center gap-1.5"
                   >
-                    Back to Assignments
+                    <ArrowLeft className="w-3.5 h-3.5" />
+                    <span>Back to Dashboard</span>
                   </button>
                 </div>
               ) : isExpired ? (
@@ -1444,13 +1782,9 @@ export const Phase2ChallengeView: React.FC<Phase2ChallengeViewProps> = ({
                     id="btn-run-phase2-tests"
                     type="button"
                     onClick={handleRunTests}
-                    disabled={runningTests || submitting || !code.trim() || isExpired}
-                    className={`inline-flex items-center justify-center gap-1.5 px-4 py-2 text-xs font-bold rounded-xl transition cursor-pointer border ${
-                      runningTests || submitting || !code.trim() || isExpired
-                        ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed'
-                        : 'bg-white hover:bg-slate-100 text-slate-700 border-slate-300 shadow-2xs'
-                    }`}
-                    title="Run code against visible test cases without submitting"
+                    disabled={runningTests || !code.trim()}
+                    className="inline-flex items-center justify-center gap-1.5 px-4 py-2 text-xs font-bold rounded-xl transition cursor-pointer border bg-white hover:bg-slate-100 text-slate-700 border-slate-300 shadow-2xs disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed"
+                    title="Run code against visible deterministic test cases"
                   >
                     {runningTests ? (
                       <>
@@ -1467,24 +1801,19 @@ export const Phase2ChallengeView: React.FC<Phase2ChallengeViewProps> = ({
 
                   <button
                     id="btn-submit-phase2-fix"
-                    type="button"
                     onClick={handleSubmitFix}
-                    disabled={submitting || runningTests || !code.trim() || isExpired || remainingSeconds <= 0}
-                    className={`inline-flex items-center justify-center gap-2 px-6 py-2 text-xs font-bold rounded-xl transition cursor-pointer shadow-sm ${
-                      submitting || runningTests || !code.trim() || isExpired || remainingSeconds <= 0
-                        ? 'bg-slate-300 text-slate-500 cursor-not-allowed'
-                        : 'bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white shadow-blue-500/20'
-                    }`}
+                    disabled={submitting || hasClickedSubmitOnce || !code.trim()}
+                    className="inline-flex items-center justify-center gap-1.5 px-5 py-2 rounded-xl text-xs font-bold transition shadow-xs cursor-pointer bg-emerald-600 hover:bg-emerald-700 text-white disabled:bg-slate-300 disabled:cursor-not-allowed"
                   >
                     {submitting ? (
                       <>
                         <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                        <span>Recording Submission...</span>
+                        <span>Evaluating Fix...</span>
                       </>
                     ) : (
                       <>
                         <Send className="w-3.5 h-3.5" />
-                        <span>Submit Fix</span>
+                        <span>Submit Fix &amp; Evaluate</span>
                       </>
                     )}
                   </button>
@@ -1673,11 +2002,15 @@ export const Phase2ChallengeView: React.FC<Phase2ChallengeViewProps> = ({
               <h3 className="text-sm font-bold text-slate-900 mt-0.5">Debugging Challenge</h3>
             </div>
 
-            {/* Countdown Display Box */}
+            {/* Countdown / Evaluation Outcome Box (matches user screenshot) */}
             <div
-              className={`p-4 rounded-xl border text-center space-y-1 ${
-                isSubmitted
-                  ? 'bg-emerald-50/70 border-emerald-200 text-emerald-900'
+              className={`p-5 rounded-xl border text-center space-y-1.5 ${
+                isFailed
+                  ? 'bg-rose-50/80 border-rose-200 text-rose-950'
+                  : isPassed
+                  ? 'bg-emerald-50/80 border-emerald-200 text-emerald-950'
+                  : isSubmitted
+                  ? 'bg-slate-50 border-slate-200 text-slate-900'
                   : isExpired
                   ? 'bg-red-50/70 border-red-200 text-red-900'
                   : remainingSeconds <= 30
@@ -1688,16 +2021,38 @@ export const Phase2ChallengeView: React.FC<Phase2ChallengeViewProps> = ({
               }`}
             >
               <div className="text-[10px] font-bold uppercase tracking-wider opacity-75">
-                {isSubmitted
-                  ? 'Submission Completed'
+                {isFailed
+                  ? 'EVALUATION FAILED'
+                  : isPassed
+                  ? 'EVALUATION PASSED'
+                  : isSubmitted
+                  ? 'SUBMISSION COMPLETED'
                   : isExpired
-                  ? 'Challenge Status'
-                  : 'Time Remaining'}
+                  ? 'CHALLENGE STATUS'
+                  : 'TIME REMAINING'}
               </div>
-              <div className="text-3xl font-mono font-extrabold tracking-tight">
-                {isSubmitted ? 'SUBMITTED' : isExpired ? 'EXPIRED' : formatTime(remainingSeconds)}
+              <div
+                className={`text-3xl font-mono font-extrabold tracking-tight ${
+                  isFailed
+                    ? 'text-rose-600'
+                    : isPassed
+                    ? 'text-emerald-600'
+                    : isSubmitted
+                    ? 'text-slate-800'
+                    : ''
+                }`}
+              >
+                {isFailed
+                  ? 'FAILED'
+                  : isPassed
+                  ? 'PASSED'
+                  : isSubmitted
+                  ? 'SUBMITTED'
+                  : isExpired
+                  ? 'EXPIRED'
+                  : formatTime(remainingSeconds)}
               </div>
-              {!isSubmitted && !isExpired && (
+              {!isSubmitted && !isExpired && !isFailed && !isPassed && (
                 <div className="w-full bg-slate-200/80 rounded-full h-1.5 mt-2 overflow-hidden">
                   <div
                     className={`h-full transition-all duration-1000 ${
@@ -1713,7 +2068,7 @@ export const Phase2ChallengeView: React.FC<Phase2ChallengeViewProps> = ({
               )}
             </div>
 
-            {/* Metadata Rows */}
+            {/* Metadata Rows (matches user screenshot) */}
             <div className="space-y-2 text-xs border-t border-slate-100 pt-3">
               <div className="flex items-center justify-between text-slate-600">
                 <span className="text-slate-400">Language:</span>
@@ -1723,16 +2078,36 @@ export const Phase2ChallengeView: React.FC<Phase2ChallengeViewProps> = ({
                 <span className="text-slate-400">Status:</span>
                 <span
                   className={`font-semibold capitalize ${
-                    isSubmitted
-                      ? 'text-emerald-600'
+                    isPassed
+                      ? 'text-emerald-600 font-bold'
+                      : isFailed
+                      ? 'text-rose-600 font-bold'
+                      : isSubmitted
+                      ? 'text-slate-800 font-semibold'
                       : isExpired
                       ? 'text-red-600'
                       : 'text-blue-600'
                   }`}
                 >
-                  {isSubmitted ? 'Submitted' : isExpired ? 'Expired' : 'Active'}
+                  {isPassed ? 'Passed' : isFailed ? 'Failed' : isSubmitted ? 'Submitted' : isExpired ? 'Expired' : 'Active'}
                 </span>
               </div>
+              {(isSubmitted || isFailed || isPassed) && (
+                <>
+                  <div className="flex items-center justify-between text-slate-600">
+                    <span className="text-slate-400">Score:</span>
+                    <span className="font-mono font-bold text-slate-800">
+                      {score} / 100
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-slate-600">
+                    <span className="text-slate-400">Resolved Defects:</span>
+                    <span className="font-mono font-bold text-slate-800">
+                      {fixedCount} / {totalBugs}
+                    </span>
+                  </div>
+                </>
+              )}
               <div className="flex items-center justify-between text-slate-600">
                 <span className="text-slate-400">Timer Authority:</span>
                 <span className="font-mono font-medium text-slate-700">Server Time (180s)</span>
@@ -1740,7 +2115,7 @@ export const Phase2ChallengeView: React.FC<Phase2ChallengeViewProps> = ({
             </div>
 
             <div className="p-3 bg-purple-50/70 border border-purple-100 rounded-xl text-[11px] text-purple-900 leading-relaxed">
-              <strong>Requirement:</strong> Exactly 3 complex bugs have been injected into your code. Analyze the logic, fix all 3 defects, and submit before the timer expires.
+              <strong>Requirement:</strong> Analyze your code, resolve all 3 injected defects, and submit before timer ends.
             </div>
           </div>
 
@@ -1756,28 +2131,23 @@ export const Phase2ChallengeView: React.FC<Phase2ChallengeViewProps> = ({
 
               <h4 className="text-xs font-bold text-slate-800">{assignment.title}</h4>
 
-              <div className="text-[11px] text-slate-600 leading-relaxed bg-slate-50 p-3 rounded-xl border border-slate-100 max-h-40 overflow-y-auto">
+              <div className="text-[11px] text-slate-600 leading-relaxed bg-slate-50 p-3 rounded-xl border border-slate-100 max-h-48 overflow-y-auto">
                 {assignment.description}
               </div>
 
-              {assignment.requirements && (
-                <div className="text-[11px] text-slate-600 leading-relaxed bg-slate-50 p-3 rounded-xl border border-slate-100 max-h-32 overflow-y-auto">
-                  {assignment.requirements}
-                </div>
-              )}
+              {assignment.requirements &&
+                assignment.requirements.trim() !== (assignment.description || '').trim() && (
+                  <div className="text-[11px] text-slate-600 leading-relaxed bg-slate-50 p-3 rounded-xl border border-slate-100 max-h-32 overflow-y-auto">
+                    {assignment.requirements}
+                  </div>
+                )}
             </div>
           )}
 
-          {/* Immutability & Security Card */}
-          <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/80 text-[11px] text-slate-600 space-y-2">
-            <div className="font-bold flex items-center gap-1.5 text-slate-900">
-              <ShieldCheck className="w-4 h-4 text-emerald-600" />
-              <span>Immutability Guarantee</span>
-            </div>
-            <p className="leading-relaxed">
-              Your original Phase 1 submission and the mutation artifacts remain locked and immutable.
-              Submitting Phase 2 stores your final corrected code separately for deterministic evaluation.
-            </p>
+          {/* Submission Guarantee */}
+          <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200/80 text-[11px] text-slate-600 flex items-center gap-2">
+            <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+            <span>Phase 2 submission is final and evaluated deterministically.</span>
           </div>
         </div>
       </div>

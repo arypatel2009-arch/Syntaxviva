@@ -52,7 +52,12 @@ export const StudentAssignmentDetailsModal: React.FC<StudentAssignmentDetailsMod
 
   const myState = (assignment as any).myAttemptState;
   const p2Status = (assignment as any).myPhase2Status;
-  const isPassed = myState === 'PASSED' || myState === 'PHASE2_PASSED' || p2Status === 'PHASE2_PASSED';
+  const isPassed =
+    myState === 'PASSED' ||
+    myState === 'PHASE2_PASSED' ||
+    p2Status === 'PHASE2_PASSED' ||
+    myState === 'PHASE2_SUBMITTED' ||
+    p2Status === 'PHASE2_SUBMITTED';
   const isPhase1Done = Boolean(
     (assignment as any).mySubmittedAt ||
       myState === 'PHASE1_SUBMITTED' ||
@@ -121,19 +126,11 @@ export const StudentAssignmentDetailsModal: React.FC<StudentAssignmentDetailsMod
               <div className="mt-0.5">
                 {isPassed ? (
                   <Badge variant="success" size="sm">
-                    Passed
-                  </Badge>
-                ) : isPhase2 ? (
-                  <Badge variant="warning" size="sm">
-                    Phase 2 Ready
-                  </Badge>
-                ) : isWaitingFacultyUnlock ? (
-                  <Badge variant="neutral" size="sm">
-                    Phase 2 Locked by Faculty
+                    Completed
                   </Badge>
                 ) : isDeadlineExpired ? (
                   <Badge variant="danger" size="sm">
-                    Deadline Expired — Not Submitted
+                    Deadline Expired
                   </Badge>
                 ) : (
                   <Badge variant="neutral" size="sm">

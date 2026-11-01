@@ -13,6 +13,7 @@ import { StudentResultsView } from './student/StudentResultsView.tsx';
 import { StudentSubmissionsView } from './student/StudentSubmissionsView.tsx';
 import { StudentProfileView } from './student/StudentProfileView.tsx';
 import { JoinClassroomModal } from './student/JoinClassroomModal.tsx';
+import { LargeSubmissionResultModal } from './common/LargeSubmissionResultModal.tsx';
 import { AlertCircle, User, X } from 'lucide-react';
 import { Button } from './common/UIComponents.tsx';
 
@@ -37,8 +38,67 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = () => {
   const [selectedResultAssignment, setSelectedResultAssignment] = useState<Assignment | null>(null);
   const [showProfileGateModal, setShowProfileGateModal] = useState(false);
   const [showJoinModal, setShowJoinModal] = useState(false);
+  const [fullScreenSubmission, setFullScreenSubmission] = useState<any | null>(null);
+  const [loadingFullResult, setLoadingFullResult] = useState<boolean>(false);
 
   const userProfileComplete = isProfileComplete(user, profile, role);
+
+  const handleViewFullResult = async (assignment: Assignment) => {
+    try {
+      setLoadingFullResult(true);
+      const res = await api.getStudentSubmissionDossier(assignment.id);
+      if (res?.submission) {
+        setFullScreenSubmission(res.submission);
+        return;
+      }
+    } catch (err) {
+      console.warn('Could not fetch student submission dossier, trying fallback:', err);
+    }
+
+    try {
+      const p2 = await api.getStudentPhase2(assignment.id);
+      const rawP2 = p2 as any;
+      if (rawP2) {
+        setFullScreenSubmission({
+          id: rawP2.challengeId || assignment.id,
+          assignmentId: assignment.id,
+          assignmentTitle: assignment.title,
+          assignmentLanguage: assignment.language,
+          studentName: profile?.full_name || user?.name || 'Student',
+          studentEmail: profile?.email || user?.email || '',
+          studentRollNumber: profile?.roll_number || '—',
+          studentDivisionId: profile?.division_id || 'DIV A',
+          state: rawP2.state,
+          phase2Status: rawP2.challengeStatus,
+          score: rawP2.score !== undefined ? rawP2.score : (rawP2.challengeStatus === 'PASSED' ? 100 : 0),
+          summary: rawP2.summary || 'Phase 2 evaluation completed.',
+          failureReason: rawP2.evaluation?.failureReason,
+          originalCode: rawP2.originalCode || (assignment as any).starterCode || '',
+          phase1Code: rawP2.originalCode || (assignment as any).starterCode || '',
+          mutatedCode: rawP2.mutatedCode || '',
+          repairedCode: rawP2.finalCode || rawP2.repairedCode || '',
+          submittedCode: rawP2.finalCode || rawP2.repairedCode || '',
+          solutionCode: rawP2.originalCode || (assignment as any).starterCode || '',
+          referenceSolution: rawP2.originalCode || (assignment as any).starterCode || '',
+          bugMutations: rawP2.bugs || rawP2.bugReports || [],
+          evaluation: rawP2.evaluation,
+          submittedAt: rawP2.submittedAt,
+          challenge: {
+            id: rawP2.challengeId,
+            status: rawP2.challengeStatus,
+            mutatedCode: rawP2.mutatedCode,
+            repairedCode: rawP2.finalCode || rawP2.repairedCode,
+          },
+        });
+        return;
+      }
+    } catch (p2Err) {
+      console.warn('Phase 2 details not found, switching to results tab:', p2Err);
+    }
+
+    setSelectedResultAssignment(assignment);
+    setCurrentTab('results');
+  };
 
   const loadAssignments = (silent = false) => {
     if (!silent) setLoading(true);
@@ -150,7 +210,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = () => {
         />
 
         {/* Page Content View */}
-        <main className="p-4 sm:p-6 lg:p-8 grow">
+        <main className={currentTab === 'settings' || currentTab === 'profile' ? 'p-3 sm:p-5 lg:p-7 xl:p-8 grow w-full min-h-[calc(100vh-5rem)]' : 'p-4 sm:p-6 lg:p-8 grow'}>
           {currentTab === 'dashboard' && (
             <StudentDashboardView
               assignments={filteredAssignments}
@@ -162,6 +222,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = () => {
               onSelectAssignment={handleOpenAssignment}
               onViewAllAssignments={() => setCurrentTab('assignments')}
               onJoinClassroom={() => setShowJoinModal(true)}
+              onViewFullResult={handleViewFullResult}
             />
           )}
 
@@ -171,6 +232,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = () => {
               onSelectAssignment={handleOpenAssignment}
               onViewDetails={(asg) => setInspectAssignment(asg)}
               onRefresh={() => loadAssignments(false)}
+              onViewFullResult={handleViewFullResult}
             />
           )}
 
@@ -184,6 +246,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = () => {
                   handleOpenAssignment(target.id, 'phase1');
                 }
               }}
+              onViewFullResult={handleViewFullResult}
             />
           )}
 
@@ -195,12 +258,21 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = () => {
                 setSelectedResultAssignment(asg);
                 setCurrentTab('results');
               }}
+              onViewFullResult={handleViewFullResult}
             />
           )}
 
           {(currentTab === 'profile' || currentTab === 'settings') && <StudentProfileView />}
         </main>
       </div>
+
+      {/* Full-Screen Result Dossier (Badi Screen) */}
+      {fullScreenSubmission && (
+        <LargeSubmissionResultModal
+          submission={fullScreenSubmission}
+          onClose={() => setFullScreenSubmission(null)}
+        />
+      )}
 
       {/* Assignment Details Modal (Panel 14) */}
       <StudentAssignmentDetailsModal

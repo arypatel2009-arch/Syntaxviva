@@ -407,13 +407,14 @@ export const FacultyAssignmentsView: React.FC<FacultyAssignmentsViewProps> = ({
       key: 'actions',
       header: 'Actions',
       align: 'right',
-      width: '140px',
+      width: '185px',
       render: (asg) => (
-        <div className="flex items-center justify-end gap-2 whitespace-nowrap">
+        <div className="flex items-center justify-end gap-2 whitespace-nowrap min-w-[170px]">
           <button
             type="button"
             onClick={() => onViewSubmissions(asg)}
-            className="opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity px-2.5 py-1 rounded-md text-xs font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 cursor-pointer"
+            className="px-2.5 py-1 rounded-lg text-xs font-semibold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 transition-colors cursor-pointer shrink-0 shadow-2xs"
+            title="View student submissions and performance report"
           >
             Submissions
           </button>
@@ -421,7 +422,7 @@ export const FacultyAssignmentsView: React.FC<FacultyAssignmentsViewProps> = ({
             fadeOnHover={false}
             items={[
               {
-                label: 'View Submissions',
+                label: 'View Submissions & Report',
                 icon: Eye,
                 onClick: () => onViewSubmissions(asg),
               },

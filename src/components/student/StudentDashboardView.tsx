@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   BookOpen,
   CheckCircle2,
@@ -12,6 +12,8 @@ import {
   Inbox,
   Lock,
   Users,
+  BarChart3,
+  FileSpreadsheet,
 } from 'lucide-react';
 import { Assignment } from '../../types/index.ts';
 import {
@@ -48,6 +50,7 @@ interface StudentDashboardViewProps {
   onSelectAssignment: (assignmentId: string, phase?: 'phase1' | 'phase2') => void;
   onViewAllAssignments: () => void;
   onJoinClassroom?: () => void;
+  onViewFullResult?: (assignment: Assignment) => void;
 }
 
 export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
@@ -56,13 +59,29 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
   onSelectAssignment,
   onViewAllAssignments,
   onJoinClassroom,
+  onViewFullResult,
 }) => {
   const { user } = useAuth();
 
   const totalAssignments = assignments.length;
-  const completed = stats.passedAttempts;
-  const pending = Math.max(0, totalAssignments - completed);
-  const passRate = totalAssignments > 0 ? Math.round((completed / totalAssignments) * 100) : 0;
+  const completedAssignmentsCount = assignments.filter((a) => {
+    const myState = (a as any).myAttemptState;
+    const p2Status = (a as any).myPhase2Status;
+    return Boolean(
+      myState === 'PASSED' ||
+      myState === 'PHASE2_PASSED' ||
+      myState === 'PHASE2_FAILED' ||
+      myState === 'FAILED' ||
+      myState === 'PHASE2_SUBMITTED' ||
+      p2Status === 'PASSED' ||
+      p2Status === 'FAILED' ||
+      p2Status === 'PHASE2_PASSED' ||
+      p2Status === 'PHASE2_SUBMITTED'
+    );
+  }).length;
+  const completed = completedAssignmentsCount;
+  const pending = Math.max(0, totalAssignments - completedAssignmentsCount);
+  const passRate = totalAssignments > 0 ? Math.round((stats.passedAttempts / Math.max(1, completedAssignmentsCount)) * 100) : 0;
   const studentName = user?.name || user?.email?.split('@')[0] || 'Student';
 
   return (
@@ -120,7 +139,7 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
         />
         <StatCard
           label="Completed & Verified"
-          value={completed}
+          value={completedAssignmentsCount}
           icon={CheckCircle2}
         />
         <StatCard
@@ -180,10 +199,32 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
                   {assignments.slice(0, 6).map((asg) => {
                     const myState = (asg as any).myAttemptState;
                     const p2Status = (asg as any).myPhase2Status;
-                    const isPassed =
+
+                    const isPhase2Completed = Boolean(
                       myState === 'PASSED' ||
                       myState === 'PHASE2_PASSED' ||
-                      p2Status === 'PHASE2_PASSED';
+                      myState === 'PHASE2_FAILED' ||
+                      myState === 'FAILED' ||
+                      myState === 'PHASE2_SUBMITTED' ||
+                      p2Status === 'PASSED' ||
+                      p2Status === 'FAILED' ||
+                      p2Status === 'PHASE2_PASSED' ||
+                      p2Status === 'PHASE2_SUBMITTED' ||
+                      p2Status === 'SECURITY_TERMINATED' ||
+                      p2Status === 'EXPIRED'
+                    );
+
+                    const isPassed = isPhase2Completed && Boolean(
+                      myState === 'PASSED' ||
+                      myState === 'PHASE2_PASSED' ||
+                      p2Status === 'PASSED' ||
+                      p2Status === 'PHASE2_PASSED' ||
+                      myState === 'PHASE2_SUBMITTED' ||
+                      p2Status === 'PHASE2_SUBMITTED'
+                    );
+
+                    const isFailed = isPhase2Completed && !isPassed;
+
                     const isPhase1Done = Boolean(
                       (asg as any).mySubmittedAt ||
                         myState === 'PHASE1_SUBMITTED' ||
@@ -193,7 +234,8 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
                         myState === 'PHASE2_ACTIVE' ||
                         myState === 'PHASE2_MUTATION_GENERATED' ||
                         p2Status === 'PHASE2_READY' ||
-                        p2Status === 'PHASE2_ACTIVE'
+                        p2Status === 'PHASE2_ACTIVE' ||
+                        isPhase2Completed
                     );
                     const isFacultyUnlocked = Boolean(
                       asg.phase2Unlocked ||
@@ -201,13 +243,13 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
                         myState === 'PHASE2_ACTIVE' ||
                         p2Status === 'PHASE2_ACTIVE'
                     );
-                    const isPhase2 = !isPassed && isPhase1Done && isFacultyUnlocked;
-                    const isWaitingFacultyUnlock = !isPassed && isPhase1Done && !isFacultyUnlocked;
+                    const isPhase2 = !isPhase2Completed && isPhase1Done && isFacultyUnlocked;
+                    const isWaitingFacultyUnlock = !isPhase2Completed && isPhase1Done && !isFacultyUnlocked;
 
                     const rawDueDate = asg.dueDate || (asg as any).due_date;
                     const isDeadlineExpired =
                       !isPhase1Done &&
-                      !isPassed &&
+                      !isPhase2Completed &&
                       (Boolean((asg as any).isDeadlinePassed) ||
                         isAssignmentDeadlinePassed(rawDueDate));
 
@@ -233,21 +275,27 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
                             : 'No deadline'}
                         </td>
                         <td className="py-3.5">
-                          {isPassed ? (
-                            <Badge variant="success" size="sm" dot>
-                              Passed
+                          {isPhase2Completed ? (
+                            isPassed ? (
+                              <Badge variant="success" size="sm" dot>
+                                Completed
+                              </Badge>
+                            ) : (
+                              <Badge variant="danger" size="sm" dot>
+                                Completed (Failed)
+                              </Badge>
+                            )
+                          ) : isDeadlineExpired ? (
+                            <Badge variant="danger" size="sm" dot>
+                              Deadline Expired
                             </Badge>
                           ) : isPhase2 ? (
                             <Badge variant="warning" size="sm" dot>
-                              Phase 2 Unlocked
+                              Phase 2 Pending
                             </Badge>
                           ) : isWaitingFacultyUnlock ? (
-                            <Badge variant="neutral" size="sm" dot>
+                            <Badge variant="warning" size="sm" dot>
                               Phase 2 Locked
-                            </Badge>
-                          ) : isDeadlineExpired ? (
-                            <Badge variant="danger" size="sm" dot>
-                              Deadline Expired — Not Submitted
                             </Badge>
                           ) : (
                             <Badge variant="neutral" size="sm" dot>
@@ -257,14 +305,15 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
                         </td>
                         <td className="py-3.5 text-right pr-6 whitespace-nowrap">
                           <div className="flex items-center justify-end gap-2">
-                            {isPassed ? (
+                            {isPhase2Completed ? (
                               <Button
-                                variant="outline"
+                                variant={isPassed ? "primary" : "outline"}
                                 size="sm"
-                                onClick={() => onSelectAssignment(asg.id)}
-                                className="opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity"
+                                onClick={() => onViewFullResult ? onViewFullResult(asg) : onSelectAssignment(asg.id, 'phase1')}
+                                icon={Eye}
+                                className={isFailed ? "border-rose-300 text-rose-700 hover:bg-rose-50 font-semibold" : "font-semibold"}
                               >
-                                Review
+                                View Result &amp; Code
                               </Button>
                             ) : isPhase2 ? (
                               <Button
@@ -303,10 +352,22 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
                               </Button>
                             )}
                             <RowActionMenu
-                              fadeOnHover={true}
+                              fadeOnHover={false}
                               items={[
+                                ...(isPhase2Completed
+                                  ? [
+                                      {
+                                        label: 'View Result & Code',
+                                        icon: Eye,
+                                        onClick: () =>
+                                          onViewFullResult
+                                            ? onViewFullResult(asg)
+                                            : onSelectAssignment(asg.id, 'phase1'),
+                                      },
+                                    ]
+                                  : []),
                                 {
-                                  label: isPassed
+                                  label: isPhase2Completed
                                     ? 'Review Attempt'
                                     : isPhase2
                                     ? 'Start Phase 2'
@@ -315,7 +376,7 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
                                     : isDeadlineExpired
                                     ? 'Deadline Expired (Cannot Submit)'
                                     : 'Open Phase 1 Editor',
-                                  icon: isPassed
+                                  icon: isPhase2Completed
                                     ? Eye
                                     : isPhase2
                                     ? Bug

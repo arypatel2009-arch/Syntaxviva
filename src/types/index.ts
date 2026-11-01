@@ -1,4 +1,4 @@
-export type UserRole = 'faculty' | 'student' | 'admin';
+export type UserRole = 'faculty' | 'student' | 'hod' | 'admin';
 
 export interface UserProfile {
   id: string; // UUID corresponding to auth.users.id
@@ -12,6 +12,15 @@ export interface UserProfile {
   division_id?: string | null;
   avatar_url?: string | null;
   status?: string;
+  department?: string | null;
+  department_id?: string | null;
+  employee_id?: string | null;
+  approval_status?: 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED' | string | null;
+  verified_at?: string | null;
+  approved_by?: string | null;
+  approved_at?: string | null;
+  mobile_number?: string | null;
+  document_url?: string | null;
   created_at?: string;
   updated_at?: string;
 }
@@ -36,6 +45,9 @@ export interface Classroom {
   name: string;
   description?: string;
   join_code: string;
+  division_id?: string;
+  division?: string;
+  department?: string;
   student_count?: number;
   assignment_count?: number;
   created_at: string;
@@ -66,6 +78,15 @@ export interface User {
   class_id?: string;
   divisionId?: string;
   division_id?: string;
+  department?: string | null;
+  departmentId?: string | null;
+  employeeId?: string | null;
+  employee_id?: string | null;
+  approvalStatus?: 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED' | string | null;
+  approval_status?: 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED' | string | null;
+  mobileNumber?: string | null;
+  mobile_number?: string | null;
+  documentUrl?: string | null;
   avatar_url?: string | null;
   avatarUrl?: string | null;
   createdAt: string;
@@ -86,13 +107,9 @@ export interface FacultyDivisionSession {
 }
 
 export interface AuthResponse {
-  success?: boolean;
-  token?: string;
-  user?: User;
+  token: string;
+  user: User;
   profile?: UserProfile;
-  requiresOtp?: boolean;
-  email?: string;
-  message?: string;
   facultySession?: FacultyDivisionSession | null;
   facultySessionWarning?: string | null;
 }
@@ -331,6 +348,12 @@ export interface Phase2SubmitResponse {
   assignmentId: string;
   submittedAt: string;
   state: AttemptState;
+  score?: number;
+  summary?: string;
+  issues?: string[];
+  suggestions?: string[];
+  bugReports?: any[];
+  evaluation?: any;
   evaluationStatus?: 'PASSED' | 'FAILED';
   testsTotal?: number;
   testsPassed?: number;
