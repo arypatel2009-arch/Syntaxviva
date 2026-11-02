@@ -153,16 +153,33 @@ export const AuthPage: React.FC<AuthPageProps> = ({
       await login(cleanEmail, password);
       if (onSuccess) onSuccess();
     } catch (err: any) {
-      const msg = err.message || 'Invalid email or password.';
-      setFormError(msg);
-      if (
-        msg.toLowerCase().includes('not verified') ||
-        msg.toLowerCase().includes('not confirmed') ||
-        msg.toLowerCase().includes('verify your email') ||
-        msg.toLowerCase().includes('email_not_confirmed') ||
-        msg.toLowerCase().includes('unconfirmed')
-      ) {
+      // 403 Forbidden unverified email detection: seamlessly switch to OTP verification screen
+      const isUnverified =
+        err?.status === 403 ||
+        err?.response?.status === 403 ||
+        err?.statusCode === 403 ||
+        err?.code === 403 ||
+        (typeof err?.message === 'string' && (
+          err.message.includes('403') ||
+          err.message.toLowerCase().includes('verify') ||
+          err.message.toLowerCase().includes('not verified') ||
+          err.message.toLowerCase().includes('not confirmed') ||
+          err.message.toLowerCase().includes('unconfirmed') ||
+          err.message.toLowerCase().includes('email_not_confirmed')
+        ));
+
+      if (isUnverified) {
+        setEmail(cleanEmail);
+        setEmailVerificationSent(cleanEmail);
         setUnverifiedLoginEmail(cleanEmail);
+        setOtpCode('');
+        setFormError(null);
+        clearError();
+        resendVerificationEmail(cleanEmail).catch(() => {});
+        setResendCooldown(60);
+      } else {
+        const msg = err?.message || 'Invalid email or password.';
+        setFormError(msg);
       }
     } finally {
       setLoading(false);
