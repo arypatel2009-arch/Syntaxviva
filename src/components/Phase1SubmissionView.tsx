@@ -152,6 +152,28 @@ export const Phase1SubmissionView: React.FC<Phase1SubmissionViewProps> = ({
       return;
     }
 
+    // Strict Client-Side Language Conformance Pre-Check
+    const targetLang = (assignment?.language || language || 'python').toLowerCase();
+    const cleanCode = code.replace(/\/\*[\s\S]*?\*\/|\/\/.*$|#.*$/gm, '');
+
+    if (targetLang === 'c' || targetLang === 'cpp') {
+      const hasPythonKeywords = /\b(def\s+[a-zA-Z_]\w*\s*\(|elif\b|import\s+[a-zA-Z_]|print\s*\(|in\s+range\s*\(|None\b|True\b|False\b)/.test(cleanCode);
+      if (hasPythonKeywords) {
+        setErrorMessage(
+          `This assignment requires ${targetLang.toUpperCase()} code. Your code appears to be written in Python. Please write your solution in ${targetLang.toUpperCase()}.`
+        );
+        return;
+      }
+    } else if (targetLang === 'python') {
+      const hasCKeywords = /#\s*include\s*[<"]|\b(printf|scanf|int\s+main|std::cout)\b/.test(code);
+      if (hasCKeywords) {
+        setErrorMessage(
+          'This assignment requires Python code. Your code appears to be written in C/C++. Please write your solution in Python.'
+        );
+        return;
+      }
+    }
+
     const finalCodeToSubmit = code;
 
     setSubmitting(true);
@@ -160,7 +182,7 @@ export const Phase1SubmissionView: React.FC<Phase1SubmissionViewProps> = ({
     try {
       const res = await api.submitStudentPhase1(assignmentId, {
         code: finalCodeToSubmit,
-        language,
+        language: targetLang,
       });
 
       const submittedAttempt: any = {
@@ -670,9 +692,7 @@ export const Phase1SubmissionView: React.FC<Phase1SubmissionViewProps> = ({
                   if (errorMessage) setErrorMessage(null);
                 }}
                 language={language}
-                onLanguageChange={
-                  isSubmitted || isTerminated || isDeadlineExpired ? undefined : setLanguage
-                }
+                onLanguageChange={undefined}
                 readOnly={isSubmitted || isTerminated || isDeadlineExpired}
                 minHeight={430}
                 minimalToolbar={false}

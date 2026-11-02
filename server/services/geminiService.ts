@@ -1,4 +1,5 @@
 import { GoogleGenAI } from '@google/genai';
+import { validateCodeMatchesLanguage } from './languageValidator.js';
 
 export interface GeminiEvaluationResponse {
   result: 'PASS' | 'FAIL';
@@ -117,6 +118,18 @@ function fallbackCodeEvaluation(params: {
   }
 
   const lang = (params.language || '').toLowerCase();
+  const langCheck = validateCodeMatchesLanguage(trimmed, lang);
+  if (!langCheck.valid) {
+    return {
+      result: 'FAIL',
+      score: 0,
+      is_correct: false,
+      summary: langCheck.error || `Submitted code is not written in the required ${lang.toUpperCase()} language.`,
+      issues: [langCheck.error || `Expected ${lang.toUpperCase()} code.`],
+      suggestions: [`Rewrite your code using valid ${lang.toUpperCase()} syntax.`],
+    };
+  }
+
   let looksValid = true;
   const issues: string[] = [];
 
@@ -225,11 +238,14 @@ export async function evaluatePhase1Submission(params: {
 
 CRITICAL EVALUATION INSTRUCTIONS:
 1. Thoroughly analyze the student's submitted code line-by-line against the Assignment Title, Problem Statement, and Functional Requirements.
-2. Verify Functional & Algorithmic Correctness:
+2. MANDATORY PROGRAMMING LANGUAGE CHECK:
+   - The assignment requires code strictly written in ${params.language.toUpperCase()}.
+   - If the student submitted code written in ANY other language (e.g. submitted Python for a C assignment, or C for a Python assignment), you MUST IMMEDIATELY FAIL the submission (result: "FAIL", score: 0, is_correct: false) with issue: "Submitted code is not written in ${params.language.toUpperCase()}. You must write your solution in ${params.language.toUpperCase()}."
+3. Verify Functional & Algorithmic Correctness:
    - Does the code compile / run logically without syntax or runtime errors?
    - Does it implement all required algorithm steps and return correct outputs?
    - Is it an actual working solution rather than hardcoded returns (e.g. returning static constants), empty stubs, or placeholder comments?
-3. STRICT PASS/FAIL CRITERIA:
+4. STRICT PASS/FAIL CRITERIA:
    - If the code is incomplete, logically broken, contains syntax errors, returns hardcoded or incorrect values, or fails to fulfill the problem statement, you MUST FAIL IT (result: "FAIL", is_correct: false, score: 0 to 50).
    - ONLY PASS (result: "PASS", is_correct: true, score: 80 to 100) if the code is a complete, fully functional, logically correct solution that meets all specified requirements.
 

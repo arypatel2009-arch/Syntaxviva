@@ -93,17 +93,25 @@
     font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
   }
 
-  /* Form input text contrast safeguard for light containers and modals (excludes code editor) */
-  .bg-white input,
+  /* Form input text contrast safeguard for light containers and modals (excludes code editor and dark room inputs) */
+  .bg-white input:not(.join-room-code-input),
   .bg-white select,
   .bg-white textarea:not(.code-editor-textarea),
-  input.bg-white,
+  input.bg-white:not(.join-room-code-input),
   select.bg-white,
   textarea.bg-white:not(.code-editor-textarea),
-  .text-slate-900 input,
+  .text-slate-900 input:not(.join-room-code-input),
   .text-slate-900 select,
   .text-slate-900 textarea:not(.code-editor-textarea) {
     color: #0f172a !important;
+  }
+
+  /* Join Room / Classroom Modal Code Input Text Safeguard (Always White Letters) */
+  .join-room-code-input,
+  input.join-room-code-input,
+  .join-room-code-input:focus {
+    color: #ffffff !important;
+    -webkit-text-fill-color: #ffffff !important;
   }
 
   .bg-white input::placeholder,

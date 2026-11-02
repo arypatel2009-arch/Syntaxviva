@@ -15,11 +15,28 @@ export interface AssignmentNotificationRecord {
   language: string;
   dueDate: string;
   message: string;
+  targetDivisionId?: string | null;
   targetStudentIds: string[];
   notifiedStudentCount: number;
   dismissedBy: string[];
   readBy: string[];
   createdAt: string;
+}
+
+export function normalizeDivision(div?: string | null): string {
+  if (!div) return '';
+  return String(div)
+    .trim()
+    .toLowerCase()
+    .replace(/^(division|section|div|sec)[\s\-_]*/i, '')
+    .trim();
+}
+
+export function matchesDivision(divA?: string | null, divB?: string | null): boolean {
+  const normA = normalizeDivision(divA);
+  const normB = normalizeDivision(divB);
+  if (!normA || !normB) return false;
+  return normA === normB;
 }
 
 const NOTIFICATIONS_FILE = path.join(process.cwd(), 'data', 'notifications.json');
@@ -49,13 +66,48 @@ function saveNotifications(list: AssignmentNotificationRecord[]): void {
   }
 }
 
-// Get notifications for logged-in user
+// Get notifications for logged-in user (Scoped Multi-Tenant Division Isolation)
 assignmentsRouter.get('/meta/notifications', authenticate, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const userId = String(req.user!.userId || (req.user as any).id || '');
+    const userRole = req.user?.role;
+    const repo = getRepository();
+
+    let userDivision = '';
+    if (userRole === 'student') {
+      try {
+        const studentProfile = await repo.getProfileById(userId);
+        userDivision = String(studentProfile?.division_id || (req.user as any)?.division_id || '').trim();
+      } catch (profileErr) {
+        console.warn('[SyntaXViva] Error getting student profile for notification filtering:', profileErr);
+      }
+    }
+
     const all = loadNotifications();
     const visible = all
       .filter((n) => !(n.dismissedBy || []).includes(userId))
+      .filter((n) => {
+        // Enforce Division Scoping for Students
+        if (userRole === 'student') {
+          // If the notification was targeted to a specific division, only students of that division receive it
+          if (n.targetDivisionId) {
+            if (!matchesDivision(userDivision, n.targetDivisionId)) {
+              return false;
+            }
+          }
+
+          // If targetStudentIds is defined and non-empty, student must be in targetStudentIds
+          // unless their division explicitly matches targetDivisionId
+          if (Array.isArray(n.targetStudentIds) && n.targetStudentIds.length > 0) {
+            const isTargetedDirectly = n.targetStudentIds.includes(userId);
+            const matchesDiv = n.targetDivisionId && matchesDivision(userDivision, n.targetDivisionId);
+            if (!isTargetedDirectly && !matchesDiv) {
+              return false;
+            }
+          }
+        }
+        return true;
+      })
       .map((n) => ({
         id: n.id,
         assignmentId: n.assignmentId,
@@ -372,30 +424,49 @@ assignmentsRouter.post('/', authenticate, requireRole('faculty', 'admin'), async
       due_date: finalDueDate,
     });
 
-    // Notify ONLY students enrolled in this classroom (Scoped Data Isolation)
+    // Notify ONLY students of matching division / classroom (Scoped Data Isolation)
     let notifiedCount = 0;
     try {
+      const facultyProfile = await repo.getProfileById(req.user!.userId);
+      const facultySession = await repo.getActiveFacultySessionByFaculty(req.user!.userId).catch(() => null);
+      const facultyDivision = String(
+        req.body?.division_id ||
+        req.body?.division ||
+        facultySession?.division_id ||
+        facultyProfile?.division_id ||
+        ''
+      ).trim();
+
       const enrolledStudents = await repo.getEnrollmentsByClassroom(created.classroom_id || targetClassroomId);
-      notifiedCount = enrolledStudents.length;
-      const targetStudentIds = enrolledStudents.map((s: any) => String(s.student_id));
-      if (targetStudentIds.length > 0) {
-        const newNotification: AssignmentNotificationRecord = {
-          id: `notif_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-          assignmentId: created.id,
-          title: `New Assignment: ${created.title}`,
-          assignmentTitle: created.title,
-          language: created.language,
-          dueDate: created.due_date || finalDueDate,
-          message: `New ${created.language.toUpperCase()} lab assignment published in your classroom.`,
-          targetStudentIds,
-          notifiedStudentCount: enrolledStudents.length,
-          dismissedBy: [],
-          readBy: [],
-          createdAt: new Date().toISOString(),
-        };
-        const existingNotifs = loadNotifications();
-        saveNotifications([newNotification, ...existingNotifs]);
-      }
+      const matchingStudents = facultyDivision
+        ? enrolledStudents.filter((s: any) => {
+            const studentDiv = s.division_id || (s as any).student_division_id || '';
+            return !studentDiv || matchesDivision(studentDiv, facultyDivision);
+          })
+        : enrolledStudents;
+
+      notifiedCount = matchingStudents.length;
+      const targetStudentIds = matchingStudents.map((s: any) => String(s.student_id));
+
+      const newNotification: AssignmentNotificationRecord = {
+        id: `notif_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+        assignmentId: created.id,
+        title: `New Assignment: ${created.title}`,
+        assignmentTitle: created.title,
+        language: created.language,
+        dueDate: created.due_date || finalDueDate,
+        message: facultyDivision
+          ? `New ${created.language.toUpperCase()} lab assignment published for Division ${facultyDivision}.`
+          : `New ${created.language.toUpperCase()} lab assignment published in your classroom.`,
+        targetDivisionId: facultyDivision || null,
+        targetStudentIds,
+        notifiedStudentCount: notifiedCount,
+        dismissedBy: [],
+        readBy: [],
+        createdAt: new Date().toISOString(),
+      };
+      const existingNotifs = loadNotifications();
+      saveNotifications([newNotification, ...existingNotifs]);
     } catch (notifErr) {
       console.warn('Could not save assignment notification:', notifErr);
     }

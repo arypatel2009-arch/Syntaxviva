@@ -171,7 +171,7 @@ export const JoinClassroomModal: React.FC<JoinClassroomModalProps> = ({
 
           <div className="space-y-2">
             <label className="text-xs font-semibold text-slate-300 uppercase tracking-wider block">
-              6-Character Classroom Code
+              6-Character Room / Classroom Code
             </label>
             <input
               type="text"
@@ -180,8 +180,9 @@ export const JoinClassroomModal: React.FC<JoinClassroomModalProps> = ({
               maxLength={6}
               value={code}
               onChange={handleCodeChange}
-              placeholder="Classroom Code"
-              className="w-full text-center tracking-[0.35em] font-mono text-2xl font-bold uppercase py-3.5 px-4 rounded-xl border border-slate-700 bg-slate-950/80 focus:outline-hidden focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/20 text-white transition-all placeholder:text-slate-600 placeholder:tracking-normal placeholder:font-sans placeholder:text-base placeholder:font-normal"
+              placeholder="ROOM CODE"
+              style={{ color: '#ffffff', WebkitTextFillColor: '#ffffff' }}
+              className="join-room-code-input w-full text-center tracking-[0.35em] font-mono text-2xl font-bold uppercase py-3.5 px-4 rounded-xl border border-slate-700 bg-slate-950 focus:outline-hidden focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/20 !text-white transition-all placeholder:text-slate-500 placeholder:tracking-normal placeholder:font-sans placeholder:text-base placeholder:font-normal"
             />
             <p className="text-[11px] text-slate-400 text-center">
               Enter the unique join code provided by your faculty member.

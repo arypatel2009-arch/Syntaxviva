@@ -613,7 +613,7 @@ export const api = {
     return apiFetch<{ classroom: Classroom; isEnrolled?: boolean }>(`/api/classrooms/${id}`);
   },
 
-  async createClassroom(params: { name: string; description?: string }): Promise<{ classroom: Classroom; joinCode: string }> {
+  async createClassroom(params: { name: string; description?: string; division_id?: string }): Promise<{ classroom: Classroom; joinCode: string }> {
     return apiFetch<{ classroom: Classroom; joinCode: string }>('/api/classrooms', {
       method: 'POST',
       body: JSON.stringify(params),

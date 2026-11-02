@@ -13,6 +13,7 @@ import {
   isGeminiConfigured,
   GeminiEvaluationResponse,
 } from '../services/geminiService.js';
+import { validateCodeMatchesLanguage } from '../services/languageValidator.js';
 
 export const studentRouter = Router();
 
@@ -366,6 +367,26 @@ studentRouter.post(
       if (!normalizedLanguage || !SUPPORTED_LANGUAGES.includes(normalizedLanguage)) {
         res.status(400).json({
           error: `Invalid or unsupported programming language. Supported languages: ${SUPPORTED_LANGUAGES.join(', ')}`,
+        });
+        return;
+      }
+
+      // Strict Assignment Language Matching (Assignment Language Conformance)
+      const assignmentLang = (assignment.language || '').trim().toLowerCase();
+      if (assignmentLang && normalizedLanguage !== assignmentLang) {
+        res.status(400).json({
+          error: `This assignment requires ${assignment.language.toUpperCase()} code. You cannot submit code in ${normalizedLanguage.toUpperCase()}. (Je language ni assignment hoy aej language no code hovo joiye.)`,
+        });
+        return;
+      }
+
+      // Syntax Language Verification (Ensure submitted code actually matches target language)
+      const expectedTargetLang = assignmentLang || normalizedLanguage;
+      const langCheck = validateCodeMatchesLanguage(code, expectedTargetLang);
+      if (!langCheck.valid) {
+        res.status(400).json({
+          error: langCheck.error || `Submitted code does not match the required ${expectedTargetLang.toUpperCase()} programming language.`,
+          detectedLanguage: langCheck.detectedLanguage,
         });
         return;
       }

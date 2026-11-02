@@ -112,6 +112,8 @@ export interface AuthResponse {
   profile?: UserProfile;
   facultySession?: FacultyDivisionSession | null;
   facultySessionWarning?: string | null;
+  message?: string;
+  success?: boolean;
 }
 
 export interface Assignment {

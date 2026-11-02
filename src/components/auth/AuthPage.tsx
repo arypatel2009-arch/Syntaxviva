@@ -347,6 +347,40 @@ export const AuthPage: React.FC<AuthPageProps> = ({
     }
   };
 
+  const handleVerifySignupOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (loading) return;
+    setFormError(null);
+    setFormSuccess(null);
+    clearError();
+
+    const targetEmail = (emailVerificationSent || unverifiedLoginEmail || email).trim().toLowerCase();
+    const cleanOtp = otpCode.trim();
+
+    if (!targetEmail) {
+      setFormError('Target email address is missing.');
+      return;
+    }
+
+    if (!cleanOtp || cleanOtp.length < 6) {
+      setFormError('Please enter the 6-digit OTP security code sent to your email.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const res = await verifyOtp(targetEmail, cleanOtp);
+      setFormSuccess(res.message || 'Account verified and activated successfully!');
+      if (onSuccess) {
+        onSuccess();
+      }
+    } catch (err: any) {
+      setFormError(err.message || 'Invalid or expired OTP verification code.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     if (loading) return;
@@ -549,14 +583,29 @@ export const AuthPage: React.FC<AuthPageProps> = ({
 
               <div className="space-y-2">
                 <h3 className="text-base font-semibold text-slate-900">
-                  Verification email sent! Please check your inbox and verify your email before logging in.
+                  Verification Code Sent!
                 </h3>
                 <p className="text-xs text-slate-600 leading-relaxed max-w-sm mx-auto">
-                  We have sent a verification link to{' '}
+                  We have sent a 6-digit OTP verification code to{' '}
                   <span className="font-semibold text-slate-900">{emailVerificationSent}</span>.
-                  Please check your inbox (and spam folder) and click the link to confirm and activate your account.
+                  Please check your inbox (and spam folder) and enter the 6-digit code below to activate your account.
                 </p>
               </div>
+
+              {/* Feedback Messages */}
+              {(formError || error) && (
+                <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-xl flex items-start gap-2.5 text-xs text-rose-800 text-left">
+                  <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                  <div className="flex-1 font-medium">{formError || error}</div>
+                </div>
+              )}
+
+              {formSuccess && (
+                <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl flex items-start gap-2.5 text-xs text-emerald-800 text-left">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                  <div className="flex-1 font-medium">{formSuccess}</div>
+                </div>
+              )}
 
               {/* Resend Status Feedback */}
               {resendFeedback && (
@@ -578,6 +627,43 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                 </div>
               )}
 
+              {/* OTP Form */}
+              <form onSubmit={handleVerifySignupOtp} className="space-y-4 text-left pt-1">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-700 block text-center">
+                    Enter 6-Digit OTP Code
+                  </label>
+                  <div className="relative max-w-xs mx-auto">
+                    <KeyRound className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5 pointer-events-none" />
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      autoFocus
+                      required
+                      maxLength={6}
+                      value={otpCode}
+                      onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                      placeholder="123456"
+                      className="w-full pl-10 pr-4 py-3 bg-slate-50 border-2 border-slate-200 rounded-xl text-center font-mono text-lg font-bold tracking-[0.35em] text-slate-900 placeholder:text-slate-400 placeholder:font-normal placeholder:tracking-normal focus:outline-none focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-500/10 transition"
+                    />
+                  </div>
+                  <p className="text-[11px] text-slate-500 text-center">
+                    Check your email inbox or spam folder for your 6-digit code.
+                  </p>
+                </div>
+
+                <Button
+                  type="submit"
+                  variant="primary"
+                  size="md"
+                  loading={loading}
+                  disabled={loading || otpCode.trim().length !== 6}
+                  className="w-full font-bold shadow-md shadow-emerald-600/20"
+                >
+                  {loading ? 'Verifying Code...' : 'Verify & Activate Account'}
+                </Button>
+              </form>
+
               {/* Resend button with cooldown */}
               <div className="space-y-3 pt-2">
                 <button
@@ -595,14 +681,14 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                     ? 'Sending verification email...'
                     : resendCooldown > 0
                     ? `Resend available in ${resendCooldown}s`
-                    : 'Resend verification email'}
+                    : 'Resend OTP Code'}
                 </button>
 
                 <Button
-                  variant="primary"
+                  variant="outline"
                   size="md"
                   onClick={() => switchMode('login')}
-                  className="w-full font-semibold"
+                  className="w-full font-semibold border-slate-200 text-slate-600 hover:text-slate-900"
                 >
                   Back to Sign In
                 </Button>
