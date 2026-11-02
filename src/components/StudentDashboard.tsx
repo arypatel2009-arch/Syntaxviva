@@ -59,6 +59,16 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = () => {
       const p2 = await api.getStudentPhase2(assignment.id);
       const rawP2 = p2 as any;
       if (rawP2) {
+        let orig = rawP2.originalCode || rawP2.baselineCode || (assignment as any).starter_code || (assignment as any).starterCode || '';
+        if (!orig) {
+          try {
+            const p1 = await api.getStudentPhase1(assignment.id);
+            orig = (p1 as any)?.submission?.originalCode || (p1 as any)?.attempt?.original_code || '';
+          } catch {}
+        }
+        const rep = rawP2.finalCode || rawP2.repairedCode || '';
+        const sol = rawP2.solutionCode || rawP2.referenceSolution || (assignment as any).starter_code || (assignment as any).starterCode || orig || rep;
+
         setFullScreenSubmission({
           id: rawP2.challengeId || assignment.id,
           assignmentId: assignment.id,
@@ -73,13 +83,14 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = () => {
           score: rawP2.score !== undefined ? rawP2.score : (rawP2.challengeStatus === 'PASSED' ? 100 : 0),
           summary: rawP2.summary || 'Phase 2 evaluation completed.',
           failureReason: rawP2.evaluation?.failureReason,
-          originalCode: rawP2.originalCode || (assignment as any).starterCode || '',
-          phase1Code: rawP2.originalCode || (assignment as any).starterCode || '',
+          originalCode: orig || rep,
+          phase1Code: orig || rep,
+          baselineCode: orig || rep,
           mutatedCode: rawP2.mutatedCode || '',
-          repairedCode: rawP2.finalCode || rawP2.repairedCode || '',
-          submittedCode: rawP2.finalCode || rawP2.repairedCode || '',
-          solutionCode: rawP2.originalCode || (assignment as any).starterCode || '',
-          referenceSolution: rawP2.originalCode || (assignment as any).starterCode || '',
+          repairedCode: rep,
+          submittedCode: rep,
+          solutionCode: sol,
+          referenceSolution: sol,
           bugMutations: rawP2.bugs || rawP2.bugReports || [],
           evaluation: rawP2.evaluation,
           submittedAt: rawP2.submittedAt,
@@ -87,7 +98,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = () => {
             id: rawP2.challengeId,
             status: rawP2.challengeStatus,
             mutatedCode: rawP2.mutatedCode,
-            repairedCode: rawP2.finalCode || rawP2.repairedCode,
+            repairedCode: rep,
           },
         });
         return;

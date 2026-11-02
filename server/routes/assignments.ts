@@ -751,3 +751,89 @@ assignmentsRouter.get('/:id/submissions', authenticate, async (req: Authenticate
     res.status(500).json({ error: 'Failed to fetch assignment submissions.' });
   }
 });
+
+// Comprehensive Assignment Submissions & Performance Report
+assignmentsRouter.get('/:id/report', authenticate, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const repo = getRepository();
+    const assignment = await repo.getAssignmentById(id);
+    if (!assignment) {
+      res.status(404).json({ error: 'Assignment not found.' });
+      return;
+    }
+
+    const [allAssignments, submissions, allStudents] = await Promise.all([
+      repo.getAssignments(),
+      repo.getSubmissions({ assignmentId: id }),
+      repo.getEnrolledStudents(req.user?.role === 'admin' ? undefined : req.user?.userId).catch(() => []),
+    ]);
+
+    const subMap = new Map<string, any>();
+    submissions.forEach((s) => {
+      subMap.set(s.studentId, s);
+    });
+
+    const students = allStudents.map((st: any) => {
+      const sub = subMap.get(st.id);
+      const isCompleted = Boolean(sub && (sub.state === 'PHASE2_PASSED' || sub.state === 'PHASE2_FAILED' || sub.state === 'PHASE2_SUBMITTED' || sub.phase2Status === 'PASSED' || sub.phase2Status === 'FAILED' || sub.phase2Status === 'SUBMITTED' || sub.submittedAt));
+      const isPassed = Boolean(sub && (sub.phase2Status === 'PASSED' || sub.state === 'PHASE2_PASSED' || sub.evaluation?.status === 'PASSED'));
+      const isFailed = Boolean(sub && (sub.phase2Status === 'FAILED' || sub.state === 'PHASE2_FAILED' || sub.evaluation?.status === 'FAILED'));
+      const score = isCompleted ? (isPassed ? 100 : (sub.score !== undefined ? sub.score : 0)) : null;
+
+      return {
+        id: st.id,
+        name: st.name || 'Student',
+        rollNumber: st.roll_number || st.rollNumber || '—',
+        email: st.email || '',
+        divisionId: st.division_id || st.divisionId || 'DIV A',
+        institution: st.institution || 'Academic Institute',
+        isCompleted,
+        isPassed,
+        isFailed,
+        score,
+        phase1Score: isCompleted ? 100 : null,
+        phase2Score: isCompleted ? (isPassed ? 100 : 0) : null,
+        testsPassed: sub?.evaluation?.testsPassed ?? (isPassed ? (sub?.evaluation?.testsTotal || 2) : 0),
+        testsTotal: sub?.evaluation?.testsTotal ?? 2,
+        submittedAt: sub?.submittedAt || null,
+        submission: sub
+          ? {
+              ...sub,
+              assignmentTitle: assignment.title,
+              assignmentLanguage: assignment.language,
+              originalCode: sub.originalCode || sub.baselineCode || (assignment as any).starter_code || '',
+              baselineCode: sub.originalCode || sub.baselineCode || (assignment as any).starter_code || '',
+              solutionCode: sub.solutionCode || (assignment as any).starter_code || sub.originalCode || sub.repairedCode || '',
+              referenceSolution: sub.referenceSolution || (assignment as any).starter_code || sub.originalCode || sub.repairedCode || '',
+            }
+          : null,
+      };
+    });
+
+    const totalStudents = students.length;
+    const completedCount = students.filter((s) => s.isCompleted).length;
+    const passedCount = students.filter((s) => s.isPassed).length;
+    const failedCount = students.filter((s) => s.isFailed).length;
+    const pendingCount = Math.max(0, totalStudents - completedCount);
+    const passRate = completedCount > 0 ? Math.round((passedCount / completedCount) * 100) : 0;
+
+    res.json({
+      assignment,
+      allAssignments,
+      students,
+      stats: {
+        totalStudents,
+        completedCount,
+        pendingCount,
+        passedCount,
+        failedCount,
+        passRate,
+      },
+    });
+  } catch (err: any) {
+    console.error('Error generating assignment report:', err);
+    res.status(500).json({ error: 'Failed to generate assignment report.' });
+  }
+});
+

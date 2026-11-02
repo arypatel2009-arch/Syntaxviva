@@ -659,4 +659,84 @@ export const api = {
       body: JSON.stringify(reviewData),
     });
   },
+
+  // -------------------------------------------------------------------------
+  // Forensic Submissions Dossier & Comprehensive Reports
+  // -------------------------------------------------------------------------
+  async getStudentSubmissionDossier(assignmentId: string): Promise<{ submission: any }> {
+    const [p2Res, p1Res] = await Promise.all([
+      this.getStudentPhase2(assignmentId).catch(() => null),
+      this.getStudentPhase1(assignmentId).catch(() => null),
+    ]);
+
+    const rawP2 = (p2Res as any) || {};
+    const rawP1 = (p1Res as any) || {};
+    const asg = rawP2.assignment || rawP1.assignment || {};
+    const p1Submission = rawP1.submission || {};
+    const p1Attempt = rawP1.attempt || {};
+
+    const originalCode =
+      rawP2.originalCode ||
+      rawP2.baselineCode ||
+      p1Submission.originalCode ||
+      p1Attempt.original_code ||
+      (asg as any)?.starter_code ||
+      (asg as any)?.starterCode ||
+      '';
+    const finalCode = rawP2.finalCode || rawP2.repairedCode || p1Submission.repairedCode || originalCode;
+    const isPassed =
+      rawP2.challengeStatus === 'PASSED' ||
+      rawP2.state === 'PHASE2_PASSED' ||
+      rawP2.evaluationStatus === 'PASSED' ||
+      p1Submission.state === 'PHASE1_PASSED';
+    const isFailed =
+      rawP2.challengeStatus === 'FAILED' ||
+      rawP2.state === 'PHASE2_FAILED' ||
+      rawP2.evaluationStatus === 'FAILED';
+    const score = isPassed ? 100 : (rawP2.score !== undefined ? rawP2.score : (isFailed ? 0 : 50));
+    const solutionCode =
+      rawP2.solutionCode ||
+      rawP2.referenceSolution ||
+      (asg as any)?.starter_code ||
+      (asg as any)?.starterCode ||
+      originalCode ||
+      finalCode;
+
+    const submission = {
+      id: rawP2.challengeId || p1Submission.id || assignmentId,
+      assignmentId,
+      assignmentTitle: asg.title || 'Assignment Review',
+      assignmentLanguage: asg.language || rawP2.language || 'python',
+      state: rawP2.state || 'SUBMITTED',
+      phase2Status: rawP2.challengeStatus || (isPassed ? 'PASSED' : isFailed ? 'FAILED' : 'SUBMITTED'),
+      score,
+      submittedAt: rawP2.submittedAt || p1Submission.submittedAt || new Date().toISOString(),
+      summary: rawP2.summary || rawP2.evaluation?.summary || (isPassed ? 'Phase 2 evaluation completed successfully.' : 'Evaluation completed.'),
+      failureReason: rawP2.failureReason || rawP2.evaluation?.failureReason || null,
+      originalCode,
+      baselineCode: originalCode,
+      phase1Code: originalCode,
+      mutatedCode: rawP2.mutatedCode || '',
+      repairedCode: finalCode,
+      submittedCode: finalCode,
+      solutionCode,
+      referenceSolution: solutionCode,
+      bugMutations: rawP2.bugs || rawP2.challenge?.bugs || rawP2.evaluation?.bugReports || [],
+      evaluation: rawP2.evaluation || {
+        status: isPassed ? 'PASSED' : 'FAILED',
+        score,
+        testsTotal: rawP2.testsTotal || 2,
+        testsPassed: isPassed ? (rawP2.testsTotal || 2) : 0,
+        testsFailed: isPassed ? 0 : 1,
+      },
+      isPassed,
+      isFailed,
+    };
+
+    return { submission };
+  },
+
+  async getAssignmentStudentsReport(assignmentId: string): Promise<any> {
+    return apiFetch(`/api/assignments/${assignmentId}/report`);
+  },
 };

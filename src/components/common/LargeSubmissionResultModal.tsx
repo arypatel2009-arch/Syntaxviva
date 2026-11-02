@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   X,
   CheckCircle2,
@@ -26,6 +26,7 @@ import {
   ArrowRightLeft,
 } from 'lucide-react';
 import { Button, Badge } from './UIComponents.tsx';
+import { api } from '../../lib/api.ts';
 
 interface LargeSubmissionResultModalProps {
   submission: any;
@@ -38,6 +39,26 @@ export const LargeSubmissionResultModal: React.FC<LargeSubmissionResultModalProp
 }) => {
   const [codeSubTab, setCodeSubTab] = useState<'three_way' | 'student_vs_solution' | 'phase1_vs_student' | 'solution_only' | 'phase2_bugs' | 'phase1_orig' | 'repaired'>('three_way');
   const [copiedSection, setCopiedSection] = useState<string | null>(null);
+  const [loadedOriginalCode, setLoadedOriginalCode] = useState<string>('');
+  const [loadedSolutionCode, setLoadedSolutionCode] = useState<string>('');
+
+  useEffect(() => {
+    const hasOriginal = Boolean(
+      submission?.originalCode ||
+      submission?.original_code ||
+      submission?.phase1Code ||
+      submission?.baselineCode
+    );
+    const targetAsgId = submission?.assignmentId || submission?.assignment_id;
+    if (!hasOriginal && targetAsgId) {
+      api.getStudentPhase1(targetAsgId).then((p1) => {
+        const orig = p1?.submission?.originalCode || (p1 as any)?.attempt?.original_code;
+        if (orig) setLoadedOriginalCode(orig);
+        const starter = (p1 as any)?.assignment?.starter_code || (p1 as any)?.assignment?.starterCode;
+        if (starter) setLoadedSolutionCode(starter);
+      }).catch(() => {});
+    }
+  }, [submission]);
 
   const handleCopy = (text: string, section: string) => {
     try {
@@ -84,10 +105,49 @@ export const LargeSubmissionResultModal: React.FC<LargeSubmissionResultModalProp
     };
   });
 
-  const originalCode = submission.originalCode || submission.original_code || submission.phase1Code || submission.baselineCode || '// No Phase 1 baseline code recorded.';
-  const mutatedCode = submission.mutatedCode || submission.mutated_code || submission.challenge?.mutatedCode || '// No mutated code recorded.';
-  const repairedCode = submission.repairedCode || submission.repaired_code || submission.finalCode || submission.submittedCode || submission.challenge?.repairedCode || '// No repaired code submitted.';
-  const solutionCode = submission.solutionCode || submission.referenceSolution || submission.expectedSolution || originalCode || '// No reference solution recorded.';
+  const rawOriginal = (
+    submission.originalCode ||
+    submission.original_code ||
+    submission.phase1Code ||
+    submission.baselineCode ||
+    loadedOriginalCode ||
+    ''
+  ).trim();
+
+  const rawRepaired = (
+    submission.repairedCode ||
+    submission.repaired_code ||
+    submission.finalCode ||
+    submission.submittedCode ||
+    submission.challenge?.repairedCode ||
+    ''
+  ).trim();
+
+  const rawMutated = (
+    submission.mutatedCode ||
+    submission.mutated_code ||
+    submission.challenge?.mutatedCode ||
+    ''
+  ).trim();
+
+  const rawSolution = (
+    submission.solutionCode ||
+    submission.referenceSolution ||
+    submission.expectedSolution ||
+    submission.assignmentStarterCode ||
+    submission.starterCode ||
+    loadedSolutionCode ||
+    ''
+  ).trim();
+
+  // If student passed (100%), their final repaired code OR verified phase 1 baseline is the correct solution!
+  const effectiveSolution = rawSolution || rawOriginal || (isPassed ? rawRepaired : '') || '';
+  const effectiveOriginal = rawOriginal || (isPassed ? rawRepaired : '') || effectiveSolution || '';
+
+  const originalCode = effectiveOriginal || '// No Phase 1 baseline code recorded.';
+  const mutatedCode = rawMutated || '// No mutated code recorded.';
+  const repairedCode = rawRepaired || '// No repaired code submitted.';
+  const solutionCode = effectiveSolution || '// No reference solution recorded.';
 
   // Split lines for line-by-line inspection with wavy underlines
   const mutatedLines = mutatedCode.split('\n');

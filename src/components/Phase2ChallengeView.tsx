@@ -54,6 +54,7 @@ export const Phase2ChallengeView: React.FC<Phase2ChallengeViewProps> = ({
   const [initialMutatedCode, setInitialMutatedCode] = useState<string>('');
   const [code, setCode] = useState<string>('');
   const [language, setLanguage] = useState<string>('python');
+  const [phase1BaselineCode, setPhase1BaselineCode] = useState<string>('');
 
   // Timer State (Server-Authoritative)
   const [remainingSeconds, setRemainingSeconds] = useState<number>(180);
@@ -183,11 +184,11 @@ export const Phase2ChallengeView: React.FC<Phase2ChallengeViewProps> = ({
       failureReason: isFailed ? ((phase2State as any)?.summary || evalObj?.summary || 'Injected defects were not resolved.') : null,
       mutatedCode: (phase2State as any)?.mutatedCode || initialMutatedCode || '',
       repairedCode: (phase2State as any)?.finalCode || (phase2State as any)?.repairedCode || code || '',
-      originalCode: (phase2State as any)?.originalCode || (phase2State as any)?.baselineCode || '',
-      phase1Code: (phase2State as any)?.originalCode || (phase2State as any)?.baselineCode || '',
-      baselineCode: (phase2State as any)?.originalCode || (phase2State as any)?.baselineCode || '',
-      solutionCode: (phase2State as any)?.originalCode || (phase2State as any)?.baselineCode || (assignment as any)?.starter_code || '',
-      referenceSolution: (phase2State as any)?.originalCode || (phase2State as any)?.baselineCode || (assignment as any)?.starter_code || '',
+      originalCode: (phase2State as any)?.originalCode || (phase2State as any)?.baselineCode || phase1BaselineCode || (isPassed ? ((phase2State as any)?.finalCode || code) : '') || '',
+      phase1Code: (phase2State as any)?.originalCode || (phase2State as any)?.baselineCode || phase1BaselineCode || (isPassed ? ((phase2State as any)?.finalCode || code) : '') || '',
+      baselineCode: (phase2State as any)?.originalCode || (phase2State as any)?.baselineCode || phase1BaselineCode || (isPassed ? ((phase2State as any)?.finalCode || code) : '') || '',
+      solutionCode: (phase2State as any)?.solutionCode || (phase2State as any)?.referenceSolution || (assignment as any)?.starter_code || (assignment as any)?.starterCode || (phase2State as any)?.originalCode || phase1BaselineCode || ((phase2State as any)?.finalCode || code) || '',
+      referenceSolution: (phase2State as any)?.solutionCode || (phase2State as any)?.referenceSolution || (assignment as any)?.starter_code || (assignment as any)?.starterCode || (phase2State as any)?.originalCode || phase1BaselineCode || ((phase2State as any)?.finalCode || code) || '',
       bugMutations: bugReports,
       bugReports: bugReports,
       evaluation: {
@@ -296,6 +297,15 @@ export const Phase2ChallengeView: React.FC<Phase2ChallengeViewProps> = ({
         throw new Error('No status response returned from server.');
       }
       setPhase2State(status);
+
+      if ((status as any)?.originalCode || (status as any)?.baselineCode) {
+        setPhase1BaselineCode((status as any).originalCode || (status as any).baselineCode);
+      } else {
+        api.getStudentPhase1(assignmentId).then((p1) => {
+          const p1Code = p1?.submission?.originalCode || (p1 as any)?.attempt?.original_code;
+          if (p1Code) setPhase1BaselineCode(p1Code);
+        }).catch(() => {});
+      }
 
       const activeLang = status?.language || status?.assignment?.language || 'python';
       if (status?.assignment) {
@@ -660,6 +670,11 @@ export const Phase2ChallengeView: React.FC<Phase2ChallengeViewProps> = ({
           challengeId,
           submittedAt: res.submittedAt,
           finalCode: formattedFinalCode,
+          originalCode: (res as any)?.originalCode || phase1BaselineCode || (prev as any)?.originalCode || formattedFinalCode,
+          baselineCode: (res as any)?.baselineCode || (res as any)?.originalCode || phase1BaselineCode || (prev as any)?.baselineCode || formattedFinalCode,
+          phase1Code: (res as any)?.phase1Code || (res as any)?.originalCode || phase1BaselineCode || (prev as any)?.phase1Code || formattedFinalCode,
+          solutionCode: (res as any)?.solutionCode || (res as any)?.referenceSolution || (res as any)?.originalCode || phase1BaselineCode || formattedFinalCode,
+          referenceSolution: (res as any)?.referenceSolution || (res as any)?.solutionCode || (res as any)?.originalCode || phase1BaselineCode || formattedFinalCode,
           evaluationStatus: 'PASSED',
           score: evalScore,
           summary: res.summary || res.message,
@@ -691,6 +706,11 @@ export const Phase2ChallengeView: React.FC<Phase2ChallengeViewProps> = ({
           challengeId,
           submittedAt: res.submittedAt,
           finalCode: formattedFinalCode,
+          originalCode: (res as any)?.originalCode || phase1BaselineCode || (prev as any)?.originalCode || '',
+          baselineCode: (res as any)?.baselineCode || (res as any)?.originalCode || phase1BaselineCode || (prev as any)?.baselineCode || '',
+          phase1Code: (res as any)?.phase1Code || (res as any)?.originalCode || phase1BaselineCode || (prev as any)?.phase1Code || '',
+          solutionCode: (res as any)?.solutionCode || (res as any)?.referenceSolution || (res as any)?.originalCode || phase1BaselineCode || '',
+          referenceSolution: (res as any)?.referenceSolution || (res as any)?.solutionCode || (res as any)?.originalCode || phase1BaselineCode || '',
           evaluationStatus: 'FAILED',
           score: evalScore,
           summary: res.summary || res.message,

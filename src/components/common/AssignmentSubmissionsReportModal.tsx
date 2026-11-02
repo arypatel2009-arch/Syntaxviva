@@ -336,22 +336,40 @@ export const AssignmentSubmissionsReportModal: React.FC<AssignmentSubmissionsRep
   // Open Full-Screen Code Dossier & Result (Badi Screen)
   const handleOpenStudentDossier = (s: any) => {
     if (s.submission) {
-      setInspectingSubmission(s.submission);
+      setInspectingSubmission({
+        ...s.submission,
+        assignmentId: s.submission.assignmentId || currentAsgId,
+        assignmentTitle: s.submission.assignmentTitle || assignment.title,
+        assignmentLanguage: s.submission.assignmentLanguage || assignment.language,
+        studentName: s.submission.studentName || s.name,
+        studentRollNumber: s.submission.studentRollNumber || s.rollNumber,
+        studentEmail: s.submission.studentEmail || s.email,
+        studentDivisionId: s.submission.studentDivisionId || s.divisionId,
+        originalCode: s.submission.originalCode || s.submission.baselineCode || (assignment as any).starter_code || (assignment as any).starterCode || '',
+        baselineCode: s.submission.originalCode || s.submission.baselineCode || (assignment as any).starter_code || (assignment as any).starterCode || '',
+        solutionCode: s.submission.solutionCode || (assignment as any).starter_code || (assignment as any).starterCode || s.submission.originalCode || s.submission.repairedCode || '',
+        referenceSolution: s.submission.referenceSolution || (assignment as any).starter_code || (assignment as any).starterCode || s.submission.originalCode || s.submission.repairedCode || '',
+      });
     } else {
       // Pending student fallback dossier
       setInspectingSubmission({
         id: `pending-${s.id}`,
+        assignmentId: currentAsgId,
         studentName: s.name,
         studentRollNumber: s.rollNumber,
         studentEmail: s.email,
         assignmentTitle: assignment.title,
+        assignmentLanguage: assignment.language,
         language: assignment.language,
         state: 'PENDING',
         phase2Status: 'PENDING',
         score: 0,
         submittedAt: null,
         submittedCode: '// Student has not submitted this assignment yet.\n// Status: Pending in division roster.',
-        originalCode: assignment.description || '// Awaiting student Phase 1 solution.',
+        originalCode: (assignment as any).starter_code || (assignment as any).starterCode || assignment.description || '// Awaiting student Phase 1 solution.',
+        baselineCode: (assignment as any).starter_code || (assignment as any).starterCode || assignment.description || '// Awaiting student Phase 1 solution.',
+        solutionCode: (assignment as any).starter_code || (assignment as any).starterCode || '// Reference solution recorded by instructor.',
+        referenceSolution: (assignment as any).starter_code || (assignment as any).starterCode || '// Reference solution recorded by instructor.',
         summary: 'Student is enrolled in this coursework and submission is currently pending.',
       });
     }

@@ -676,7 +676,7 @@ export class SupabaseApplicationRepository implements IApplicationRepository {
       .select(`
         *,
         profiles!student_id (full_name, email, roll_number, class_id, division_id),
-        assignments!assignment_id (title, language, created_by)
+        assignments!assignment_id (title, language, created_by, starter_code)
       `)
       .order('created_at', { ascending: false });
 
@@ -704,9 +704,13 @@ export class SupabaseApplicationRepository implements IApplicationRepository {
       state: r.state,
       language: r.language,
       originalCode: r.original_code,
+      baselineCode: r.original_code,
+      phase1Code: r.original_code,
       mutatedCode: r.mutated_code,
       repairedCode: r.repaired_code,
       submittedCode: r.repaired_code || r.original_code || '',
+      solutionCode: r.assignments?.starter_code?.trim() || r.original_code || r.repaired_code || '',
+      referenceSolution: r.assignments?.starter_code?.trim() || r.original_code || r.repaired_code || '',
       mutationType: r.mutation_type,
       mutationMetadataJson: typeof r.mutation_metadata_json === 'object' ? JSON.stringify(r.mutation_metadata_json) : r.mutation_metadata_json,
       failureReason: r.failure_reason,
