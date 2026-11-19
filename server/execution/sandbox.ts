@@ -1462,6 +1462,10 @@ function transpileCompiledLanguageToJS(
   body = body.replace(/^\s*import\s+[^;]+;/gm, '');
 
   if (langKey === 'java') {
+    // Sanitize identifier 'in' (reserved keyword in JavaScript)
+    body = body.replace(/\bScanner\s+in\b/g, 'Scanner __in_scanner');
+    body = body.replace(/\bin\.(nextInt|hasNextInt|next|hasNext|nextLine|hasNextLine)\b/g, '__in_scanner.$1');
+
     // Unwrap outer public class / class wrapper
     body = body.replace(
       /\b(?:public\s+|final\s+|abstract\s+)*class\s+[A-Za-z_]\w*\s*\{([\s\S]*)\}\s*$/,
@@ -1490,6 +1494,10 @@ function transpileCompiledLanguageToJS(
   body = body.replace(/\bstd::/g, '');
   body = body.replace(/\bendl\b/g, '"\\n"');
 
+  // C++ algorithm helpers (std::reverse, std::sort)
+  body = body.replace(/\breverse\s*\(\s*([A-Za-z_]\w*)\.begin\(\)\s*,\s*\1\.end\(\)\s*\)\s*;/g, '$1.reverse();');
+  body = body.replace(/\bsort\s*\(\s*([A-Za-z_]\w*)\.begin\(\)\s*,\s*\1\.end\(\)\s*\)\s*;/g, '$1.sort((x, y) => x - y);');
+
   // Transform getline(cin, var)
   body = body.replace(/\bgetline\s*\(\s*cin\s*,\s*([A-Za-z_]\w*)\s*\)/g, '($1 = __getline())');
 
@@ -1502,8 +1510,8 @@ function transpileCompiledLanguageToJS(
     return vars.map((v: string) => `${v} = __cin();`).join(' ');
   });
 
-  // Transform while (cin >> x)
-  body = body.replace(/\bcin\s*>>\s*([A-Za-z_]\w*)/g, '(__hasNext() ? (($1 = __cin()), true) : false)');
+  // Transform while (cin >> x) or while (cin >> a[sz])
+  body = body.replace(/\bcin\s*>>\s*([A-Za-z_]\w*(?:\s*\[[^\]]+\])?)/g, '(__hasNext() ? (($1 = __cin()), true) : false)');
 
   // Transform cout << a << b;
   body = body.replace(/\bcout\s*((?:<<[^;]+)+);/g, (_m, chain) => {
@@ -1578,8 +1586,17 @@ function transpileCompiledLanguageToJS(
   );
   body = body.replace(/\bvector\s*<\s*[^>]+\s*>\s+([A-Za-z_]\w*)\s*;/g, 'let $1 = [];');
 
+  // Java ArrayList and List declarations
+  body = body.replace(
+    /\b(?:ArrayList|List)\s*<\s*[^>]+\s*>\s+([A-Za-z_]\w*)\s*=\s*new\s+(?:ArrayList|LinkedList)\s*(?:<[^>]*>)?\s*\(\s*\)\s*;/g,
+    'let $1 = [];'
+  );
+  body = body.replace(/\b(?:ArrayList|List)\s*<\s*[^>]+\s*>\s+([A-Za-z_]\w*)\s*;/g, 'let $1 = [];');
+  body = body.replace(/\b([A-Za-z_]\w*)\.add\s*\(/g, '$1.push(');
+  body = body.replace(/\b([A-Za-z_]\w*)\.get\s*\(\s*([^)]+)\s*\)/g, '$1[Math.trunc($2)]');
+
   const typePattern =
-    '(?:unsigned\\s+long\\s+long|long\\s+long\\s+int|long\\s+long|unsigned\\s+int|unsigned\\s+long|long\\s+double|int|long|short|float|double|bool|boolean|char|string|String|void|auto)';
+    '(?:unsigned\\s+long\\s+long|long\\s+long\\s+int|long\\s+long|unsigned\\s+int|unsigned\\s+long|long\\s+double|int|long|short|float|double|bool|boolean|char|string|String|size_t|void|auto)';
 
   // Fixed-size array with initializer: int arr[5] = {1, 2, 3};
   body = body.replace(
@@ -1654,7 +1671,7 @@ function transpileCompiledLanguageToJS(
 
   // Handle C/Java explicit numeric casts like (int)x, (double)x, (float)x, (long)x
   body = body.replace(/\(\s*(?:double|float)\s*\)\s*/g, '+');
-  body = body.replace(/\(\s*(?:int|long|short)\s*\)\s*([A-Za-z_]\w*|\([^)]+\)|\d+(?:\.\d+)?)/g, 'Math.trunc($1)');
+  body = body.replace(/\(\s*(?:int|long|short|size_t)\s*\)\s*([A-Za-z_]\w*(?:\.[A-Za-z_]\w*(?:\(\))?)*|\([^)]+\)|\d+(?:\.\d+)?)/g, 'Math.trunc($1)');
 
   // Const typed variable declarations
   body = body.replace(
@@ -1670,6 +1687,9 @@ function transpileCompiledLanguageToJS(
 
   // Integer division assignment helper: n /= 10 -> n = Math.trunc(n / 10)
   body = body.replace(/\b([A-Za-z_]\w*)\s*\/=\s*([^;]+);/g, '$1 = Math.trunc($1 / ($2));');
+
+  // Integer division helper: mid = (low + high) / 2 -> mid = Math.trunc(((low + high)) / 2)
+  body = body.replace(/(\([^()]+\)|[A-Za-z0-9_]+)\s*\/\s*(\d+)/g, 'Math.trunc(($1) / $2)');
 
   // C++/Java member helpers (.size() -> .length, .push_back( -> .push()
   body = body.replace(/\.push_back\s*\(/g, '.push(');
@@ -2366,12 +2386,16 @@ export async function executeCode(
       const timer = setTimeout(() => {
         timedOut = true;
         try {
-          child.kill('SIGTERM');
-          setTimeout(() => {
-            if (!settled) {
-              child.kill('SIGKILL');
-            }
-          }, 300);
+          if (process.platform === 'win32' && child.pid) {
+            spawn('taskkill', ['/pid', String(child.pid), '/f', '/t'], { windowsHide: true });
+          } else {
+            child.kill('SIGTERM');
+            setTimeout(() => {
+              if (!settled) {
+                child.kill('SIGKILL');
+              }
+            }, 300);
+          }
         } catch {
           // ignore
         }

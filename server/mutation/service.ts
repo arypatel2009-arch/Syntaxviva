@@ -296,7 +296,7 @@ export class MutationService {
           .split('\n')
           .map((line) => {
             if (line.startsWith('}')) indent = Math.max(0, indent - 1);
-            const padded = '    '.repeat(indent) + line;
+            const padded = line.startsWith('#') ? line : '    '.repeat(indent) + line;
             if (line.endsWith('{')) indent += 1;
             return padded;
           })

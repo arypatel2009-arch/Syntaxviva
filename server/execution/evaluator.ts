@@ -356,7 +356,8 @@ export async function evaluateSubmission(
           error: 'TIME LIMIT EXCEEDED (3.5s)',
           durationMs: execResult.durationMs,
         });
-        continue;
+        // Short-circuit on timeout: infinite loops should terminate evaluation immediately
+        break;
       }
 
       // Handle Infrastructure Error (Unsupported language)
@@ -584,7 +585,8 @@ export async function executeTestCases(
         error: 'TIME LIMIT EXCEEDED (3.5s)',
         durationMs: execResult.durationMs,
       });
-      continue;
+      // Short-circuit on timeout: infinite loops terminate immediately
+      break;
     }
 
     if (execResult.status === 'Compilation Error' || execResult.exitCode !== 0) {

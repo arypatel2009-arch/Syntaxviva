@@ -15,7 +15,55 @@ import { computeCodeHash, createDeterministicRNG } from './hasher.js';
 import { MutationCandidate, SourceLocation, InjectedBugDetail, AlgorithmicBugCategory } from './types.js';
 import { COMPLEX_BUG_CATALOG, COMPLEX_BUG_MAP, ComplexBugVariant } from './complexBugCatalog.js';
 import { PythonLanguageProvider } from './languages/python.js';
+import { JavaScriptLanguageProvider } from './languages/javascript.js';
 import { isGeminiConfigured } from '../services/geminiService.js';
+
+function validateCBraces(code: string): boolean {
+  let braces = 0;
+  let parens = 0;
+  let inString = false;
+  let inChar = false;
+  let inLineComment = false;
+  let inBlockComment = false;
+
+  for (let i = 0; i < code.length; i++) {
+    const c = code[i];
+    const next = code[i + 1];
+
+    if (inLineComment) {
+      if (c === '\n') inLineComment = false;
+      continue;
+    }
+    if (inBlockComment) {
+      if (c === '*' && next === '/') {
+        inBlockComment = false;
+        i++;
+      }
+      continue;
+    }
+    if (inString) {
+      if (c === '\\') { i++; continue; }
+      if (c === '"') inString = false;
+      continue;
+    }
+    if (inChar) {
+      if (c === '\\') { i++; continue; }
+      if (c === "'") inChar = false;
+      continue;
+    }
+
+    if (c === '/' && next === '/') { inLineComment = true; i++; continue; }
+    if (c === '/' && next === '*') { inBlockComment = true; i++; continue; }
+    if (c === '"') { inString = true; continue; }
+    if (c === "'") { inChar = true; continue; }
+
+    if (c === '{') braces++;
+    else if (c === '}') { braces--; if (braces < 0) return false; }
+    else if (c === '(') parens++;
+    else if (c === ')') { parens--; if (parens < 0) return false; }
+  }
+  return braces === 0 && parens === 0 && !inString && !inChar && !inBlockComment;
+}
 
 export interface RichCandidateItem {
   line: number;
@@ -776,6 +824,11 @@ export class ComplexBugEngine {
   ): RichCandidateItem[] {
     const rawLines = code.split('\n');
     const pool: RichCandidateItem[] = [];
+    const normLang = (language || 'python').toLowerCase();
+    const isPy = normLang === 'python' || normLang === 'py';
+    const isJs = normLang === 'javascript' || normLang === 'js' || normLang === 'typescript' || normLang === 'ts';
+    const isC = normLang === 'c' || normLang === 'cpp';
+    const isJava = normLang === 'java';
 
     for (let i = 0; i < rawLines.length; i++) {
       const lineNum = i + 1;
@@ -785,16 +838,21 @@ export class ComplexBugEngine {
       // Guard header lines, class/def declarations, decorators, imports, comments, docstrings
       if (
         !trimmed ||
+        trimmed.startsWith('#include') ||
+        trimmed.startsWith('#define') ||
+        trimmed.startsWith('#pragma') ||
         trimmed.startsWith('#') ||
         trimmed.startsWith('//') ||
         trimmed.startsWith('/*') ||
         trimmed.startsWith('*') ||
+        trimmed.startsWith('package ') ||
+        trimmed.startsWith('using namespace') ||
+        trimmed.startsWith('import ') ||
+        trimmed.startsWith('from ') ||
+        trimmed.startsWith('@') ||
         trimmed.startsWith('def ') ||
         trimmed.startsWith('async def ') ||
         trimmed.startsWith('class ') ||
-        trimmed.startsWith('@') ||
-        trimmed.startsWith('import ') ||
-        trimmed.startsWith('from ') ||
         trimmed.startsWith('"""') ||
         trimmed.startsWith("'''") ||
         trimmed.endsWith('"""') ||
@@ -806,8 +864,8 @@ export class ComplexBugEngine {
       // =========================================================================
       // 1. LOOP_BOUNDARY
       // =========================================================================
-      if (lineText.includes('range(')) {
-        // 1A. range(len(x)) -> range(len(x) - 1)
+      // 1A. Python range mutations
+      if (isPy && lineText.includes('range(')) {
         if (/range\s*\(\s*len\s*\(([^)]+)\)\s*\)/.test(lineText)) {
           const mutated = lineText.replace(/range\s*\(\s*len\s*\(([^)]+)\)\s*\)/, 'range(len($1) - 1)');
           pool.push({
@@ -822,7 +880,6 @@ export class ComplexBugEngine {
             applyToLines: (arr) => { arr[i] = mutated; },
           });
         }
-        // 1B. range(len(x)) -> range(1, len(x)) (skip first element)
         if (/range\s*\(\s*len\s*\(([^)]+)\)\s*\)/.test(lineText) && !lineText.includes('range(1,')) {
           const mutated = lineText.replace(/range\s*\(\s*len\s*\(([^)]+)\)\s*\)/, 'range(1, len($1))');
           pool.push({
@@ -837,7 +894,6 @@ export class ComplexBugEngine {
             applyToLines: (arr) => { arr[i] = mutated; },
           });
         }
-        // 1C. range(start, end + 1) -> range(start, end)
         if (/range\s*\(\s*(\d+|[a-zA-Z_]\w*)\s*,\s*([a-zA-Z_]\w*|\d+)\s*\+\s*1\s*\)/.test(lineText)) {
           const mutated = lineText.replace(/range\s*\(\s*(\d+|[a-zA-Z_]\w*)\s*,\s*([a-zA-Z_]\w*|\d+)\s*\+\s*1\s*\)/, 'range($1, $2)');
           pool.push({
@@ -852,7 +908,6 @@ export class ComplexBugEngine {
             applyToLines: (arr) => { arr[i] = mutated; },
           });
         }
-        // 1D. Reversed range missing negative step: range(..., -1) -> range(...)
         if (lineText.includes(', -1)') && lineText.includes('range(')) {
           const mutated = lineText.replace(', -1)', ')');
           pool.push({
@@ -869,8 +924,78 @@ export class ComplexBugEngine {
         }
       }
 
-      // 1E. While loop boundary shifts on index pointers
-      if (trimmed.startsWith('while ')) {
+      // 1B. For loops in C, C++, Java, JS
+      if ((isC || isJava || isJs) && (trimmed.startsWith('for ') || trimmed.startsWith('for('))) {
+        // Less than to less-equal overrun
+        if (/\b([a-zA-Z_]\w*)\s*<\s*([a-zA-Z_]\w*(?:\.[a-zA-Z_]\w*(?:\(\))?|\(\))?)/.test(lineText) && !lineText.includes('<<')) {
+          const mutated = lineText.replace(/(\b[a-zA-Z_]\w*\s*)<\s*([a-zA-Z_]\w*(?:\.[a-zA-Z_]\w*(?:\(\))?|\(\))?)/, '$1<= $2');
+          if (mutated !== lineText) {
+            pool.push({
+              line: lineNum,
+              mutationType: 'LOOP_TERMINATION_OFF_BY_ONE_OVERRUN',
+              algorithmicCategory: 'LOOP_BOUNDARY',
+              name: 'For Loop Fencepost Upper Bound Overrun',
+              category: 'Loop Boundary & Stride Traps',
+              description: "Loop condition '<' mutated to '<=' (causes out-of-bounds iteration overrun)",
+              originalFragment: lineText,
+              mutatedFragment: mutated,
+              applyToLines: (arr) => { arr[i] = mutated; },
+            });
+          }
+        }
+        // Less-equal to strict less than
+        if (/\b([a-zA-Z_]\w*)\s*<=\s*([a-zA-Z_]\w*)/.test(lineText)) {
+          const mutated = lineText.replace(/(\b[a-zA-Z_]\w*\s*)<=\s*([a-zA-Z_]\w*)/, '$1< $2');
+          if (mutated !== lineText) {
+            pool.push({
+              line: lineNum,
+              mutationType: 'LOOP_TERMINATION_INCLUSIVE_TO_STRICT_TRUNCATION',
+              algorithmicCategory: 'LOOP_BOUNDARY',
+              name: 'For Loop Bound Inclusive to Strict Truncation',
+              category: 'Loop Boundary & Stride Traps',
+              description: "Loop condition '<=' changed to strict '<' (terminates 1 step prematurely)",
+              originalFragment: lineText,
+              mutatedFragment: mutated,
+              applyToLines: (arr) => { arr[i] = mutated; },
+            });
+          }
+        }
+        // Loop stride mutation: i++ -> i += 2
+        if (/\b([a-zA-Z_]\w*)\+\+/.test(lineText)) {
+          const match = lineText.match(/\b([a-zA-Z_]\w*)\+\+/);
+          const varName = match ? match[1] : 'i';
+          const mutated = lineText.replace(/\b([a-zA-Z_]\w*)\+\+/, `${varName} += 2`);
+          pool.push({
+            line: lineNum,
+            mutationType: 'LOOP_STRIDE_MUTATION_SKIP_ALTERNATE',
+            algorithmicCategory: 'LOOP_BOUNDARY',
+            name: 'Loop Stride Increment Altered to Stride of 2',
+            category: 'Loop Boundary & Stride Traps',
+            description: `Loop stride '${varName}++' changed to '${varName} += 2' (skips alternate elements)`,
+            originalFragment: lineText,
+            mutatedFragment: mutated,
+            applyToLines: (arr) => { arr[i] = mutated; },
+          });
+        }
+        // Loop init offset: i = 0 -> i = 1
+        if (/\b(?:let|var|int|size_t)?\s*([a-zA-Z_]\w*)\s*=\s*0\s*;/.test(lineText)) {
+          const mutated = lineText.replace(/(\b[a-zA-Z_]\w*\s*=\s*)0\s*;/, '$11;');
+          pool.push({
+            line: lineNum,
+            mutationType: 'LOOP_START_INDEX_OFF_BY_ONE_SKIP_FIRST',
+            algorithmicCategory: 'LOOP_BOUNDARY',
+            name: 'For Loop Initial Index Shifted to 1',
+            category: 'Loop Boundary & Stride Traps',
+            description: 'For-loop initial counter set to 1 instead of 0 (skips first element)',
+            originalFragment: lineText,
+            mutatedFragment: mutated,
+            applyToLines: (arr) => { arr[i] = mutated; },
+          });
+        }
+      }
+
+      // 1C. While loop boundary shifts in all languages
+      if (trimmed.startsWith('while ') || trimmed.startsWith('while(')) {
         if (lineText.includes(' <= ') && !lineText.includes('==')) {
           const mutated = lineText.replace(' <= ', ' < ');
           pool.push({
@@ -900,141 +1025,181 @@ export class ComplexBugEngine {
         }
       }
 
-      // 1D. Loop over range with arithmetic bounds: range(left - 1) or range(right - left)
-      if (lineText.includes('in range(')) {
-        if (lineText.includes('left - 1')) {
-          const mutated = lineText.replace('left - 1', 'left');
-          pool.push({
-            line: lineNum,
-            mutationType: 'LOOP_RANGE_START_INCORRECT_OFFSET',
-            algorithmicCategory: 'LOOP_BOUNDARY',
-            name: 'Loop Range Bound Off-By-One',
-            category: 'Loop Invariants & Iteration Bounds',
-            description: "Loop range bound 'left - 1' changed to 'left' (off-by-one iteration count)",
-            originalFragment: lineText,
-            mutatedFragment: mutated,
-            applyToLines: (arr) => { arr[i] = mutated; },
-          });
-        } else if (lineText.includes('right - left')) {
-          const mutated = lineText.replace('right - left', 'right - left + 1');
-          pool.push({
-            line: lineNum,
-            mutationType: 'LOOP_RANGE_START_INCORRECT_OFFSET',
-            algorithmicCategory: 'LOOP_BOUNDARY',
-            name: 'Loop Range Bound Fencepost Overrun',
-            category: 'Loop Invariants & Iteration Bounds',
-            description: "Loop range bound 'right - left' changed to 'right - left + 1' (causes iteration overrun)",
-            originalFragment: lineText,
-            mutatedFragment: mutated,
-            applyToLines: (arr) => { arr[i] = mutated; },
-          });
-        }
-      }
-
       // =========================================================================
       // 2. CONDITION_INVERSION
       // =========================================================================
-      if ((trimmed.startsWith('if ') || trimmed.startsWith('elif ') || trimmed.startsWith('while ')) && !trimmed.startsWith('if __name__')) {
-        // 2A. Conjunction / Disjunction flip
-        if (lineText.includes(' and ')) {
-          const mutated = lineText.replace(' and ', ' or ');
-          pool.push({
-            line: lineNum,
-            mutationType: 'FLOW_LOGICAL_AND_TO_OR_CONDITION_EXPANSION',
-            algorithmicCategory: 'CONDITION_INVERSION',
-            name: 'Logical AND Changed to OR',
-            category: 'Control Flow, Premature Returns & Guards',
-            description: "Logical conjunction 'and' changed to disjunction 'or'",
-            originalFragment: lineText,
-            mutatedFragment: mutated,
-            applyToLines: (arr) => { arr[i] = mutated; },
-          });
-        } else if (lineText.includes(' or ')) {
-          const mutated = lineText.replace(' or ', ' and ');
-          pool.push({
-            line: lineNum,
-            mutationType: 'FLOW_LOGICAL_OR_TO_AND_CONDITION_CONSTRICTION',
-            algorithmicCategory: 'CONDITION_INVERSION',
-            name: 'Logical OR Changed to AND',
-            category: 'Control Flow, Premature Returns & Guards',
-            description: "Logical disjunction 'or' changed to conjunction 'and'",
-            originalFragment: lineText,
-            mutatedFragment: mutated,
-            applyToLines: (arr) => { arr[i] = mutated; },
-          });
-        }
+      // 2A. Conjunction / Disjunction flip
+      if (lineText.includes(' && ')) {
+        const mutated = lineText.replace(' && ', ' || ');
+        pool.push({
+          line: lineNum,
+          mutationType: 'FLOW_LOGICAL_AND_TO_OR_CONDITION_EXPANSION',
+          algorithmicCategory: 'CONDITION_INVERSION',
+          name: 'Logical AND Changed to OR',
+          category: 'Control Flow, Premature Returns & Guards',
+          description: "Logical conjunction '&&' changed to disjunction '||'",
+          originalFragment: lineText,
+          mutatedFragment: mutated,
+          applyToLines: (arr) => { arr[i] = mutated; },
+        });
+      } else if (lineText.includes(' || ')) {
+        const mutated = lineText.replace(' || ', ' && ');
+        pool.push({
+          line: lineNum,
+          mutationType: 'FLOW_LOGICAL_OR_TO_AND_CONDITION_CONSTRICTION',
+          algorithmicCategory: 'CONDITION_INVERSION',
+          name: 'Logical OR Changed to AND',
+          category: 'Control Flow, Premature Returns & Guards',
+          description: "Logical disjunction '||' changed to conjunction '&&'",
+          originalFragment: lineText,
+          mutatedFragment: mutated,
+          applyToLines: (arr) => { arr[i] = mutated; },
+        });
+      } else if (isPy && lineText.includes(' and ')) {
+        const mutated = lineText.replace(' and ', ' or ');
+        pool.push({
+          line: lineNum,
+          mutationType: 'FLOW_LOGICAL_AND_TO_OR_CONDITION_EXPANSION',
+          algorithmicCategory: 'CONDITION_INVERSION',
+          name: 'Logical AND Changed to OR',
+          category: 'Control Flow, Premature Returns & Guards',
+          description: "Logical conjunction 'and' changed to disjunction 'or'",
+          originalFragment: lineText,
+          mutatedFragment: mutated,
+          applyToLines: (arr) => { arr[i] = mutated; },
+        });
+      } else if (isPy && lineText.includes(' or ')) {
+        const mutated = lineText.replace(' or ', ' and ');
+        pool.push({
+          line: lineNum,
+          mutationType: 'FLOW_LOGICAL_OR_TO_AND_CONDITION_CONSTRICTION',
+          algorithmicCategory: 'CONDITION_INVERSION',
+          name: 'Logical OR Changed to AND',
+          category: 'Control Flow, Premature Returns & Guards',
+          description: "Logical disjunction 'or' changed to conjunction 'and'",
+          originalFragment: lineText,
+          mutatedFragment: mutated,
+          applyToLines: (arr) => { arr[i] = mutated; },
+        });
+      }
 
-        // 2B. Equality / Inequality flip in conditions
-        if (lineText.includes(' == ') && !lineText.includes('%')) {
-          const mutated = lineText.replace(' == ', ' != ');
-          pool.push({
-            line: lineNum,
-            mutationType: 'FLOW_EQUALITY_INVERTED_TO_NOT_EQUAL',
-            algorithmicCategory: 'CONDITION_INVERSION',
-            name: 'Conditional Equality Inversion',
-            category: 'Control Flow, Premature Returns & Guards',
-            description: "Conditional equality check '==' inverted to '!='",
-            originalFragment: lineText,
-            mutatedFragment: mutated,
-            applyToLines: (arr) => { arr[i] = mutated; },
-          });
-        } else if (lineText.includes(' != ')) {
-          const mutated = lineText.replace(' != ', ' == ');
-          pool.push({
-            line: lineNum,
-            mutationType: 'FLOW_INEQUALITY_INVERTED_TO_EQUAL',
-            algorithmicCategory: 'CONDITION_INVERSION',
-            name: 'Conditional Inequality Inversion',
-            category: 'Control Flow, Premature Returns & Guards',
-            description: "Conditional inequality check '!=' inverted to '=='",
-            originalFragment: lineText,
-            mutatedFragment: mutated,
-            applyToLines: (arr) => { arr[i] = mutated; },
-          });
-        }
+      // 2B. Strict and loose equality flips
+      if (lineText.includes(' === ')) {
+        const mutated = lineText.replace(' === ', ' !== ');
+        pool.push({
+          line: lineNum,
+          mutationType: 'FLOW_EQUALITY_INVERTED_TO_NOT_EQUAL',
+          algorithmicCategory: 'CONDITION_INVERSION',
+          name: 'Strict Equality Inversion === to !==',
+          category: 'Control Flow, Premature Returns & Guards',
+          description: "Strict equality check '===' inverted to '!=='",
+          originalFragment: lineText,
+          mutatedFragment: mutated,
+          applyToLines: (arr) => { arr[i] = mutated; },
+        });
+      } else if (lineText.includes(' !== ')) {
+        const mutated = lineText.replace(' !== ', ' === ');
+        pool.push({
+          line: lineNum,
+          mutationType: 'FLOW_INEQUALITY_INVERTED_TO_EQUAL',
+          algorithmicCategory: 'CONDITION_INVERSION',
+          name: 'Strict Inequality Inversion !== to ===',
+          category: 'Control Flow, Premature Returns & Guards',
+          description: "Strict inequality check '!==' inverted to '==='",
+          originalFragment: lineText,
+          mutatedFragment: mutated,
+          applyToLines: (arr) => { arr[i] = mutated; },
+        });
+      } else if (lineText.includes(' == ') && !lineText.includes('%')) {
+        const mutated = lineText.replace(' == ', ' != ');
+        pool.push({
+          line: lineNum,
+          mutationType: 'FLOW_EQUALITY_INVERTED_TO_NOT_EQUAL',
+          algorithmicCategory: 'CONDITION_INVERSION',
+          name: 'Conditional Equality Inversion == to !=',
+          category: 'Control Flow, Premature Returns & Guards',
+          description: "Conditional equality check '==' inverted to '!='",
+          originalFragment: lineText,
+          mutatedFragment: mutated,
+          applyToLines: (arr) => { arr[i] = mutated; },
+        });
+      } else if (lineText.includes(' != ')) {
+        const mutated = lineText.replace(' != ', ' == ');
+        pool.push({
+          line: lineNum,
+          mutationType: 'FLOW_INEQUALITY_INVERTED_TO_EQUAL',
+          algorithmicCategory: 'CONDITION_INVERSION',
+          name: 'Conditional Inequality Inversion != to ==',
+          category: 'Control Flow, Premature Returns & Guards',
+          description: "Conditional inequality check '!=' inverted to '=='",
+          originalFragment: lineText,
+          mutatedFragment: mutated,
+          applyToLines: (arr) => { arr[i] = mutated; },
+        });
+      }
 
-        // 2C. Relational operator flip in if/elif branches
-        if (trimmed.startsWith('if ') || trimmed.startsWith('elif ')) {
-          if (lineText.includes(' <= ') && !lineText.includes('==')) {
-            const mutated = lineText.replace(' <= ', ' > ');
-            pool.push({
-              line: lineNum,
-              mutationType: 'FLOW_LESS_EQUAL_INVERTED_TO_GREATER',
-              algorithmicCategory: 'CONDITION_INVERSION',
-              name: 'Branch Relational Inversion <= to >',
-              category: 'Control Flow, Premature Returns & Guards',
-              description: "Branch guard '<=' inverted to '>'",
-              originalFragment: lineText,
-              mutatedFragment: mutated,
-              applyToLines: (arr) => { arr[i] = mutated; },
-            });
-          } else if (lineText.includes(' < ') && !lineText.includes('<=') && !lineText.includes('<<')) {
-            const mutated = lineText.replace(' < ', ' > ');
-            pool.push({
-              line: lineNum,
-              mutationType: 'FLOW_LESS_THAN_INVERTED_TO_GREATER',
-              algorithmicCategory: 'CONDITION_INVERSION',
-              name: 'Branch Relational Inversion < to >',
-              category: 'Control Flow, Premature Returns & Guards',
-              description: "Branch guard '<' inverted to '>'",
-              originalFragment: lineText,
-              mutatedFragment: mutated,
-              applyToLines: (arr) => { arr[i] = mutated; },
-            });
-          } else if (lineText.includes(' > ') && !lineText.includes('>=') && !lineText.includes('>>')) {
-            const mutated = lineText.replace(' > ', ' < ');
-            pool.push({
-              line: lineNum,
-              mutationType: 'FLOW_GREATER_THAN_INVERTED_TO_LESS',
-              algorithmicCategory: 'CONDITION_INVERSION',
-              name: 'Branch Relational Inversion > to <',
-              category: 'Control Flow, Premature Returns & Guards',
-              description: "Branch guard '>' inverted to '<'",
-              originalFragment: lineText,
-              mutatedFragment: mutated,
-              applyToLines: (arr) => { arr[i] = mutated; },
-            });
-          }
+      // 2C. Relational operator flip in if/while/return/for statements
+      const isConditionalContext =
+        trimmed.startsWith('if') ||
+        trimmed.startsWith('while') ||
+        trimmed.startsWith('elif') ||
+        trimmed.startsWith('else if') ||
+        trimmed.startsWith('return ') ||
+        trimmed.includes('?');
+
+      if (isConditionalContext && !lineText.includes('#') && !lineText.includes('template')) {
+        if (lineText.includes(' <= ') && !lineText.includes('==')) {
+          const mutated = lineText.replace(' <= ', ' > ');
+          pool.push({
+            line: lineNum,
+            mutationType: 'FLOW_LESS_EQUAL_INVERTED_TO_GREATER',
+            algorithmicCategory: 'CONDITION_INVERSION',
+            name: 'Branch Relational Inversion <= to >',
+            category: 'Control Flow, Premature Returns & Guards',
+            description: "Branch guard '<=' inverted to '>'",
+            originalFragment: lineText,
+            mutatedFragment: mutated,
+            applyToLines: (arr) => { arr[i] = mutated; },
+          });
+        } else if (lineText.includes(' >= ') && !lineText.includes('==')) {
+          const mutated = lineText.replace(' >= ', ' < ');
+          pool.push({
+            line: lineNum,
+            mutationType: 'FLOW_GREATER_EQUAL_INVERTED_TO_LESS',
+            algorithmicCategory: 'CONDITION_INVERSION',
+            name: 'Branch Relational Inversion >= to <',
+            category: 'Control Flow, Premature Returns & Guards',
+            description: "Branch guard '>=' inverted to '<'",
+            originalFragment: lineText,
+            mutatedFragment: mutated,
+            applyToLines: (arr) => { arr[i] = mutated; },
+          });
+        } else if (lineText.includes(' < ') && !lineText.includes('<=') && !lineText.includes('<<')) {
+          const mutated = lineText.replace(' < ', ' > ');
+          pool.push({
+            line: lineNum,
+            mutationType: 'FLOW_LESS_THAN_INVERTED_TO_GREATER',
+            algorithmicCategory: 'CONDITION_INVERSION',
+            name: 'Branch Relational Inversion < to >',
+            category: 'Control Flow, Premature Returns & Guards',
+            description: "Branch guard '<' inverted to '>'",
+            originalFragment: lineText,
+            mutatedFragment: mutated,
+            applyToLines: (arr) => { arr[i] = mutated; },
+          });
+        } else if (lineText.includes(' > ') && !lineText.includes('>=') && !lineText.includes('>>')) {
+          const mutated = lineText.replace(' > ', ' < ');
+          pool.push({
+            line: lineNum,
+            mutationType: 'FLOW_GREATER_THAN_INVERTED_TO_LESS',
+            algorithmicCategory: 'CONDITION_INVERSION',
+            name: 'Branch Relational Inversion > to <',
+            category: 'Control Flow, Premature Returns & Guards',
+            description: "Branch guard '>' inverted to '<'",
+            originalFragment: lineText,
+            mutatedFragment: mutated,
+            applyToLines: (arr) => { arr[i] = mutated; },
+          });
         }
       }
 
@@ -1047,53 +1212,68 @@ export class ComplexBugEngine {
         const curIndent = lineText.match(/^(\s*)/)?.[1] || '';
         const nxtIndent = nextLine.match(/^(\s*)/)?.[1] || '';
 
-        // Two consecutive assignment statements with same indentation inside a function/loop
         if (
           curIndent === nxtIndent &&
-          curIndent.length >= 4 &&
-          trimmed.includes('=') &&
-          nextTrimmed.includes('=') &&
+          curIndent.length >= 2 &&
+          (trimmed.includes('=') || trimmed.includes('++') || trimmed.includes('--')) &&
+          (nextTrimmed.includes('=') || nextTrimmed.includes('++') || nextTrimmed.includes('--')) &&
           !trimmed.startsWith('if') &&
           !nextTrimmed.startsWith('if') &&
           !trimmed.startsWith('for') &&
           !nextTrimmed.startsWith('for') &&
           !trimmed.startsWith('while') &&
-          !nextTrimmed.startsWith('while')
+          !nextTrimmed.startsWith('while') &&
+          !trimmed.startsWith('return') &&
+          !nextTrimmed.startsWith('return')
         ) {
-          // Pointer reversal / traversal sequence swap
-          if (
-            (trimmed.includes('.next =') && nextTrimmed.includes('prev =')) ||
-            (trimmed.includes('prev =') && nextTrimmed.includes('curr =')) ||
-            (trimmed.includes('slow =') && nextTrimmed.includes('fast =')) ||
-            (trimmed.includes('p1 =') && nextTrimmed.includes('p2 =')) ||
-            (trimmed.includes('.next =') && nextTrimmed.includes('.next =')) ||
-            (trimmed.includes('.next.next =') && nextTrimmed.includes('.next =')) ||
-            (trimmed.includes('.next =') && nextTrimmed.includes('.next.next =')) ||
-            (trimmed.includes('.append(') && (nextTrimmed.includes('+= 1') || nextTrimmed.includes('-= 1'))) ||
-            (!trimmed.includes('self.') && !nextTrimmed.includes('self.') && curIndent.length >= 8)
-          ) {
-            pool.push({
-              line: lineNum,
-              mutationType: 'PTR_UPDATE_ORDER_DEPENDENCY_INVERSION',
-              algorithmicCategory: 'STATE_UPDATE_ORDER',
-              name: 'Pointer / State Update Order Inversion',
-              category: 'Pointer & State Invariants',
-              description: `Dependent updates '${trimmed}' and '${nextTrimmed}' swapped in sequence`,
-              originalFragment: `${lineText}\n${nextLine}`,
-              mutatedFragment: `${curIndent}${nextTrimmed}\n${nxtIndent}${trimmed}`,
-              applyToLines: (arr) => {
-                arr[i] = `${curIndent}${nextTrimmed}`;
-                arr[i + 1] = `${nxtIndent}${trimmed}`;
-              },
-            });
-          }
+          pool.push({
+            line: lineNum,
+            mutationType: 'PTR_UPDATE_ORDER_DEPENDENCY_INVERSION',
+            algorithmicCategory: 'STATE_UPDATE_ORDER',
+            name: 'Statement Sequence Update Order Inversion',
+            category: 'Pointer & State Invariants',
+            description: `Sequential dependent updates '${trimmed}' and '${nextTrimmed}' swapped in execution order`,
+            originalFragment: `${lineText}\n${nextLine}`,
+            mutatedFragment: `${curIndent}${nextTrimmed}\n${nxtIndent}${trimmed}`,
+            applyToLines: (arr) => {
+              arr[i] = `${curIndent}${nextTrimmed}`;
+              arr[i + 1] = `${nxtIndent}${trimmed}`;
+            },
+          });
         }
       }
 
       // =========================================================================
       // 4. BASE_CASE_DEFECT (Recursive base cases & DP initial conditions)
       // =========================================================================
-      // 4A. Recursive base case length check (len(arr) <= 1 -> len(arr) < 1)
+      if (/if\s*\(?\s*([a-zA-Z_]\w*)\s*<=\s*1\s*\)?/.test(lineText)) {
+        const mutated = lineText.replace(/<=\s*1/, '< 1');
+        pool.push({
+          line: lineNum,
+          mutationType: 'REC_BASE_CASE_CONDITION_RECURSION_OVERRUN',
+          algorithmicCategory: 'BASE_CASE_DEFECT',
+          name: 'Recursive Base Case Bound Truncation',
+          category: 'Recursion & Base Case Traps',
+          description: "Base case '<= 1' changed to '< 1' (causes infinite recursion / stack overflow on single element inputs)",
+          originalFragment: lineText,
+          mutatedFragment: mutated,
+          applyToLines: (arr) => { arr[i] = mutated; },
+        });
+      }
+      if (/if\s*\(?\s*([a-zA-Z_]\w*)\s*==\s*0\s*\)?/.test(lineText)) {
+        const mutated = lineText.replace(/==\s*0/, '== 1');
+        pool.push({
+          line: lineNum,
+          mutationType: 'REC_BASE_CASE_CONDITION_RECURSION_OVERRUN',
+          algorithmicCategory: 'BASE_CASE_DEFECT',
+          name: 'Recursive Base Case Zero Sentinel Shift',
+          category: 'Recursion & Base Case Traps',
+          description: "Base case '== 0' changed to '== 1' (fails on 0 or triggers excess call)",
+          originalFragment: lineText,
+          mutatedFragment: mutated,
+          applyToLines: (arr) => { arr[i] = mutated; },
+        });
+      }
       if (/len\s*\([^)]+\)\s*<=\s*1\s*:/.test(lineText)) {
         const mutated = lineText.replace(/<=\s*1\s*:/, '< 1:');
         pool.push({
@@ -1102,72 +1282,12 @@ export class ComplexBugEngine {
           algorithmicCategory: 'BASE_CASE_DEFECT',
           name: 'Recursive Base Case Overrun',
           category: 'Recursion & Base Case Traps',
-          description: "Base case 'len(...) <= 1' changed to '< 1' (causes infinite recursion on single-element inputs)",
+          description: "Base case 'len(...) <= 1' changed to '< 1'",
           originalFragment: lineText,
           mutatedFragment: mutated,
           applyToLines: (arr) => { arr[i] = mutated; },
         });
       }
-      // 4B. Recursive linked list base case drop (if not head or not head.next -> if not head)
-      if (lineText.includes('if not head or not head.next:')) {
-        const mutated = lineText.replace('if not head or not head.next:', 'if not head:');
-        pool.push({
-          line: lineNum,
-          mutationType: 'REC_BASE_CASE_LOOKAHEAD_NULL_DEREFERENCE',
-          algorithmicCategory: 'BASE_CASE_DEFECT',
-          name: 'Recursive Lookahead Base Case Omission',
-          category: 'Recursion & Base Case Traps',
-          description: "Base case 'not head.next' lookahead removed (causes AttributeError on head.next.next)",
-          originalFragment: lineText,
-          mutatedFragment: mutated,
-          applyToLines: (arr) => { arr[i] = mutated; },
-        });
-      }
-      // 4B2. Recursive call argument defect
-      if (lineText.includes('reverse_list_recursive(head.next)')) {
-        const mutated = lineText.replace('reverse_list_recursive(head.next)', 'reverse_list_recursive(head)');
-        pool.push({
-          line: lineNum,
-          mutationType: 'REC_BASE_CASE_CONDITION_RECURSION_OVERRUN',
-          algorithmicCategory: 'BASE_CASE_DEFECT',
-          name: 'Recursive Step Parameter Non-Decreasing',
-          category: 'Recursion & Base Case Traps',
-          description: "Recursive call argument 'head.next' reverted to 'head' (infinite recursion)",
-          originalFragment: lineText,
-          mutatedFragment: mutated,
-          applyToLines: (arr) => { arr[i] = mutated; },
-        });
-      }
-      if (lineText.trim() === 'return head' && i > 0 && rawLines[i - 1]?.includes('if not head')) {
-        const mutated = lineText.replace('return head', 'return None');
-        pool.push({
-          line: lineNum,
-          mutationType: 'REC_BASE_CASE_PREMATURE_TERMINATION',
-          algorithmicCategory: 'BASE_CASE_DEFECT',
-          name: 'Recursive Base Case Return Value Corruption',
-          category: 'Recursion & Base Case Traps',
-          description: "Recursive base case 'return head' corrupted to 'return None'",
-          originalFragment: lineText,
-          mutatedFragment: mutated,
-          applyToLines: (arr) => { arr[i] = mutated; },
-        });
-      }
-      // 4C. Helper base case (if l > r -> if l >= r)
-      if (/if\s+([a-zA-Z_]\w*)\s*>\s*([a-zA-Z_]\w*)\s*:/.test(lineText)) {
-        const mutated = lineText.replace(/\b>\b/, '>=');
-        pool.push({
-          line: lineNum,
-          mutationType: 'REC_BASE_CASE_PREMATURE_TERMINATION',
-          algorithmicCategory: 'BASE_CASE_DEFECT',
-          name: 'Recursive Search Base Case Bound Premature Exit',
-          category: 'Recursion & Base Case Traps',
-          description: "Search base case '>' changed to '>=' (prematurely rejects element when bounds meet)",
-          originalFragment: lineText,
-          mutatedFragment: mutated,
-          applyToLines: (arr) => { arr[i] = mutated; },
-        });
-      }
-      // 4D. DP base case state defect
       if (/^(\s*)dp\s*\[\s*0\s*\]\s*=\s*0\b/.test(lineText)) {
         const mutated = lineText.replace('dp[0] = 0', 'dp[0] = 1');
         pool.push({
@@ -1176,7 +1296,7 @@ export class ComplexBugEngine {
           algorithmicCategory: 'BASE_CASE_DEFECT',
           name: 'DP Base Case State Corruption',
           category: 'Dynamic Programming & Memoization',
-          description: "DP base state 'dp[0] = 0' corrupted to 'dp[0] = 1' (distorts entire recurrence)",
+          description: "DP base state 'dp[0] = 0' corrupted to 'dp[0] = 1'",
           originalFragment: lineText,
           mutatedFragment: mutated,
           applyToLines: (arr) => { arr[i] = mutated; },
@@ -1196,41 +1316,27 @@ export class ComplexBugEngine {
           applyToLines: (arr) => { arr[i] = mutated; },
         });
       }
-      if (/^(\s*)if\s+n\s*<=\s*2\s*:\s*return\s+n\b/.test(lineText)) {
-        const mutated = lineText.replace('n <= 2', 'n <= 1');
-        pool.push({
-          line: lineNum,
-          mutationType: 'REC_BASE_CASE_CONDITION_RECURSION_OVERRUN',
-          algorithmicCategory: 'BASE_CASE_DEFECT',
-          name: 'Climb Stairs Base Case Bound Truncation',
-          category: 'Recursion & Base Case Traps',
-          description: "Base case 'n <= 2' changed to 'n <= 1'",
-          originalFragment: lineText,
-          mutatedFragment: mutated,
-          applyToLines: (arr) => { arr[i] = mutated; },
-        });
-      }
 
       // =========================================================================
       // 5. INDEX_OFFSET (Midpoint calculation, Matrix dimension inversion, Division)
       // =========================================================================
-      // 5A. Parentheses omission in midpoint calculation
-      if (lineText.includes('// 2') && /\(\s*[a-zA-Z_]\w*\s*\+\s*[a-zA-Z_]\w*\s*\)\s*\/\/\s*2/.test(lineText)) {
-        const mutated = lineText.replace(/\(\s*([a-zA-Z_]\w*\s*\+\s*[a-zA-Z_]\w*)\s*\)\s*\/\/\s*2/, '$1 // 2');
+      // 5A. Midpoint calculation parenthesis omission: (low + high) / 2 -> low + high / 2
+      if (/\(\s*([a-zA-Z_]\w*)\s*\+\s*([a-zA-Z_]\w*)\s*\)\s*(?:\/\/|\/)\s*2/.test(lineText)) {
+        const mutated = lineText.replace(/\(\s*([a-zA-Z_]\w*)\s*\+\s*([a-zA-Z_]\w*)\s*\)\s*(\/\/|\/)\s*2/, '$1 + $2 $3 2');
         pool.push({
           line: lineNum,
           mutationType: 'MATH_OPERATOR_PRECEDENCE_PARENTHESIS_OMISSION',
           algorithmicCategory: 'INDEX_OFFSET',
           name: 'Midpoint Calculation Parenthesis Omission',
           category: 'Binary Search & Two-Pointer Invariants',
-          description: "Parentheses removed from '(low + high) // 2' causing 'high // 2' to bind first",
+          description: "Parentheses removed from '(low + high) / 2' causing division to bind first",
           originalFragment: lineText,
           mutatedFragment: mutated,
           applyToLines: (arr) => { arr[i] = mutated; },
         });
       }
-      // 5B. Integer division truncation // 2 -> / 2
-      if (lineText.includes('// 2') && (lineText.includes('mid') || lineText.includes('center') || lineText.includes('len('))) {
+      // 5B. Python floor division // 2 -> / 2
+      if (isPy && lineText.includes('// 2')) {
         const mutated = lineText.replace('// 2', '/ 2');
         pool.push({
           line: lineNum,
@@ -1263,16 +1369,16 @@ export class ComplexBugEngine {
           applyToLines: (arr) => { arr[i] = mutated; },
         });
       }
-      // 5D. Slice bound off-by-one
-      if (/\[\s*:\s*(mid|center|[a-zA-Z_]\w*)\s*\]/.test(lineText)) {
-        const mutated = lineText.replace(/\[\s*:\s*([a-zA-Z_]\w*)\s*\]/, '[:$1 - 1]');
+      // 5D. Slice bound off-by-one or length off-by-one
+      if (/\b([a-zA-Z_]\w*)\.(?:length|size\(\))\s*-\s*1\b/.test(lineText)) {
+        const mutated = lineText.replace(/(\b[a-zA-Z_]\w*\.(?:length|size\(\)))\s*-\s*1\b/, '$1');
         pool.push({
           line: lineNum,
-          mutationType: 'IDX_SLICE_UPPER_BOUND_EXCLUSION_DROP',
+          mutationType: 'IDX_ARRAY_LENGTH_MINUS_ONE_DROP',
           algorithmicCategory: 'INDEX_OFFSET',
-          name: 'Slice Upper Bound Exclusion Drop',
+          name: 'Array Upper Bound Off-By-One Omission',
           category: 'Collection Access & Slice Bounds',
-          description: 'Slice upper bound reduced by 1 (drops last element of partition)',
+          description: "Collection upper bound 'length - 1' changed to 'length' (leads to ArrayIndexOutOfBoundsException)",
           originalFragment: lineText,
           mutatedFragment: mutated,
           applyToLines: (arr) => { arr[i] = mutated; },
@@ -1326,7 +1432,7 @@ export class ComplexBugEngine {
         });
       }
       // 6C. Product accumulator zero initialization
-      if (/^(\s*)(prod|product|ans|res|factorial|fact|total_product)\s*=\s*1\b/.test(lineText)) {
+      if (/^(\s*)(?:let|var|int|long|double)?\s*(prod|product|ans|res|factorial|fact|total_product)\s*=\s*1\b/.test(lineText)) {
         const mutated = lineText.replace(/=\s*1\b/, '= 0');
         pool.push({
           line: lineNum,
@@ -1359,52 +1465,7 @@ export class ComplexBugEngine {
       // =========================================================================
       // 7. EDGE_CASE_BYPASS (Guard neutralization & Pointer lock infinite loops)
       // =========================================================================
-      // 7A. Matrix dimension check neutralization
-      if (/if\s+c1\s*!=\s*r2\s*:/.test(lineText)) {
-        const mutated = lineText.replace('c1 != r2', 'c1 == r2');
-        pool.push({
-          line: lineNum,
-          mutationType: 'EDGE_CASE_DIMENSION_MISMATCH_BYPASS',
-          algorithmicCategory: 'EDGE_CASE_BYPASS',
-          name: 'Matrix Dimension Validation Inversion',
-          category: 'Boundary & Invariant Guards',
-          description: "Incompatible matrix dimension guard inverted (allows invalid matrix multiplication)",
-          originalFragment: lineText,
-          mutatedFragment: mutated,
-          applyToLines: (arr) => { arr[i] = mutated; },
-        });
-      }
-      // 7B. String length inequality check neutralization
-      if (/if\s+len\(s1?\)\s*!=\s*len\(s2?|t\)\s*:/.test(lineText)) {
-        const mutated = lineText.replace(/len\(s1?\)\s*!=\s*len\(s2?|t\)/, 'False');
-        pool.push({
-          line: lineNum,
-          mutationType: 'EDGE_CASE_STRING_LENGTH_CHECK_BYPASS',
-          algorithmicCategory: 'EDGE_CASE_BYPASS',
-          name: 'String Length Pre-Check Neutralized',
-          category: 'Boundary & Invariant Guards',
-          description: "String length equality pre-check neutralized to False (bypasses length guard)",
-          originalFragment: lineText,
-          mutatedFragment: mutated,
-          applyToLines: (arr) => { arr[i] = mutated; },
-        });
-      }
-      // 7C. Empty input guard clause neutralization
-      if (/if\s+not\s+(arr|nums|head|text|m1)\s*:/.test(lineText)) {
-        const mutated = lineText.replace(/if\s+not\s+([a-zA-Z_]\w*)\s*:/, 'if False:');
-        pool.push({
-          line: lineNum,
-          mutationType: 'EDGE_CASE_EMPTY_INPUT_CHECK_BYPASS',
-          algorithmicCategory: 'EDGE_CASE_BYPASS',
-          name: 'Empty Input Guard Clause Bypass',
-          category: 'Boundary & Invariant Guards',
-          description: "Empty collection boundary guard bypassed (crashes on empty input)",
-          originalFragment: lineText,
-          mutatedFragment: mutated,
-          applyToLines: (arr) => { arr[i] = mutated; },
-        });
-      }
-      // 7D. Binary search boundary locks
+      // 7A. Binary search boundary locks
       if (/\b(high|right|end)\s*=\s*(?:mid|center)\s*-\s*1\b/.test(lineText)) {
         const match = lineText.match(/\b(high|right|end)\s*=\s*(?:mid|center)\s*-\s*1\b/);
         const ptr = lineText.match(/\b(high|right|end)\b/)?.[1] || 'high';
@@ -1439,7 +1500,35 @@ export class ComplexBugEngine {
           applyToLines: (arr) => { arr[i] = mutated; },
         });
       }
-      // 7E. Cycle detection initial lock
+      // 7B. Break / Continue substitution
+      if (trimmed === 'break;' || trimmed === 'break') {
+        const mutated = lineText.replace('break', 'continue');
+        pool.push({
+          line: lineNum,
+          mutationType: 'FLOW_BREAK_TO_CONTINUE_INVERSION',
+          algorithmicCategory: 'EDGE_CASE_BYPASS',
+          name: 'Loop Break Changed to Continue',
+          category: 'Boundary & Invariant Guards',
+          description: "Early loop exit 'break' inverted to 'continue' (causes loop to continue running unnecessarily)",
+          originalFragment: lineText,
+          mutatedFragment: mutated,
+          applyToLines: (arr) => { arr[i] = mutated; },
+        });
+      } else if (trimmed === 'continue;' || trimmed === 'continue') {
+        const mutated = lineText.replace('continue', 'break');
+        pool.push({
+          line: lineNum,
+          mutationType: 'FLOW_CONTINUE_TO_BREAK_INVERSION',
+          algorithmicCategory: 'EDGE_CASE_BYPASS',
+          name: 'Loop Continue Changed to Break',
+          category: 'Boundary & Invariant Guards',
+          description: "Iteration skip 'continue' changed to 'break' (prematurely halts loop on first skip)",
+          originalFragment: lineText,
+          mutatedFragment: mutated,
+          applyToLines: (arr) => { arr[i] = mutated; },
+        });
+      }
+      // 7C. Fast pointer initial lock
       if (/fast\s*=\s*head\.next\b/.test(lineText)) {
         const mutated = lineText.replace('fast = head.next', 'fast = head');
         pool.push({
@@ -1449,36 +1538,6 @@ export class ComplexBugEngine {
           name: 'Cycle Detector False Convergence Initial Lock',
           category: 'Pointer & State Invariants',
           description: "'fast = head.next' changed to 'fast = head' (slow == fast on start, exiting loop on 1st check)",
-          originalFragment: lineText,
-          mutatedFragment: mutated,
-          applyToLines: (arr) => { arr[i] = mutated; },
-        });
-      }
-      // 7F. Linked list sentinel initial state corruption
-      if (lineText.trim() === 'prev = None') {
-        const mutated = lineText.replace('prev = None', 'prev = head');
-        pool.push({
-          line: lineNum,
-          mutationType: 'PTR_CYCLE_INITIAL_STATE_LOCK',
-          algorithmicCategory: 'EDGE_CASE_BYPASS',
-          name: 'Pointer Sentinel Initial State Corruption',
-          category: 'Pointer & State Invariants',
-          description: "'prev = None' changed to 'prev = head' (causes circular reference on initial link)",
-          originalFragment: lineText,
-          mutatedFragment: mutated,
-          applyToLines: (arr) => { arr[i] = mutated; },
-        });
-      }
-      // 7G. Linked list reversed return pointer substitution
-      if (lineText.trim() === 'return prev') {
-        const mutated = lineText.replace('return prev', 'return head');
-        pool.push({
-          line: lineNum,
-          mutationType: 'VAR_POINTER_RETURN_ORIGINAL_HEAD',
-          algorithmicCategory: 'VARIABLE_SHADOWING_SWAP',
-          name: 'Pointer Return Original Head Substitution',
-          category: 'Identifier & Variable Traps',
-          description: "Reversed list return 'return prev' changed to 'return head' (returns old head which is now tail)",
           originalFragment: lineText,
           mutatedFragment: mutated,
           applyToLines: (arr) => { arr[i] = mutated; },
@@ -1503,7 +1562,7 @@ export class ComplexBugEngine {
           applyToLines: (arr) => { arr[i] = mutated; },
         });
       }
-      // 8B. Index variable comparison mirroring: s[left] != s[right] -> s[left] != s[left]
+      // 8B. Index variable comparison mirroring: arr[left] != arr[right] -> arr[left] != arr[left]
       if (/([a-zA-Z_]\w*)\s*\[\s*([a-zA-Z_]\w*)\s*\]\s*(!=|==)\s*([a-zA-Z_]\w*)\s*\[\s*([a-zA-Z_]\w*)\s*\]/.test(lineText)) {
         const match = lineText.match(/([a-zA-Z_]\w*)\s*\[\s*([a-zA-Z_]\w*)\s*\]\s*(!=|==)\s*([a-zA-Z_]\w*)\s*\[\s*([a-zA-Z_]\w*)\s*\]/);
         if (match && match[2] !== match[5]) {
@@ -1521,34 +1580,282 @@ export class ComplexBugEngine {
           });
         }
       }
-      // 8C. Frequency array comparison swap
-      if (lineText.includes('freq1[i] != freq2[i]')) {
-        const mutated = lineText.replace('freq1[i] != freq2[i]', 'freq1[i] != freq1[i]');
+      // 8C. String charAt comparison mirroring
+      if (/\.charAt\(\s*([a-zA-Z_]\w*)\s*\)\s*(!=|==)\s*[a-zA-Z_]\w*\.charAt\(\s*([a-zA-Z_]\w*)\s*\)/.test(lineText)) {
+        const match = lineText.match(/\.charAt\(\s*([a-zA-Z_]\w*)\s*\)\s*(!=|==)\s*([a-zA-Z_]\w*)\.charAt\(\s*([a-zA-Z_]\w*)\s*\)/);
+        if (match && match[1] !== match[4]) {
+          const mutated = lineText.replace(match[0], `.charAt(${match[1]}) ${match[2]} ${match[3]}.charAt(${match[1]})`);
+          pool.push({
+            line: lineNum,
+            mutationType: 'VAR_INDEX_MIRRORING_SELF_COMPARISON',
+            algorithmicCategory: 'VARIABLE_SHADOWING_SWAP',
+            name: 'String Index CharAt Variable Shadowing Mirror',
+            category: 'Identifier & Variable Traps',
+            description: `String charAt comparison index '${match[4]}' shadowed with '${match[1]}' (self-comparison)`,
+            originalFragment: lineText,
+            mutatedFragment: mutated,
+            applyToLines: (arr) => { arr[i] = mutated; },
+          });
+        }
+      }
+
+      // Python max(arr) to min(arr)
+      if (lineText.includes('max(') && !lineText.includes('min(')) {
+        const mutated = lineText.replace('max(', 'min(');
         pool.push({
           line: lineNum,
-          mutationType: 'VAR_FREQUENCY_TABLE_SELF_COMPARISON',
-          algorithmicCategory: 'VARIABLE_SHADOWING_SWAP',
-          name: 'Frequency Table Variable Shadowing',
-          category: 'Identifier & Variable Traps',
-          description: "'freq1[i] != freq2[i]' mutated to 'freq1[i] != freq1[i]' (always false)",
+          mutationType: 'MATH_EXTREMA_MAX_TO_MIN_INVERSION',
+          algorithmicCategory: 'ACCUMULATOR_SCOPE',
+          name: 'Extrema Function Inversion (max to min)',
+          category: 'Accumulator & State Invariants',
+          description: "Extreme value selector 'max' inverted to 'min'",
           originalFragment: lineText,
           mutatedFragment: mutated,
           applyToLines: (arr) => { arr[i] = mutated; },
         });
       }
-      // 8D. Cycle meeting point pointer traversal swap
-      if (lineText.includes('p2 = p2.next')) {
-        const mutated = lineText.replace('p2 = p2.next', 'p2 = p1.next');
+
+      // Python formatted string output order swap: print(f"{a} {b}") -> print(f"{b} {a}")
+      const fStrMatch = lineText.match(/print\s*\(\s*f"\{([a-zA-Z_]\w*)\}\s+\{([a-zA-Z_]\w*)\}"\s*\)/);
+      if (fStrMatch) {
+        const v1 = fStrMatch[1];
+        const v2 = fStrMatch[2];
+        const mutated = lineText.replace(fStrMatch[0], `print(f"{${v2}} {${v1}}")`);
         pool.push({
           line: lineNum,
-          mutationType: 'VAR_CYCLE_MEETING_POINTER_SHADOW',
+          mutationType: 'VAR_OUTPUT_TUPLE_ORDER_INVERSION',
           algorithmicCategory: 'VARIABLE_SHADOWING_SWAP',
-          name: 'Cycle Detector Meeting Pointer Shadowing',
+          name: `Output Format Tuple Variable Order Inversion ({${v1}} {${v2}})`,
           category: 'Identifier & Variable Traps',
-          description: "'p2 = p2.next' mutated to 'p2 = p1.next'",
+          description: `Output tuple variable order '${v1}, ${v2}' swapped to '${v2}, ${v1}'`,
           originalFragment: lineText,
           mutatedFragment: mutated,
           applyToLines: (arr) => { arr[i] = mutated; },
+        });
+      }
+
+      // C++ cout << arr[i] -> cout << arr[0]
+      if (/\bcout\s*<<\s*([a-zA-Z_]\w*)\s*\[\s*([a-zA-Z_]\w*)\s*\]/.test(lineText)) {
+        const match = lineText.match(/\bcout\s*<<\s*([a-zA-Z_]\w*)\s*\[\s*([a-zA-Z_]\w*)\s*\]/);
+        if (match) {
+          const arrName = match[1];
+          const idxName = match[2];
+          const mutated = lineText.replace(match[0], `cout << ${arrName}[0]`);
+          pool.push({
+            line: lineNum,
+            mutationType: 'IDX_FIRST_ELEMENT_SHADOWING',
+            algorithmicCategory: 'INDEX_OFFSET',
+            name: `Array Element Dynamic Index Shadowed with Constant Zero (${arrName}[0])`,
+            category: 'Collection Access & Slice Bounds',
+            description: `Dynamic index '${idxName}' shadowed with constant zero in print output`,
+            originalFragment: lineText,
+            mutatedFragment: mutated,
+            applyToLines: (arr) => { arr[i] = mutated; },
+          });
+        }
+      }
+
+      // C is_prime = 0 -> is_prime = 1
+      if (/\b(is_prime|prime|flag|found)\s*=\s*0\s*;/.test(lineText)) {
+        const match = lineText.match(/\b(is_prime|prime|flag|found)\s*=\s*0\s*;/);
+        if (match) {
+          const flagName = match[1];
+          const mutated = lineText.replace(match[0], `${flagName} = 1;`);
+          pool.push({
+            line: lineNum,
+            mutationType: 'STATE_BOOLEAN_FLAG_INVERSION',
+            algorithmicCategory: 'STATE_UPDATE_ORDER',
+            name: `Boolean State Flag Inversion (0 to 1) for '${flagName}'`,
+            category: 'Pointer & State Invariants',
+            description: `Boolean search status '${flagName}' inverted from 0 to 1`,
+            originalFragment: lineText,
+            mutatedFragment: mutated,
+            applyToLines: (arr) => { arr[i] = mutated; },
+          });
+        }
+      }
+
+      // Java / C++ binary search range direction: arr.get(mid) < target -> arr.get(mid) > target
+      if (/\b([a-zA-Z_]\w*(?:\.get\([^)]+\)|\[[^\]]+\]))\s*<\s*([a-zA-Z_]\w*)/.test(lineText) && lineText.includes('mid')) {
+        const mutated = lineText.replace(/<\s*([a-zA-Z_]\w*)/, '> $1');
+        pool.push({
+          line: lineNum,
+          mutationType: 'BS_SEARCH_RANGE_DIRECTION_INVERSION',
+          algorithmicCategory: 'CONDITION_INVERSION',
+          name: 'Binary Search Comparison Direction Inversion (< to >)',
+          category: 'Binary Search & Two-Pointer Invariants',
+          description: "Target comparison operator '<' inverted to '>' (searches opposite subarray)",
+          originalFragment: lineText,
+          mutatedFragment: mutated,
+          applyToLines: (arr) => { arr[i] = mutated; },
+        });
+      }
+
+      // Java binary search solution index shadowing: ans = mid -> ans = -1
+      if (/\b(ans|result|foundIndex|out|pos|idx)\s*=\s*(?:mid|m|midIdx)\s*;/.test(lineText)) {
+        const match = lineText.match(/\b(ans|result|foundIndex|out|pos|idx)\s*=\s*(?:mid|m|midIdx)\s*;/);
+        if (match) {
+          const ansVar = match[1];
+          const mutated = lineText.replace(match[0], `${ansVar} = -1;`);
+          pool.push({
+            line: lineNum,
+            mutationType: 'BS_SOLUTION_INDEX_CLEAR_OVERRIDE',
+            algorithmicCategory: 'ACCUMULATOR_SCOPE',
+            name: `Binary Search Success Index Overridden with Failure Sentinel (${ansVar} = -1)`,
+            category: 'Binary Search & Two-Pointer Invariants',
+            description: `Match assignment '${ansVar} = mid' overridden with '${ansVar} = -1'`,
+            originalFragment: lineText,
+            mutatedFragment: mutated,
+            applyToLines: (arr) => { arr[i] = mutated; },
+          });
+        }
+      }
+      // 8D. Output expression variable substitution (console.log / cout / print / System.out.println)
+      if (/\bconsole\.log\s*\(\s*([a-zA-Z_]\w*)\s*\)/.test(lineText)) {
+        const match = lineText.match(/\bconsole\.log\s*\(\s*([a-zA-Z_]\w*)\s*\)/);
+        if (match) {
+          const varName = match[1];
+          const mutated = lineText.replace(match[0], `console.log(${varName} - 1)`);
+          pool.push({
+            line: lineNum,
+            mutationType: 'VAR_PRINT_EXPRESSION_OFFSET_SUBSTITUTION',
+            algorithmicCategory: 'VARIABLE_SHADOWING_SWAP',
+            name: `Output Value Variable Offset Substitution (${varName} - 1)`,
+            category: 'Identifier & Variable Traps',
+            description: `Output expression '${varName}' substituted with '${varName} - 1'`,
+            originalFragment: lineText,
+            mutatedFragment: mutated,
+            applyToLines: (arr) => { arr[i] = mutated; },
+          });
+        }
+      }
+      if (/\bSystem\.out\.println\s*\(\s*([a-zA-Z_]\w*)\s*\)/.test(lineText)) {
+        const match = lineText.match(/\bSystem\.out\.println\s*\(\s*([a-zA-Z_]\w*)\s*\)/);
+        if (match) {
+          const varName = match[1];
+          const mutated = lineText.replace(match[0], `System.out.println(${varName} + 1)`);
+          pool.push({
+            line: lineNum,
+            mutationType: 'VAR_SEARCH_RESULT_POINTER_SHADOWING',
+            algorithmicCategory: 'VARIABLE_SHADOWING_SWAP',
+            name: `Search Result Pointer Shadowing (${varName} + 1)`,
+            category: 'Identifier & Variable Traps',
+            description: `Output search result '${varName}' shadowed with '${varName} + 1'`,
+            originalFragment: lineText,
+            mutatedFragment: mutated,
+            applyToLines: (arr) => { arr[i] = mutated; },
+          });
+        }
+      }
+
+      // 9. ARITHMETIC / MODULO DIVISOR MUTATIONS
+      const modMatch = lineText.match(/\b([a-zA-Z_]\w*)\s*%\s*(\d+)\b/);
+      if (modMatch) {
+        const varName = modMatch[1];
+        const divisor = parseInt(modMatch[2], 10);
+        if (divisor >= 2) {
+          const altDiv1 = divisor - 1;
+          const altDiv2 = divisor + 1;
+          const mut1 = lineText.replace(modMatch[0], `${varName} % ${altDiv1}`);
+          const mut2 = lineText.replace(modMatch[0], `${varName} % ${altDiv2}`);
+          pool.push({
+            line: lineNum,
+            mutationType: 'MATH_MODULO_DIVISOR_OFF_BY_ONE',
+            algorithmicCategory: 'EDGE_CASE_BYPASS',
+            name: `Modulo Divisor Off-By-One Shift (% ${divisor} to % ${altDiv1})`,
+            category: 'Boundary & Invariant Guards',
+            description: `Modulo divisor '% ${divisor}' altered to '% ${altDiv1}'`,
+            originalFragment: lineText,
+            mutatedFragment: mut1,
+            applyToLines: (arr) => { arr[i] = mut1; },
+          });
+          pool.push({
+            line: lineNum,
+            mutationType: 'MATH_MODULO_DIVISOR_INCREMENT',
+            algorithmicCategory: 'EDGE_CASE_BYPASS',
+            name: `Modulo Divisor Target Increment (% ${divisor} to % ${altDiv2})`,
+            category: 'Boundary & Invariant Guards',
+            description: `Modulo divisor '% ${divisor}' altered to '% ${altDiv2}'`,
+            originalFragment: lineText,
+            mutatedFragment: mut2,
+            applyToLines: (arr) => { arr[i] = mut2; },
+          });
+        }
+      }
+
+      // 10. MODULO REMAINDER TARGET SHIFT (=== 0 -> === 1)
+      if (lineText.includes('%') && (lineText.includes('=== 0') || lineText.includes('== 0'))) {
+        const mutated = lineText.includes('=== 0') ? lineText.replace('=== 0', '=== 1') : lineText.replace('== 0', '== 1');
+        pool.push({
+          line: lineNum,
+          mutationType: 'COND_MODULO_REMAINDER_NONZERO_SHIFT',
+          algorithmicCategory: 'CONDITION_INVERSION',
+          name: 'Modulo Remainder Non-Zero Target Shift (0 to 1)',
+          category: 'Control Flow, Premature Returns & Guards',
+          description: "Modulo remainder check '== 0' changed to '== 1'",
+          originalFragment: lineText,
+          mutatedFragment: mutated,
+          applyToLines: (arr) => { arr[i] = mutated; },
+        });
+      }
+
+      // 11. ACCUMULATOR INITIAL VALUE SHIFT (let total = 0 -> let total = 1 or -1)
+      if (/\b(?:let|var|int|long)\s*([a-zA-Z_]\w*)\s*=\s*0\s*;/.test(lineText) && !lineText.includes('for')) {
+        const match = lineText.match(/\b(?:let|var|int|long)\s*([a-zA-Z_]\w*)\s*=\s*0\s*;/);
+        const varName = match ? match[1] : 'total';
+        const mutated1 = lineText.replace(/=\s*0\s*;/, '= 1;');
+        const mutated2 = lineText.replace(/=\s*0\s*;/, '= -1;');
+        pool.push({
+          line: lineNum,
+          mutationType: 'ACC_INITIAL_VALUE_OFF_BY_ONE',
+          algorithmicCategory: 'ACCUMULATOR_SCOPE',
+          name: `Accumulator Initial State Shift (0 to 1) for '${varName}'`,
+          category: 'Accumulator & State Invariants',
+          description: `Accumulator '${varName}' initialized to 1 instead of 0`,
+          originalFragment: lineText,
+          mutatedFragment: mutated1,
+          applyToLines: (arr) => { arr[i] = mutated1; },
+        });
+        pool.push({
+          line: lineNum,
+          mutationType: 'ACC_INITIAL_NEGATIVE_OFFSET',
+          algorithmicCategory: 'ACCUMULATOR_SCOPE',
+          name: `Accumulator Initial Negative Offset (0 to -1) for '${varName}'`,
+          category: 'Accumulator & State Invariants',
+          description: `Accumulator '${varName}' initialized to -1 instead of 0`,
+          originalFragment: lineText,
+          mutatedFragment: mutated2,
+          applyToLines: (arr) => { arr[i] = mutated2; },
+        });
+      }
+
+      // 12. LOOP INITIALIZER OFFSET: i = 1 -> i = 0 or i = 2
+      if (/\b(?:let|var|int|size_t)?\s*([a-zA-Z_]\w*)\s*=\s*1\s*;/.test(lineText) && lineText.includes('for')) {
+        const match = lineText.match(/\b(?:let|var|int|size_t)?\s*([a-zA-Z_]\w*)\s*=\s*1\s*;/);
+        const varName = match ? match[1] : 'i';
+        const mutated0 = lineText.replace(/(\b[a-zA-Z_]\w*\s*=\s*)1\s*;/, '$10;');
+        const mutated2 = lineText.replace(/(\b[a-zA-Z_]\w*\s*=\s*)1\s*;/, '$12;');
+        pool.push({
+          line: lineNum,
+          mutationType: 'LOOP_START_INDEX_OFF_BY_ONE_SKIP_FIRST',
+          algorithmicCategory: 'LOOP_BOUNDARY',
+          name: `For Loop Initial Index Shifted to 0 for '${varName}'`,
+          category: 'Loop Boundary & Stride Traps',
+          description: `For-loop initial counter '${varName}' set to 0 instead of 1`,
+          originalFragment: lineText,
+          mutatedFragment: mutated0,
+          applyToLines: (arr) => { arr[i] = mutated0; },
+        });
+        pool.push({
+          line: lineNum,
+          mutationType: 'LOOP_START_INDEX_OFF_BY_ONE_ADVANCE',
+          algorithmicCategory: 'LOOP_BOUNDARY',
+          name: `For Loop Initial Index Shifted to 2 for '${varName}'`,
+          category: 'Loop Boundary & Stride Traps',
+          description: `For-loop initial counter '${varName}' set to 2 instead of 1 (skips first valid value)`,
+          originalFragment: lineText,
+          mutatedFragment: mutated2,
+          applyToLines: (arr) => { arr[i] = mutated2; },
         });
       }
     }
@@ -1564,7 +1871,7 @@ export class ComplexBugEngine {
    * 1. 3 distinct AlgorithmicBugCategory classes per submission (anti-repetition rotation).
    * 2. History-aware category exclusion via optional `previousBugCategories`.
    * 3. Pre-delivery AST compiler guard ensuring 100% syntactically valid code.
-   * 4. Complete elimination of unconstrained regex string append.
+   * 4. Complete elimination of unconstrained regex string append and 0 dummy bugs.
    */
   public selectThreeComplexBugs(
     code: string,
@@ -1575,8 +1882,14 @@ export class ComplexBugEngine {
   ): ThreeBugSelectionResult {
     const rawLines = code.split('\n');
     const rng = createDeterministicRNG(seed);
-    const isPy = language.toLowerCase() === 'python' || language.toLowerCase() === 'py';
+    const normLang = (language || 'python').toLowerCase();
+    const isPy = normLang === 'python' || normLang === 'py';
+    const isJs = normLang === 'javascript' || normLang === 'js' || normLang === 'typescript' || normLang === 'ts';
+    const isC = normLang === 'c' || normLang === 'cpp';
+    const isJava = normLang === 'java';
+
     const pyProvider = isPy ? new PythonLanguageProvider() : null;
+    const jsProvider = isJs ? new JavaScriptLanguageProvider() : null;
 
     // 1. Gather all natural complex candidates from AST inspection
     const naturalCandidates = this.findComplexCandidates(code, language);
@@ -1601,8 +1914,10 @@ export class ComplexBugEngine {
     // 2. Gather rich type-safe candidates across the 8 algorithmic categories
     const richItems = this.generateRichCandidatePool(code, language);
 
-    // 3. Merge candidate pools
-    let combinedPool: RichCandidateItem[] = [...naturalItems, ...richItems];
+    // 3. Merge candidate pools and strictly enforce non-empty, genuine mutations
+    let combinedPool: RichCandidateItem[] = [...naturalItems, ...richItems].filter(
+      (c) => c.originalFragment && c.mutatedFragment && c.originalFragment.trim() !== c.mutatedFragment.trim()
+    );
 
     // Filter by requestedType if provided
     if (requestedType) {
@@ -1610,8 +1925,7 @@ export class ComplexBugEngine {
       if (filtered.length > 0) combinedPool = filtered;
     }
 
-    // 4. History-Aware Filtering:
-    // If student has previous bug categories from prior attempts, de-prioritize or filter them out
+    // 4. History-Aware Filtering
     if (previousBugCategories && previousBugCategories.length > 0) {
       const unseenPool = combinedPool.filter((c) => !previousBugCategories.includes(c.algorithmicCategory));
       const distinctUnseenCats = new Set(unseenPool.map((c) => c.algorithmicCategory));
@@ -1620,7 +1934,7 @@ export class ComplexBugEngine {
       }
     }
 
-    // Deterministically shuffle candidates using seed
+    // Deterministically shuffle candidates using student seed
     const shuffled = [...combinedPool].sort(() => rng() - 0.5);
 
     // Group candidates by their AlgorithmicBugCategory
@@ -1632,6 +1946,13 @@ export class ComplexBugEngine {
       byCategory.get(cand.algorithmicCategory)!.push(cand);
     }
 
+    // Deterministic Category Rotation:
+    // Compute integer hash of seed to establish unique starting category offset per student
+    let seedOffset = 0;
+    for (let c = 0; c < seed.length; c++) {
+      seedOffset = (seedOffset * 37 + seed.charCodeAt(c)) & 0x7fffffff;
+    }
+
     const prevSet = new Set(previousBugCategories || []);
     const availableCategories = Array.from(byCategory.keys()).sort((a, b) => {
       const aSeen = prevSet.has(a) ? 1 : 0;
@@ -1639,6 +1960,13 @@ export class ComplexBugEngine {
       if (aSeen !== bSeen) return aSeen - bSeen; // Unseen categories come first
       return rng() - 0.5;
     });
+
+    // Rotate categories starting at student seed offset
+    if (availableCategories.length > 0) {
+      const rot = seedOffset % availableCategories.length;
+      const rotated = availableCategories.slice(rot).concat(availableCategories.slice(0, rot));
+      availableCategories.splice(0, availableCategories.length, ...rotated);
+    }
 
     // Iteratively attempt to select 3 candidates from 3 DISTINCT categories that pass AST syntax validation
     let chosen: RichCandidateItem[] = [];
@@ -1652,8 +1980,8 @@ export class ComplexBugEngine {
       const usedCategories = new Set<string>();
 
       // Rotate categories based on attempt index
-      const categoryOrder = availableCategories.slice(attempt % availableCategories.length).concat(
-        availableCategories.slice(0, attempt % availableCategories.length)
+      const categoryOrder = availableCategories.slice(attempt % Math.max(1, availableCategories.length)).concat(
+        availableCategories.slice(0, attempt % Math.max(1, availableCategories.length))
       );
 
       // Pass 1: Select exactly 1 candidate from each distinct category
@@ -1662,7 +1990,9 @@ export class ComplexBugEngine {
         if (usedCategories.has(cat)) continue;
 
         const catList = byCategory.get(cat) || [];
-        for (const cand of catList) {
+        // Shuffle within category deterministically
+        const shuffledInCat = [...catList].sort(() => rng() - 0.5);
+        for (const cand of shuffledInCat) {
           if (usedLines.has(cand.line)) continue;
           if (usedTypes.has(cand.mutationType)) continue;
 
@@ -1674,7 +2004,7 @@ export class ComplexBugEngine {
         }
       }
 
-      // Pass 2: If code is very short and has < 3 distinct categories, allow distinct types
+      // Pass 2: If code has < 3 distinct categories, fill with distinct real candidates from available categories
       if (chosen.length < 3) {
         for (const cand of shuffled) {
           if (chosen.length === 3) break;
@@ -1687,58 +2017,6 @@ export class ComplexBugEngine {
         }
       }
 
-      // Safeguard for short submissions: ensure exactly 3 distinct entries across distinct categories
-      if (chosen.length < 3) {
-        const usedCats = new Set(chosen.map((c) => c.algorithmicCategory));
-        const allCats: AlgorithmicBugCategory[] = [
-          'LOOP_BOUNDARY',
-          'CONDITION_INVERSION',
-          'STATE_UPDATE_ORDER',
-          'BASE_CASE_DEFECT',
-          'INDEX_OFFSET',
-          'ACCUMULATOR_SCOPE',
-          'EDGE_CASE_BYPASS',
-          'VARIABLE_SHADOWING_SWAP',
-        ];
-        const missingCats = allCats.filter((c) => !usedCats.has(c));
-
-        // Find safe executable lines (not def, class, import, decorators, comments, blank)
-        const safeLines: number[] = [];
-        for (let li = 0; li < rawLines.length; li++) {
-          const ltr = rawLines[li].trim();
-          if (
-            ltr &&
-            !ltr.startsWith('def ') &&
-            !ltr.startsWith('class ') &&
-            !ltr.startsWith('import ') &&
-            !ltr.startsWith('from ') &&
-            !ltr.startsWith('@') &&
-            !ltr.startsWith('#') &&
-            !ltr.startsWith('self.') &&
-            !usedLines.has(li + 1)
-          ) {
-            safeLines.push(li + 1);
-          }
-        }
-
-        while (chosen.length < 3 && safeLines.length > 0) {
-          const targetL = safeLines.shift()!;
-          const nextCat = missingCats.shift() || 'EDGE_CASE_BYPASS';
-          usedLines.add(targetL);
-          chosen.push({
-            line: targetL,
-            mutationType: `SAFEGUARD_${nextCat}`,
-            algorithmicCategory: nextCat,
-            name: `${nextCat} Invariant Guard`,
-            category: 'Algorithm Logic',
-            description: `${nextCat} algorithmic invariant adjustment`,
-            originalFragment: rawLines[targetL - 1] || '',
-            mutatedFragment: rawLines[targetL - 1] || '',
-            applyToLines: () => {},
-          });
-        }
-      }
-
       // Apply chosen mutations in descending line order to prevent line shift collision
       const workingLines = [...rawLines];
       const sortedDescending = [...chosen].sort((a, b) => b.line - a.line);
@@ -1748,11 +2026,22 @@ export class ComplexBugEngine {
 
       const candidateCode = workingLines.join('\n');
 
-      // Pre-Delivery AST Compiler Guard: Validate syntax before accepting
-      if (candidateCode !== code) {
+      // Pre-Delivery Compiler Guard: Validate syntax before accepting
+      if (candidateCode !== code && chosen.length > 0) {
         if (pyProvider) {
           const parseCheck = pyProvider.parseAndValidate(candidateCode);
           if (parseCheck.valid) {
+            validatedCode = candidateCode;
+            break;
+          }
+        } else if (jsProvider) {
+          const parseCheck = jsProvider.parseAndValidate(candidateCode);
+          if (parseCheck.valid) {
+            validatedCode = candidateCode;
+            break;
+          }
+        } else if (isC || isJava) {
+          if (validateCBraces(candidateCode)) {
             validatedCode = candidateCode;
             break;
           }
@@ -1769,23 +2058,27 @@ export class ComplexBugEngine {
       for (let i = 0; i < workingLines.length; i++) {
         const tr = workingLines[i].trim();
         if (tr && !tr.startsWith('#') && !tr.startsWith('def ') && !tr.startsWith('class ')) {
-          if (tr.includes('==')) { workingLines[i] = workingLines[i].replace('==', '!='); break; }
-          if (tr.includes('!=')) { workingLines[i] = workingLines[i].replace('!=', '=='); break; }
+          if (tr.includes('==') && !tr.includes('===')) { workingLines[i] = workingLines[i].replace('==', '!='); break; }
+          if (tr.includes('!=') && !tr.includes('!==')) { workingLines[i] = workingLines[i].replace('!=', '=='); break; }
           if (tr.includes('<=')) { workingLines[i] = workingLines[i].replace('<=', '<'); break; }
-          if (tr.includes('<')) { workingLines[i] = workingLines[i].replace('<', '<='); break; }
+          if (tr.includes('<') && !tr.includes('<<')) { workingLines[i] = workingLines[i].replace('<', '<='); break; }
         }
       }
       validatedCode = workingLines.join('\n');
     }
 
-    // Build structured InjectedBugDetail array for the 3 distinct bugs
+    // Build structured InjectedBugDetail array for the chosen distinct bugs
     const finalBugs: InjectedBugDetail[] = chosen.slice(0, 3).map((item, idx) => {
       const catalogEntry = this.getCatalogEntry(item.mutationType);
+      const baseName = item.name || catalogEntry?.name || item.mutationType.replace(/_/g, ' ');
+      const cleanFrag = (item.originalFragment || '').trim().replace(/[\r\n\t]+/g, ' ');
+      const targetToken = cleanFrag ? cleanFrag.slice(0, 24) : `Line ${item.line}`;
+      const defectName = `${baseName} [${targetToken}]`;
       return {
         bugIndex: idx + 1,
         mutationType: item.mutationType,
         algorithmicCategory: item.algorithmicCategory,
-        name: catalogEntry?.name || item.name || item.mutationType.replace(/_/g, ' '),
+        name: defectName,
         category: item.algorithmicCategory || catalogEntry?.category || item.category || 'Algorithm Logic',
         description:
           item.description || catalogEntry?.description || 'Subtle algorithmic defect injected',

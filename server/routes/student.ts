@@ -419,6 +419,87 @@ studentRouter.post(
         ? existingAttempt.id
         : `att_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
 
+      // 5b. Sandbox Test Verification for Phase 1
+      let parsedPhase1TC: any[] = [];
+      if (assignment.test_cases_json) {
+        try { parsedPhase1TC = JSON.parse(assignment.test_cases_json); } catch {}
+      }
+      const resolvedPhase1Tests = resolveAssignmentTestCases(
+        Array.isArray(parsedPhase1TC) ? parsedPhase1TC : [],
+        assignment.title,
+        assignment.description
+      );
+
+      const livePhase1Eval = await evaluateSubmission(
+        formattedCode,
+        normalizedLanguage,
+        resolvedPhase1Tests,
+        {
+          title: assignment.title,
+          description: assignment.description,
+        }
+      );
+
+      if (livePhase1Eval.status !== 'PASSED') {
+        const failReason = livePhase1Eval.failureReason || 'Phase 1 code failed compilation or unit test validation.';
+        const failEvalJson = JSON.stringify({
+          result: 'FAIL',
+          score: 0,
+          is_correct: false,
+          summary: failReason,
+          issues: [failReason],
+          suggestions: ['Fix syntax or logic errors so all assignment test cases pass.'],
+        });
+
+        if (existingAttempt) {
+          await repo.updateAttempt(attemptId, {
+            state: 'PHASE1_FAILED',
+            language: normalizedLanguage,
+            original_code: formattedCode,
+            original_code_hash: originalCodeHash,
+            evaluation_result_json: failEvalJson,
+            failure_reason: failReason,
+            updated_at: now,
+          });
+        } else {
+          await repo.createAttempt({
+            id: attemptId,
+            assignment_id: assignmentId,
+            student_id: studentId,
+            state: 'PHASE1_FAILED',
+            language: normalizedLanguage,
+            original_code: formattedCode,
+            original_code_hash: originalCodeHash,
+            evaluation_result_json: failEvalJson,
+            failure_reason: failReason,
+            submitted_at: null,
+          });
+        }
+
+        res.status(400).json({
+          success: false,
+          error: failReason,
+          evaluation: {
+            result: 'FAIL',
+            score: 0,
+            is_correct: false,
+            summary: failReason,
+            testsPassed: livePhase1Eval.testsPassed,
+            testsFailed: livePhase1Eval.testsFailed,
+          },
+          submission: {
+            id: attemptId,
+            assignmentId,
+            studentId,
+            state: 'PHASE1_FAILED',
+            language: normalizedLanguage,
+            originalCode: formattedCode,
+            failureReason: failReason,
+          },
+        });
+        return;
+      }
+
       // 6. Evaluate code with Gemini AI
       let aiEvaluation: GeminiEvaluationResponse;
       try {
@@ -1935,6 +2016,32 @@ studentRouter.post(
         } catch {}
       }
 
+      // 1b. Real-Time Sandbox Test Execution for Phase 2
+      let parsedPhase2TC: any[] = [];
+      if (assignment?.test_cases_json) {
+        try { parsedPhase2TC = JSON.parse(assignment.test_cases_json); } catch {}
+      }
+      const resolvedPhase2Tests = resolveAssignmentTestCases(
+        Array.isArray(parsedPhase2TC) ? parsedPhase2TC : [],
+        assignment?.title || '',
+        assignment?.description || ''
+      );
+
+      const livePhase2Eval = await evaluateSubmission(
+        finalCode,
+        evalLanguage,
+        resolvedPhase2Tests,
+        {
+          originalCode: baselineCode,
+          mutatedCode: attempt.mutated_code,
+          title: assignment?.title,
+          description: assignment?.description,
+        }
+      );
+
+      const sandboxPassed = livePhase2Eval.status === 'PASSED';
+      const sandboxFailureReason = livePhase2Eval.failureReason || '';
+
       // 2. Perform rigorous defect-by-defect evaluation
       const normFinalCode = (finalCode || '').replace(/\r\n/g, '\n');
       const normMutatedCode = (attempt.mutated_code || '').replace(/\r\n/g, '\n');
@@ -1966,11 +2073,33 @@ studentRouter.post(
         const origLine = (origLines[lineIdx] || '').trim();
         const mutLine = (mutLines[lineIdx] || '').trim();
 
-        // Check if student code still contains the mutated defect snippet
-        const stillHasMutatedFrag = mutFrag.length > 0 && normFinalCode.includes(mutFrag);
+        // Scope matching to defect line and immediate neighborhood (±2 lines)
+        const searchStart = Math.max(0, lineIdx - 2);
+        const searchEnd = Math.min(finalLines.length, lineIdx + 3);
+        const neighborhoodFinal = finalLines.slice(searchStart, searchEnd).join('\n');
+        const neighborhoodFinalNoWs = neighborhoodFinal.replace(/\s+/g, '');
 
-        // Check if student code restored the correct original fragment
-        const hasOriginalFrag = origFrag.length > 0 && normFinalCode.includes(origFrag);
+        // Token stripper removing whitespace, outer parentheses, and semicolons
+        const stripTokens = (s: string) => s.replace(/\s+/g, '').replace(/[();]/g, '');
+
+        const mutFragNoWs = mutFrag.replace(/\s+/g, '');
+        const origFragNoWs = origFrag.replace(/\s+/g, '');
+
+        // Check if student code still contains the mutated defect in neighborhood
+        const stillHasMutatedFrag =
+          mutFragNoWs.length > 0 &&
+          (neighborhoodFinalNoWs.includes(mutFragNoWs) ||
+           (finalLine.replace(/\s+/g, '') === mutLine.replace(/\s+/g, '') && mutLine.length > 0));
+
+        // Check if student restored original logic on this line or in neighborhood
+        const hasOriginalInNeighborhood =
+          origFragNoWs.length > 0 &&
+          (neighborhoodFinalNoWs.includes(origFragNoWs) || stripTokens(neighborhoodFinal).includes(stripTokens(origFrag)));
+
+        const isLineMatch =
+          finalLine.length > 0 &&
+          (finalLine.replace(/\s+/g, '') === origLine.replace(/\s+/g, '') ||
+           stripTokens(finalLine) === stripTokens(origLine));
 
         let isFixed = false;
         if (isUnmodifiedMutated) {
@@ -1978,13 +2107,14 @@ studentRouter.post(
         } else if (isExactBaselineMatch) {
           isFixed = true;
         } else if (stillHasMutatedFrag) {
-          // Mutated bug is still present in student code! Definitely not fixed.
+          // Mutated defect is still present in student code! Definitely not fixed.
           isFixed = false;
-        } else if (hasOriginalFrag && !stillHasMutatedFrag) {
-          // Student accurately restored the required baseline logic
+        } else if (isLineMatch) {
           isFixed = true;
-        } else if (finalLine.length > 0 && finalLine.replace(/\s+/g, '') === origLine.replace(/\s+/g, '')) {
-          // Student accurately restored the original line
+        } else if (hasOriginalInNeighborhood && !stillHasMutatedFrag) {
+          isFixed = true;
+        } else if (sandboxPassed && !normFinalCode.includes(mutFrag)) {
+          // Valid refactoring: All sandbox tests passed and the mutated defect is absent
           isFixed = true;
         } else {
           isFixed = false;
@@ -2015,20 +2145,27 @@ studentRouter.post(
       const unfixedCount = unfixedBugs.length;
 
       // CRITICAL USER REQUIREMENT:
-      // "agar student ka bugs sahi find kiya to pass aana chahiye agar nahi find nahi kiya agar 1 bhi find nahi kiya to fails"
-      // If 1 or more bugs are missed, Phase 2 strictly fails and score is 0.
+      // Both sandbox execution AND all injected bugs must be resolved!
+      // If code times out, crashes, fails tests, or misses any defect -> STRICTLY FAIL (score 0).
       const allBugsFixed = totalBugs > 0 ? (unfixedCount === 0 && fixedCount === totalBugs) : isExactBaselineMatch;
-      const calculatedScore = allBugsFixed ? 100 : 0;
+      const strictlyPassed = sandboxPassed && allBugsFixed;
+      const calculatedScore = strictlyPassed ? 100 : 0;
 
       const bugIssues = unfixedBugs.map(
         (b) => `Line ${b.location.line}: Missed defect [${b.name}] — "${b.mutatedFragment}" (Expected: "${b.originalFragment}")`
       );
+      if (!sandboxPassed && sandboxFailureReason) {
+        bugIssues.unshift(`Sandbox Test Failure: ${sandboxFailureReason}`);
+      }
+
       const bugSuggestions = unfixedBugs.map(
         (b) => `Line ${b.location.line}: Replace "${b.mutatedFragment}" with "${b.originalFragment}" (${b.description})`
       );
 
-      const summaryText = allBugsFixed
-        ? `Phase 2 Verification PASSED: All ${totalBugs} injected defect(s) were successfully identified and corrected. Score: 100%`
+      const summaryText = strictlyPassed
+        ? `Phase 2 Verification PASSED: All ${totalBugs} injected defect(s) were successfully identified and corrected. All unit tests passed in sandbox. Score: 100%`
+        : !sandboxPassed
+        ? `Phase 2 Verification FAILED: Sandbox execution failed (${sandboxFailureReason || 'Tests failed or timed out'}). Score: 0%`
         : `Phase 2 Verification FAILED: ${unfixedCount} of ${totalBugs} defect(s) were NOT corrected. Score: 0%. All injected defects must be resolved to pass Phase 2.`;
 
       let aiEvaluation: any;
@@ -2044,16 +2181,16 @@ studentRouter.post(
             phase2Code: finalCode,
           });
 
-          // Even if Gemini says pass, if any bug was missed, STRICTLY enforce FAIL!
-          const strictlyPassed = allBugsFixed && (geminiRes.is_correct || geminiRes.result === 'PASS');
+          // Rigorous evaluator authority: strictlyPassed ensures all tests passed and all bugs are fixed
+          const isPassedFinal = strictlyPassed;
 
           aiEvaluation = {
-            result: strictlyPassed ? 'PASS' : 'FAIL',
-            score: strictlyPassed ? 100 : calculatedScore,
-            is_correct: strictlyPassed,
-            summary: strictlyPassed
+            result: isPassedFinal ? 'PASS' : 'FAIL',
+            score: isPassedFinal ? 100 : 0,
+            is_correct: isPassedFinal,
+            summary: isPassedFinal
               ? summaryText
-              : (unfixedCount > 0 ? summaryText : (geminiRes.summary || summaryText)),
+              : (unfixedCount > 0 || !sandboxPassed ? summaryText : (geminiRes.summary || summaryText)),
             issues: [
               ...bugIssues,
               ...(Array.isArray(geminiRes.issues) ? geminiRes.issues.filter((i: string) => !bugIssues.includes(i)) : []),
@@ -2067,9 +2204,9 @@ studentRouter.post(
         } catch (geminiErr: any) {
           console.warn('[SyntaXViva Phase 2] Gemini evaluation error, using deterministic defect evaluation:', geminiErr?.message || geminiErr);
           aiEvaluation = {
-            result: allBugsFixed ? 'PASS' : 'FAIL',
+            result: strictlyPassed ? 'PASS' : 'FAIL',
             score: calculatedScore,
-            is_correct: allBugsFixed,
+            is_correct: strictlyPassed,
             summary: summaryText,
             issues: bugIssues,
             suggestions: bugSuggestions,
@@ -2079,9 +2216,9 @@ studentRouter.post(
       } else {
         // Deterministic mode when Gemini API key is not configured
         aiEvaluation = {
-          result: allBugsFixed ? 'PASS' : 'FAIL',
+          result: strictlyPassed ? 'PASS' : 'FAIL',
           score: calculatedScore,
-          is_correct: allBugsFixed,
+          is_correct: strictlyPassed,
           summary: summaryText,
           issues: bugIssues,
           suggestions: bugSuggestions,
@@ -2093,15 +2230,9 @@ studentRouter.post(
       const isPassed = Boolean(aiEvaluation.is_correct || aiEvaluation.result === 'PASS');
       const evalJson = JSON.stringify(aiEvaluation);
 
-      let numTests = 5;
-      if (assignment?.test_cases_json) {
-        try {
-          const parsedTC = JSON.parse(assignment.test_cases_json);
-          if (Array.isArray(parsedTC) && parsedTC.length > 0) {
-            numTests = parsedTC.length;
-          }
-        } catch {}
-      }
+      const numTests = livePhase2Eval.testsTotal || (Array.isArray(resolvedPhase2Tests) ? resolvedPhase2Tests.length : 5);
+      const passedTestsCount = livePhase2Eval.testsPassed;
+      const failedTestsCount = livePhase2Eval.testsFailed;
 
       await repo.createPhase2Evaluation({
         id: evalId,
@@ -2112,8 +2243,8 @@ studentRouter.post(
         submitted_code_hash: codeHash,
         status: isPassed ? 'PASSED' : 'FAILED',
         tests_total: numTests,
-        tests_passed: isPassed ? numTests : fixedCount,
-        tests_failed: isPassed ? 0 : unfixedCount,
+        tests_passed: passedTestsCount,
+        tests_failed: failedTestsCount,
         failure_reason: isPassed ? null : aiEvaluation.summary,
         execution_metadata_json: evalJson,
         started_at: submittedAt,
@@ -2144,7 +2275,7 @@ studentRouter.post(
           submittedAt,
           state: 'PHASE2_SUBMITTED',
           evaluationStatus: 'PASSED',
-          testsPassed: numTests,
+          testsPassed: passedTestsCount,
           testsFailed: 0,
           score: 100,
           summary: summaryText,
@@ -2176,9 +2307,9 @@ studentRouter.post(
           submittedAt,
           state: 'PHASE2_SUBMITTED',
           evaluationStatus: 'FAILED',
-          testsPassed: fixedCount,
-          testsFailed: unfixedCount,
-          score: calculatedScore,
+          testsPassed: passedTestsCount,
+          testsFailed: failedTestsCount,
+          score: 0,
           failureReason: aiEvaluation.summary,
           summary: summaryText,
           issues: bugIssues,

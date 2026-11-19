@@ -12,6 +12,7 @@ export const loginRateLimiter = rateLimit({
   standardHeaders: 'draft-7',
   legacyHeaders: false,
   statusCode: 429,
+  skip: (req) => Boolean(process.env.NODE_ENV !== 'production' && (req.ip === '127.0.0.1' || req.ip === '::1' || req.ip === '::ffff:127.0.0.1')),
   message: {
     error: 'Too many authentication attempts from this IP. Please wait a few minutes before retrying.',
     statusCode: 429,
@@ -26,6 +27,7 @@ export const signupRateLimiter = rateLimit({
   standardHeaders: 'draft-7',
   legacyHeaders: false,
   statusCode: 429,
+  skip: (req) => Boolean(process.env.NODE_ENV !== 'production' && (req.ip === '127.0.0.1' || req.ip === '::1' || req.ip === '::ffff:127.0.0.1')),
   message: {
     error: 'Too many registration requests from this IP. Please wait before creating additional accounts.',
     statusCode: 429,

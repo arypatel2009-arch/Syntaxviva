@@ -4,6 +4,24 @@ import { SupabaseApplicationRepository } from '../repository/supabaseRepository.
 
 export const healthRouter = Router();
 
+let cachedSupabaseReachable = false;
+let lastSupabaseCheckTime = 0;
+async function checkSupabaseWithTimeout(): Promise<boolean> {
+  const now = Date.now();
+  if (now - lastSupabaseCheckTime < 30000) {
+    return cachedSupabaseReachable;
+  }
+  lastSupabaseCheckTime = now;
+  try {
+    const supabaseRepo = new SupabaseApplicationRepository();
+    const timeoutPromise = new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 800));
+    cachedSupabaseReachable = await Promise.race([supabaseRepo.isAvailable(), timeoutPromise]);
+  } catch {
+    cachedSupabaseReachable = false;
+  }
+  return cachedSupabaseReachable;
+}
+
 healthRouter.get('/', async (req: Request, res: Response): Promise<void> => {
   try {
     const driver = getActiveDriver();
@@ -14,8 +32,7 @@ healthRouter.get('/', async (req: Request, res: Response): Promise<void> => {
     let recordCounts: any = null;
 
     if (isSupabase) {
-      const supabaseRepo = new SupabaseApplicationRepository();
-      supabaseReachable = await supabaseRepo.isAvailable();
+      supabaseReachable = await checkSupabaseWithTimeout();
 
       tables = [
         'profiles',
@@ -68,12 +85,7 @@ healthRouter.get('/', async (req: Request, res: Response): Promise<void> => {
         recordCounts = null;
       }
 
-      try {
-        const supabaseRepo = new SupabaseApplicationRepository();
-        supabaseReachable = await supabaseRepo.isAvailable();
-      } catch {
-        supabaseReachable = false;
-      }
+      supabaseReachable = await checkSupabaseWithTimeout();
     }
 
     res.json({
